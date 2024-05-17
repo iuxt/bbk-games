@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>导出存档</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+    <script src="js/sys.js"></script>
+    <script src="js/jquery.min.js"></script>
+    <script>
+        function export_save(n) {
+            var data = localStorage["sav/fmjsave" + (n-1)];
+            if (data && data.length > 0) {
+                //window.location.href = "tip.html?s=" + data;
+                $("#panel").text(data);
+                console.log("OK");
+            } else {
+                $("#panel").text("存档为空");
+                console.log("empty");
+            }
+        }
+    </script>
+</head>
+<body>
+<div> <button onclick="export_save(1)">导出存档1</button> </div>
+<br>
+<br>
+<div> <button onclick="export_save(2)">导出存档2</button> </div>
+<br>
+<br>
+<div> <button onclick="export_save(3)">导出存档3</button> </div>
+
+<br>
+<br>
+<div id="panel"></div>
+</body>
+</html>

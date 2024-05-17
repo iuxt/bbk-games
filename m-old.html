@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<script src="js/baidu-tongji.js"></script>
+
+<script>
+    //goHomeIfNeeded
+    (function() {
+        var match = window.location.hash.match(/#([0-9]*)/i)
+        if(match){
+            var ts = parseInt(match[1]);
+            var now = new Date().getTime() / 1000;
+            var dt = now - ts;
+            if (ts && 0 <= dt && dt < 3600) {
+                return;
+            }
+        }
+        window.location.href = "index.html";
+    })();
+</script>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <title>三国霸业</title>
+        <link rel="stylesheet" type="text/css" href="baye.css" />
+        <link rel="icon" href="favicon.png">
+        <meta content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" id="viewport" name="viewport">
+        <style>
+            body {
+                overflow: hidden;
+            }
+        </style>
+        <script src="js/jquery.min.js"></script>
+        <script src="js/encoding-indexes.js"></script>
+        <script src="js/encoding.js"></script>
+        <script src="js/sprintf.js"></script>
+        <script src="js/lzma_worker-min.js"></script>
+        <script src="js/base64.js"></script>
+    </head>
+    <body onkeydown="onKeyDown()" id="touchpad">
+        <div class="container" style="">
+            <div class="dummy"></div>
+            <div class="element lcd" id="lcd-container" ontap="sendKey(VK_ENTER)">
+                <canvas class="fill" id="lcd" width="160" height="96">然而你的浏览器并不支持HTML5</canvas>
+            </div>
+        </div>
+        <div id="tip" class="alert alert-success" style="display:none"></div>
+        <div>
+            <div class="keypad" id="keypad1">
+                <div class="container" style="margin-top:2px">
+                    <div class="dummy30"></div>
+                    <div class="element">
+                        <button class="btn fn" type="button" ontap="sendKey(VK_SEARCH)">查找(︽)</button>
+                        <button class="btn nav" type="button" ontap="sendKey(VK_UP)">上</button>
+                        <button class="btn fn" type="button" ontap="sendKey(VK_HELP)">帮助(︾)</button>
+                    </div>
+                </div>
+                <div class="container">
+                    <div class="dummy30"></div>
+                    <div class="element">
+                        <button class="btn nav" type="button" ontap="sendKey(VK_LEFT)">左</button>
+                        <button class="btn nav" type="button" ontap="sendKey(VK_DOWN)">下<br>(划一划)</button>
+                        <button class="btn nav" type="button" ontap="sendKey(VK_RIGHT)">右</button>
+                    </div>
+                </div>
+                <div class="container">
+                    <div class="dummy30"></div>
+                    <div class="element">
+                        <button class="btn fn" type="button" ontap="sendKey(VK_EXIT)">返回</button>
+                        <button class="btn enter" type="button" ontap="sendKey(VK_ENTER)">输入</button>
+                        <button class="btn s" type="button" ontap="switchLayout()">*</button>
+                    </div>
+                </div>
+            </div>
+            <div class="keypad" id="keypad2">
+                <div class="container" style="margin-top:2px">
+                    <button class="btn fn touch" style="width:100%;height:120px" type="button" ontap="sendKey(VK_ENTER)">输入</button>
+                </div>
+                <div class="container" style="margin-top:2px">
+                    <button class="btn fn touch" style="width:100%;height:60px" type="button" ontap="sendKey(VK_EXIT)">返回</button>
+                </div>
+                <div class="container" style="margin-top:2px">
+                    <button class="btn fn touch" style="width:45%;border-right:2px solid white" type="button" ontap="sendKey(VK_SEARCH)">查找</button>
+                    <button class="btn fn touch" style="width:45%;border-right:2px solid white" type="button" ontap="sendKey(VK_HELP)">帮助</button>
+                    <button class="btn s touch" style="width:10%" type="button" ontap="switchLayout()">*</button>
+                </div>
+            </div>
+
+        </div>
+    </body>
+
+</html>
+<script src="js/tappy.js"></script>
+<script src="js/bridge.js?ver=201801201234"></script>
+<script src="js/lcd.js?ver=11"></script>
+<script src="js/baye.js?ver=201801201234"></script>
+<script>
+    lcdInit();
+
+    (function (){
+        touchPadInit("touchpad");
+        layoutKeyboard();
+
+        $(window).resize(layoutKeyboard);
+
+        var libName = getLibName() || "步步高原版";
+        if (libName && libName.length > 0) {
+            document.title = document.title + ' - ' + libName;
+            $("#tip").html("当前版本: " + libName);
+            $("#tip").show();
+            setTimeout(function(){
+                $("#tip").hide(200);
+            }, 3000);
+        }
+
+        function tap(){
+            var action = $(this).attr("ontap");
+            $(this).bind( "tap", function(){
+                eval(action);
+            });
+        }
+        $(".btn").each(tap);
+        $("#lcd-container").each(tap);
+        bayeMain();
+    })();
+</script>

@@ -1,0 +1,49 @@
+[ 
+   
+    {
+        "title": "三国霸业-原版精修",
+        "path": "libs/SGBY.lib"
+    },
+    {
+        "title": "三霸竞速PK赛专用",
+        "path": "libs/sgjs.lib"
+    } ,
+    {
+        "title": "乱战三国4.1",
+        "path": "libs/qmlw-LZSG4.lib"
+    },
+    {
+        "title": "群魔乱舞-血色华夏",
+        "path": "libs/qmlw-XSHX.lib"
+    },
+    {
+        "title": "群魔乱舞-水浒英豪",
+        "path": "libs/qmlw-SHYH.lib"
+    },
+    {
+        "title": "群魔乱舞-三国杀（开发中）",
+        "path": "libs/qmlw-SGS-300.lib"
+    },
+    {
+        "title": "群魔乱舞-乱战三国",
+        "path": "libs/qmlw-LZSG.lib"
+    },
+    {
+        "title": "无痕修复版",
+        "path": "libs/whxf.lib"
+    },
+    {
+        "title": "霸哥自制版",
+        "path": "libs/sc-mod.lib"
+    }
+    ,
+    {
+        "title": "群友猴子自制版",
+        "path": "libs/hz-mod.lib"
+    }
+     ,
+    {
+        "title": "小君王自制版",
+        "path": "libs/xjw-mod.lib"
+    }
+]

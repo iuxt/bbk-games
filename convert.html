@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<script src="js/baidu-tongji.js"></script>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>网址转换</title>
+    <script src="js/jquery.min.js"></script>
+</head>
+<body>
+<script>
+
+    function link(url) {
+        return '<a href="' + url + '">' + url + '</a>';
+    }
+
+    function convert() {
+        var url = document.getElementById("url-edit").value;
+        url = 'http://bgwp.oschina.io/baye/loadlib.html?' + encodeURI(url);
+
+        $("#result").html("版本地址: " + link(url));
+        $("#short").html('');
+
+        $.ajax({
+            url: "http://50r.cn/urls/add.jsonp?url=" + encodeURI(url),
+            dataType: "jsonp",
+            jsonp: "callback",
+            jsonpCallback: "www_50r_cn_jsonp_callback",
+            type: "GET",
+            success: function(resp) {
+                $("#short").html('缩短网址: ' + link(resp.url));
+            },
+            error: function() {
+                $("#url-title").html("");
+                $("#url").html("请求失败");
+            }
+        });
+    }
+</script>
+<input id="url-edit" type="text">
+<button onclick="convert()">转换</button>
+<br>
+<div id="result"></div>
+<div id="short"></div>
+
+</body>
+</html>

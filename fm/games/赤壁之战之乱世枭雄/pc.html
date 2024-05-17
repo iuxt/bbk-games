@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>伏魔记</title>
+    <script src="../../js/jquery.min.js"></script>
+    <script src="../../js/encoding-indexes.js"></script>
+    <script src="../../js/encoding.js"></script>
+    <script src="../../js/sys.js"></script>
+    <script src="../../js/kotlin.js"></script>
+    <script src="../../js/font.js"></script>
+    <script src="rom.js"></script>
+    <style>
+        body {
+            background-color: white;
+        }
+        .fill {
+            background-color: green;
+            width: 320px;
+            height: 192px;
+        }
+    </style>
+</head>
+<body>
+    <div class="element lcd">
+        <canvas class="fill" id="lcd" width="160" height="96"></canvas>
+    </div>
+    <div>
+        按键映射<br>
+        [ -> PageUp<br>
+        ] -> PageDown<br>
+        Space -> Esc<br>
+        Enter -> 输入<br>
+    </div>
+</body>
+<script src="../../js/fmj.core.js"></script>
+</html>

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>选择ROM</title>
+    <link rel="stylesheet" type="text/css" href="views/baye.css" />
+    <meta content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" id="viewport" name="viewport">
+    <script src="js/jquery.min.js"></script>
+    <script>
+        $(function(){
+            $("button").click(function(){
+                window.location.href = "games/" + $(this).text();
+            });
+        });
+    </script>
+</head>
+<body>
+
+<div id="list">
+        <button class="btn menu" type="button">伏魔记</button>
+        <button class="btn menu" type="button">金庸群侠传</button>
+        <button class="btn menu" type="button">赤壁之战之乱世枭雄</button>
+        <button class="btn menu" type="button">赤壁之战之谁与争锋</button>
+        <button class="btn menu" type="button">侠客行</button>
+        <a class="btn menu" href="/mt.html">魔塔</a>
+</div>
+<div>玩的开心</div>
+</body>
+</html>
