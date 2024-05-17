@@ -1,0 +1,12 @@
+{
+  "files": {
+    "main.css": "//bbk-games.zahui.fan/bbk-games/static/css/main.49cd0240.css",
+    "main.js": "//bbk-games.zahui.fan/bbk-games/static/js/main.c882a77f.js",
+    "static/media/cross.png": "//bbk-games.zahui.fan/bbk-games/static/media/cross.320f9b613c684cd19267.png",
+    "index.html": "//bbk-games.zahui.fan/bbk-games/index.html"
+  },
+  "entrypoints": [
+    "static/css/main.49cd0240.css",
+    "static/js/main.c882a77f.js"
+  ]
+}
