@@ -38,11 +38,6 @@
     }
     ,
     {
-        "title": "群友猴子自制版",
-        "path": "libs/hz-mod.lib"
-    }
-     ,
-    {
         "title": "小君王自制版",
         "path": "libs/xjw-mod.lib"
     }
