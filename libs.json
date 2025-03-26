@@ -5,10 +5,6 @@
         "path": "libs/SGBY.lib"
     },
     {
-        "title": "三霸竞速PK赛专用",
-        "path": "libs/sgjs.lib"
-    } ,
-    {
         "title": "乱战三国4.1",
         "path": "libs/qmlw-LZSG4.lib"
     },
