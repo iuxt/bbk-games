@@ -66,15 +66,30 @@
     }
 
     global.sysStorageGet = function(path) {
-        return getStorage(path)[path];
+        try {
+            return getStorage(path)[path];
+        } catch (e) {
+            console.warn("sysStorageGet failed: " + e);
+            return null;
+        }
     };
 
     global.sysStorageSet = function(path, value) {
-        return getStorage(path)[path] = value;
+        try {
+            return getStorage(path)[path] = value;
+        } catch (e) {
+            // 隐私模式/配额超限/存储被禁用时，吞掉异常避免抛回 Kotlin 调用栈导致游戏循环崩溃
+            console.warn("sysStorageSet failed: " + e);
+            return null;
+        }
     };
 
     global.sysStorageHas = function(path) {
-        return getStorage(path)[path] != null;
+        try {
+            return getStorage(path)[path] != null;
+        } catch (e) {
+            return false;
+        }
     };
 
     global.sysGbkEncode = function(str) {

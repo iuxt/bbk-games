@@ -17,8 +17,10 @@ function sysAddKeyUpListener(callback) {
 }
 
 function sendKey(key) {
-    fmjSendKeyDown(key);
-    fmjSendKeyUp(key);
+    // fmjSendKeyDown/Up 在 fmj.core.js 调用 sysAddKey*Listener 之后才注册，
+    // 引擎加载完成前点击按钮需静默忽略，避免 ReferenceError 吞键
+    if (typeof fmjSendKeyDown === 'function') fmjSendKeyDown(key);
+    if (typeof fmjSendKeyUp === 'function') fmjSendKeyUp(key);
 }
 
 

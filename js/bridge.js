@@ -287,38 +287,12 @@ function range(start, stop, step) {
 }
 
 $(function(){
-    function Promise(fn) {
-        _this = this
-        var done = false;
-        fn(function(x){
-            if (typeof _this.onfulfilled == 'function') {
-                if (!done) {
-                    done = true
-                    _this.onfulfilled(x)
-                }
-            }
-        }, function(e){
-            if (typeof _this.onrejected == "function") {
-                if (!done) {
-                    done = true
-                    _this.onrejected(e)
-                }
-            }
-        });
-    }
-
-    Promise.prototype.then = function(onfulfilled, onrejected) {
-        this.onfulfilled = onfulfilled
-        this.onrejected = onrejected
-    };
-
-    window.Promise = Promise;
-
     function wrapAsync(f) {
         return function() {
             var args = Array.from(arguments);
             var _this = this;
-            return Promise(function(resolve, reject){
+            // 使用浏览器原生 Promise（必须 new），替代会丢值/不可链式/污染全局的自实现版本
+            return new Promise(function(resolve, reject){
                 args.push(resolve);
                 f.apply(_this, args);
             });
@@ -536,12 +510,16 @@ $(function(){
         setcb0(then);
     };
 
+    baye.asyncMakeBattle = wrapAsync(baye.makeBattle);
+
     baye.makeCommand = function(city, cmd, then) {
         baye.data.g_asyncActionParams[0] = city;
         baye.data.g_asyncActionParams[1] = cmd;
         baye.data.g_asyncActionID = 12;
         setcb0(then);
     };
+
+    baye.asyncMakeCommand = wrapAsync(baye.makeCommand);
 
     baye.getPersonByName = function(name) {
         var all = baye.data.g_Persons;
@@ -602,16 +580,14 @@ $(function(){
             var pind = queue[city.PersonQueue + qi];
             var person = people[pind];
             var name = baye.getPersonName(pind);
-            var belong = baye.getPersonNameByID(person.Belong);
-            console.log(sprintf("%-10s 归属:%-10s", name, belong));
+            var belongName = baye.getPersonNameByID(person.Belong);
+            console.log(sprintf("%-10s 归属:%-10s", name, belongName));
         }
         console.log("-");
         var queue = baye.data.g_GoodsQueue;
-        var tools = baye.data.g_Tools;
         for (var qi = 0; qi  < city.Tools; qi++) {
             var tindex = queue[city.ToolQueue + qi];
-            var tool = tools[pind];
-            var name = baye.getToolName(pind);
+            var name = baye.getToolName(tindex);
             console.log(name);
         }
     };

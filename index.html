@@ -66,9 +66,11 @@
         <script>
                 $(function(){
                     function bind(id, key) {
-                        $(id).val(window.localStorage[key] || '0');
+                        var val;
+                        try { val = window.localStorage[key]; } catch (e) {}
+                        $(id).val(val || '0');
                         $(id).change(function () {
-                            window.localStorage[key] = $(this).val();
+                            try { window.localStorage[key] = $(this).val(); } catch (e) {}
                         });
                     }
                     bind("#mode-select", "baye/mpage");

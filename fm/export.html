@@ -8,7 +8,13 @@
     <script src="js/jquery.min.js"></script>
     <script>
         function export_save(n) {
-            var data = localStorage["sav/fmjsave" + (n-1)];
+            var data;
+            try {
+                data = localStorage["sav/fmjsave" + (n-1)];
+            } catch (e) {
+                $("#panel").text("读取存档失败: " + e);
+                return;
+            }
             if (data && data.length > 0) {
                 //window.location.href = "tip.html?s=" + data;
                 $("#panel").text(data);

@@ -46,7 +46,11 @@
         var spinner = new Spinner(opts);
 
         function getfile(n) {
-            return localStorage["baye//data//sango" + n + ".sav"];
+            try {
+                return localStorage["baye//data//sango" + n + ".sav"];
+            } catch (e) {
+                return null;
+            }
         }
 
         function dump(n) {
@@ -100,28 +104,10 @@
                     $("#url").html('<a href="' + url + '">' + "长按复制链接" + '</a>');
                 }
 
-                if ($("#use-short-url").val() != '1')
-                {
-                    spinner.stop();
-                    showLongUrl(loadUrl, n);
-                } else {
-                    $.ajax({
-                        url: "http://50r.cn/urls/add.jsonp?url=" + encodeURIComponent(loadUrl),
-                        dataType: "jsonp",
-                        jsonp: "callback",
-                        jsonpCallback: "www_50r_cn_jsonp_callback",
-                        type: "GET",
-                        success: function(resp) {
-                            spinner.stop();
-                            $("#url-title").html("已生成存档" + (n + 1) + "的链接:");
-                            $("#url").html('<a href="' + resp.url + '">' + resp.url + '</a>');
-                        },
-                        error: function() {
-                            spinner.stop();
-                            showLongUrl(loadUrl, n);
-                        }
-                    });
-                }
+                // 原 http://50r.cn 短网址服务为明文 http，在 https 站点会被混合内容策略阻断，
+                // 且服务可能已失效，故移除短网址分支，仅生成长网址
+                spinner.stop();
+                showLongUrl(loadUrl, n);
             }, 10);
         }
     </script>
@@ -140,13 +126,6 @@
 
     <div >
         <div id="lib-name"></div>
-        <div class="config-item">
-            使用短网址:
-            <select name="" id="use-short-url">
-                <option value="0">否</option>
-                <option value="1">是</option>
-            </select>
-        </div>
         <div id="url-title"></div>
         <div id="url"></div>
         <br>

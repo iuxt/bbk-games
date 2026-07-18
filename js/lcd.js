@@ -370,13 +370,12 @@ function redirect(page) {
             defaultMPage = "m.html"
             break;
         case '1':
-            defaultMPage = "m-old.html"
+        case '3':
+            // 原 case '1' 指向不存在的 m-old.html 会 404，改为虚拟键盘页 m-ktouch.html
+            defaultMPage = "m-ktouch.html"
             break;
         case '2':
             defaultMPage = "m-ges.html"
-            break;
-        case '3':
-            defaultMPage = "m-ktouch.html"
             break;
         }
         console.log('page:' + page);
@@ -537,9 +536,6 @@ function touchPadInit(elementID) {
 
             var dX = x - previousX;
             var dY = y - previousY;
-            var speedX = dX / dt;
-            var speedY = dX / dt;
-            var ratio = Math.abs(speedX / speedY);
 
             lastY = processPointMove(y, previousY, lastY, dt, 30, 0.3, 2000, 800, VK_UP, VK_DOWN);
             lastX = processPointMove(x, previousX, lastX, dt, 30, 8, 1000, 500, VK_LEFT, VK_RIGHT);
@@ -689,7 +685,12 @@ function bayeLoadFileContent(filename) {
 
 function bayeSaveFileContent(filename, content) {
     console.log("Saving " + filename);
-    window.localStorage[filename] = content;
+    try {
+        window.localStorage[filename] = content;
+    } catch (e) {
+        // 配额超限/隐私模式/存储被禁用时吞掉异常，避免抛回引擎导致存档流程崩溃
+        console.warn("bayeSaveFileContent failed: " + e);
+    }
 }
 
 Module = {};
