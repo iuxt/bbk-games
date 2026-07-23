@@ -43,6 +43,8 @@ function loadLcd(storageValues = {}) {
     };
 
     vm.runInNewContext(lcdSource, context);
+    context.context = context;
+    context.storage = localStorage;
     return context;
 }
 
@@ -90,4 +92,23 @@ test('bayeMain keeps loading the selected version', () => {
     context.bayeMain();
 
     assert.equal(loadedPath, 'libs/SGBY.lib');
+});
+
+test("chooseLib stores the new version before launching", () => {
+    const { context, storage } = loadLcd({
+        "baye//data/dat.lib": "old cache",
+        "baye/libname": "旧版本",
+        "baye/libpath": "libs/old.lib",
+    });
+    let pathAtRedirect = null;
+    context.redirect = () => {
+        pathAtRedirect = storage["baye/libpath"];
+    };
+
+    context.chooseLib("步步高原版", "libs/SGBY.lib", {});
+
+    assert.equal(storage["baye//data/dat.lib"], undefined);
+    assert.equal(storage["baye/libname"], "步步高原版");
+    assert.equal(storage["baye/libpath"], "libs/SGBY.lib");
+    assert.equal(pathAtRedirect, "libs/SGBY.lib");
 });

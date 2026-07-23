@@ -169,10 +169,14 @@ function getLibPath() {
     return window.localStorage['baye/libpath'] || "";
 }
 
-function clearLib() {
+function clearLibData() {
     window.localStorage.removeItem('baye//data/dat.lib');
     window.localStorage.removeItem('baye/libname');
     window.localStorage.removeItem('baye/libpath');
+}
+
+function clearLib() {
+    clearLibData();
     redirect();
 }
 
@@ -317,11 +321,12 @@ function chooseLib(title, path, self_) {
     self.html("请稍候...");
     self.attr("disabled", "disabled");
 
-    clearLib();
+    clearLibData();
     if (path && path.length > 0) {
         window.localStorage['baye/libname'] = title;
         window.localStorage['baye/libpath'] = path;
     }
+    redirect();
 }
 
 
