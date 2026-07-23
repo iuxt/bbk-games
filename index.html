@@ -1,82 +1,137 @@
-<!DOCTYPE html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#dfe3d1">
+    <meta name="description" content="步步高电子词典经典游戏合集">
+    <title>BBK 经典游戏</title>
+    <link rel="icon" href="favicon.png">
+    <link rel="stylesheet" href="css/portal.css">
+</head>
+<body>
+    <main class="device-shell">
+        <header class="device-header">
+            <a class="brand" href="/" aria-label="返回 BBK 经典游戏首页">
+                <span class="brand-mark">BBK</span>
+                <span>经典游戏</span>
+            </a>
+            <span class="power-light" aria-hidden="true"></span>
+        </header>
 
-<html>
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-        <title>三国霸业</title>
-        <link rel="stylesheet" type="text/css" href="css/baye.css" />
-        <link rel="icon" href="favicon.png">
-        <meta content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" id="viewport" name="viewport">
-        <script src="js/jquery.min.js"></script>
-        <script src="js/lcd.js?ver=10"></script>
-        <style>
-            .index-tip {
-                color: red;
-            }
-            select {
-                font-size: 16px;
-            }
-            .config-item {
-                margin-top: 8px;
-            }
-        </style>
-    </head>
-    <body >
-        <div class="container" style="margin-top:2px">
-            <button class="btn menu" type="button" onclick="location='choose.html';">选择版本</button>
-        </div>
-        <div class="container" style="margin-top:2px">
-            <button class="btn menu" type="button" onclick="redirect()">进入游戏</button>
-        </div>
-        <div class="container" style="margin-top:2px">
-            <button class="btn menu" type="button" onclick="location='get-sav.html';">传送存档</button>
-        </div>
-        <div>
-            <div class="config-item">
-                操作模式:
-                <select name="" id="mode-select">
-                    <option value="0">横屏&触控</option>
-                    <option value="1">竖屏&键盘</option>
-                    <option value="2">横屏&手势</option>
-                </select>
+        <section class="lcd-panel" aria-labelledby="portal-title">
+            <p class="lcd-kicker">GAME CENTER / 游戏中心</p>
+            <h1 id="portal-title">请选择游戏<span aria-hidden="true">_</span></h1>
+            <p class="lcd-help">点击游戏卡片即可开始</p>
+        </section>
+
+        <section class="game-section" aria-labelledby="game-list-title">
+            <div class="section-heading">
+                <h2 id="game-list-title">游戏列表</h2>
+                <span>4 GAMES</span>
             </div>
-            <div class="config-item">
-                分辨率:
-                <select name="" id="resolution-select">
-                    <option value="0">4988</option>
-                    <option value="1">加大</option>
-                </select>
+            <div class="game-grid">
+                <article class="game-card game-card-featured">
+                    <a id="start-baye" class="game-link" href="pc.html" data-game="baye">
+                        <span class="game-key" aria-hidden="true">01</span>
+                        <span class="game-copy">
+                            <strong>三国霸业</strong>
+                            <small>策略 · 经典战役</small>
+                        </span>
+                        <span class="game-arrow" aria-hidden="true">›</span>
+                    </a>
+                    <button id="settings-trigger" class="settings-key" type="button"
+                            aria-haspopup="dialog" aria-expanded="false"
+                            aria-controls="settings-dialog">
+                        <span aria-hidden="true">⚙</span>
+                        <span class="sr-only">打开三国霸业设置</span>
+                    </button>
+                </article>
+
+                <a class="game-card game-link" href="bbk-games/index.html" data-game="bbk">
+                    <span class="game-key" aria-hidden="true">02</span>
+                    <span class="game-copy">
+                        <strong>电子词典游戏</strong>
+                        <small>模拟器 · ROM 合集</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </a>
+
+                <a class="game-card game-link" href="mt.html" data-game="tower">
+                    <span class="game-key" aria-hidden="true">03</span>
+                    <span class="game-copy">
+                        <strong>魔塔</strong>
+                        <small>解谜 · 闯关冒险</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </a>
+
+                <a class="game-card game-link" href="fm/index.html" data-game="rpg">
+                    <span class="game-key" aria-hidden="true">04</span>
+                    <span class="game-copy">
+                        <strong>RPG 游戏</strong>
+                        <small>伏魔记 · 群侠传</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </a>
             </div>
-            <div class="config-item">
-                像素锐化:
-                <select name="" id="clear-select">
-                    <option value="0">禁用</option>
-                    <option value="1">启用</option>
-                </select>
-            </div>
-            <div class="container" style="margin-top: 5px; background: #f0f0f0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1)">
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <a class="btn menu" href="/bbk-games/index.html" style="text-align: center; text-decoration: none;">步步高电子词典eebbk</a>
-                    <a class="btn menu" href="/mt.html" style="text-align: center; text-decoration: none;">魔塔</a>
-                    <a class="btn menu" href="/fm/index.html" style="text-align: center; text-decoration: none;">RPG游戏</a>
+        </section>
+
+        <footer class="device-footer">
+            <span>WEB EDITION</span>
+            <p>把经典电子词典游戏，重新装进口袋。</p>
+        </footer>
+    </main>
+
+    <div id="settings-overlay" class="dialog-overlay" hidden>
+        <section id="settings-dialog" class="settings-dialog" role="dialog"
+                 aria-modal="true" aria-labelledby="settings-title">
+            <header class="dialog-header">
+                <div>
+                    <p>GAME 01</p>
+                    <h2 id="settings-title">三国霸业设置</h2>
                 </div>
+                <button id="settings-close" class="close-key" type="button"
+                        aria-label="关闭设置">×</button>
+            </header>
+
+            <div class="settings-list">
+                <label class="setting-row">
+                    <span><strong>操作模式</strong><small>选择手机端控制方式</small></span>
+                    <select data-storage-key="baye/mpage">
+                        <option value="0">横屏 &amp; 触控</option>
+                        <option value="1">竖屏 &amp; 键盘</option>
+                        <option value="2">横屏 &amp; 手势</option>
+                    </select>
+                </label>
+                <label class="setting-row">
+                    <span><strong>分辨率</strong><small>调整游戏画面尺寸</small></span>
+                    <select data-storage-key="baye/resolution">
+                        <option value="0">4988</option>
+                        <option value="1">加大</option>
+                    </select>
+                </label>
+                <label class="setting-row">
+                    <span><strong>像素锐化</strong><small>切换像素显示效果</small></span>
+                    <select data-storage-key="baye/clearmode">
+                        <option value="0">禁用</option>
+                        <option value="1">启用</option>
+                    </select>
+                </label>
             </div>
 
-        </div>
-        <script>
-                $(function(){
-                    function bind(id, key) {
-                        var val;
-                        try { val = window.localStorage[key]; } catch (e) {}
-                        $(id).val(val || '0');
-                        $(id).change(function () {
-                            try { window.localStorage[key] = $(this).val(); } catch (e) {}
-                        });
-                    }
-                    bind("#mode-select", "baye/mpage");
-                    bind("#resolution-select", "baye/resolution");
-                    bind("#clear-select", "baye/clearmode");
-                });
-            </script>
-    </body>
+            <nav class="dialog-actions" aria-label="三国霸业辅助功能">
+                <a class="device-button" href="choose.html">选择版本</a>
+                <a class="device-button" href="get-sav.html">传送存档</a>
+            </nav>
+        </section>
+    </div>
+
+    <noscript>
+        <p class="noscript-note">JavaScript 已关闭；其他游戏入口仍可直接使用，三国霸业将进入桌面版。</p>
+    </noscript>
+    <script src="js/jquery.min.js"></script>
+    <script src="js/lcd.js?ver=10"></script>
+    <script src="js/portal.js"></script>
+</body>
 </html>
