@@ -165,6 +165,10 @@ function binarray2hex (arr) {
   return o;
 }
 
+function getLibPath() {
+    return window.localStorage['baye/libpath'] || "";
+}
+
 function clearLib() {
     window.localStorage.removeItem('baye//data/dat.lib');
     window.localStorage.removeItem('baye/libname');
@@ -362,6 +366,10 @@ function loadLibLists(container) {
 }
 
 function redirect(page) {
+    if (!getLibPath()) {
+        window.location.href = "choose.html";
+        return;
+    }
     var isMobile = false;
     if(navigator.userAgent.match(/(iPhone|iPod|Android|ios|Mobile|ARM)/i)){
         var defaultMPage = "m.html";
@@ -697,4 +705,3 @@ Module = {};
 Module.memoryInitializerPrefixURL = "../baye-engine/";
 Module.TOTAL_MEMORY = 16777216 * 3;
 Module.noInitialRun = true;
-
