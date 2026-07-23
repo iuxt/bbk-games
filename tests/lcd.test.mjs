@@ -64,3 +64,30 @@ test('redirect preserves the existing desktop launch when a version is selected'
 
     assert.equal(context.window.location.href, 'pc.html?name=步步高原版');
 });
+
+test('bayeMain redirects direct visits without loading a version', () => {
+    const context = loadLcd();
+    let loaded = false;
+    context.loadLibFromUrl = () => {
+        loaded = true;
+    };
+
+    context.bayeMain();
+
+    assert.equal(context.window.location.href, 'choose.html');
+    assert.equal(loaded, false);
+});
+
+test('bayeMain keeps loading the selected version', () => {
+    const context = loadLcd({
+        'baye/libpath': 'libs/SGBY.lib',
+    });
+    let loadedPath;
+    context.loadLibFromUrl = (path) => {
+        loadedPath = path;
+    };
+
+    context.bayeMain();
+
+    assert.equal(loadedPath, 'libs/SGBY.lib');
+});

@@ -302,14 +302,14 @@ function loadLibFromUrl(url, then) {
 }
 
 function bayeMain() {
-    var url = window.localStorage['baye/libpath'];
+    var url = getLibPath();
     if (!url) {
-        alert("没有选择版本");
-    } else {
-        loadLibFromUrl(url, function(){
-            _main();
-        });
+        window.location.href = "choose.html";
+        return;
     }
+    loadLibFromUrl(url, function(){
+        _main();
+    });
 }
 
 function chooseLib(title, path, self_) {
