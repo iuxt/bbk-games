@@ -19,6 +19,14 @@
         }
     }
 
+    function getSafeStorage(host) {
+        try {
+            return host.localStorage;
+        } catch (error) {
+            return null;
+        }
+    }
+
     function bindSettings(document, storage) {
         var controls = document.querySelectorAll("[data-storage-key]");
         Array.prototype.forEach.call(controls, function (control) {
@@ -55,6 +63,19 @@
         return { open: open, close: close };
     }
 
+    function launchWithFallback(event, launcher) {
+        if (typeof launcher !== "function") {
+            return false;
+        }
+        try {
+            launcher();
+            event.preventDefault();
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
     function init(document, storage) {
         bindSettings(document, storage);
 
@@ -82,10 +103,7 @@
             }
         });
         startLink.addEventListener("click", function (event) {
-            if (typeof global.redirect === "function") {
-                event.preventDefault();
-                global.redirect();
-            }
+            launchWithFallback(event, global.redirect);
         });
 
         return controller;
@@ -94,18 +112,20 @@
     global.BBKPortal = {
         readStoredValue: readStoredValue,
         writeStoredValue: writeStoredValue,
+        getSafeStorage: getSafeStorage,
         bindSettings: bindSettings,
         createDialogController: createDialogController,
+        launchWithFallback: launchWithFallback,
         init: init,
     };
 
     if (global.document) {
         if (global.document.readyState === "loading") {
             global.document.addEventListener("DOMContentLoaded", function () {
-                init(global.document, global.localStorage);
+                init(global.document, getSafeStorage(global));
             });
         } else {
-            init(global.document, global.localStorage);
+            init(global.document, getSafeStorage(global));
         }
     }
 }(typeof window !== "undefined" ? window : globalThis));

@@ -38,6 +38,15 @@ test("storage errors fall back without throwing", () => {
     assert.equal(Portal.writeStoredValue(storage, "mode", "1"), false);
 });
 
+test("safe storage acquisition tolerates a throwing localStorage getter", () => {
+    const host = {};
+    Object.defineProperty(host, "localStorage", {
+        get() { throw new Error("blocked"); },
+    });
+
+    assert.equal(Portal.getSafeStorage(host), null);
+});
+
 test("bindSettings restores values and persists changes", () => {
     const saved = new Map([["baye/mpage", "1"]]);
     const storage = {
@@ -82,4 +91,32 @@ test("dialog controller opens, closes, locks scroll, and restores focus", () => 
     assert.equal(opener.attributes["aria-expanded"], "false");
     assert.equal(body.classList.contains("dialog-open"), false);
     assert.equal(opener.focused, true);
+});
+
+test("launch enhancement prevents anchor fallback after redirect succeeds", () => {
+    const event = new Event("click", { cancelable: true });
+    let launches = 0;
+
+    const enhanced = Portal.launchWithFallback(event, () => { launches += 1; });
+
+    assert.equal(enhanced, true);
+    assert.equal(launches, 1);
+    assert.equal(event.defaultPrevented, true);
+});
+
+test("launch enhancement leaves anchor fallback usable when redirect throws", () => {
+    const startLink = { href: "pc.html" };
+    const event = new Event("click", { cancelable: true });
+    Object.defineProperty(event, "currentTarget", { value: startLink });
+    let enhanced;
+
+    assert.doesNotThrow(() => {
+        enhanced = Portal.launchWithFallback(event, () => {
+            throw new Error("launcher failed");
+        });
+    });
+
+    assert.equal(enhanced, false);
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(event.currentTarget.href, "pc.html");
 });

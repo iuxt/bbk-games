@@ -14,9 +14,13 @@ class PortalParser(HTMLParser):
         self.stylesheets = []
         self.scripts = []
         self.h1_count = 0
+        self.noscript_links = set()
+        self.inside_noscript = False
 
     def handle_starttag(self, tag, attrs):
         values = dict(attrs)
+        if tag == "noscript":
+            self.inside_noscript = True
         if values.get("id"):
             self.ids.add(values["id"])
         if tag == "h1":
@@ -29,6 +33,12 @@ class PortalParser(HTMLParser):
             self.stylesheets.append(values.get("href"))
         if tag == "script" and values.get("src"):
             self.scripts.append(values["src"])
+        if tag == "a" and self.inside_noscript and values.get("href"):
+            self.noscript_links.add(values["href"])
+
+    def handle_endtag(self, tag):
+        if tag == "noscript":
+            self.inside_noscript = False
 
 
 class PortalMarkupTests(unittest.TestCase):
@@ -78,6 +88,12 @@ class PortalMarkupTests(unittest.TestCase):
     def test_declared_local_assets_exist(self):
         self.assertTrue((ROOT / "css" / "portal.css").is_file())
         self.assertTrue((ROOT / "js" / "portal.js").is_file())
+
+    def test_noscript_preserves_version_and_save_links(self):
+        self.assertEqual(
+            self.parser.noscript_links,
+            {"choose.html", "get-sav.html"},
+        )
 
     def test_css_has_responsive_and_accessibility_contracts(self):
         css = (ROOT / "css" / "portal.css").read_text(encoding="utf-8")
