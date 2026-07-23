@@ -32,6 +32,8 @@
 
 **Files:**
 - Create: `tests/test_portal_markup.py`
+- Create: `css/portal.css` (empty behavior scaffold; implemented test-first in Task 3)
+- Create: `js/portal.js` (empty behavior scaffold; implemented test-first in Task 2)
 - Modify: `index.html`
 
 **Interfaces:**
@@ -119,6 +121,10 @@ class PortalMarkupTests(unittest.TestCase):
             self.parser.scripts,
             ["js/jquery.min.js", "js/lcd.js?ver=10", "js/portal.js"],
         )
+
+    def test_declared_local_assets_exist(self):
+        self.assertTrue((ROOT / "css" / "portal.css").is_file())
+        self.assertTrue((ROOT / "js" / "portal.js").is_file())
 
 
 if __name__ == "__main__":
@@ -279,6 +285,18 @@ Replace `index.html` with:
 </html>
 ```
 
+Create `css/portal.css` with only this non-behavioral scaffold:
+
+```css
+/* Portal theme is implemented test-first in Task 3. */
+```
+
+Create `js/portal.js` with only this non-behavioral scaffold:
+
+```javascript
+/* Portal behavior is implemented test-first in Task 2. */
+```
+
 - [ ] **Step 4: Run the structural tests and verify they pass**
 
 Run:
@@ -287,16 +305,16 @@ Run:
 python3 -m unittest tests/test_portal_markup.py -v
 ```
 
-Expected: `Ran 5 tests` and `OK`.
+Expected: `Ran 6 tests` and `OK`.
 
 - [ ] **Step 5: Commit the semantic portal**
 
 ```bash
-git add index.html tests/test_portal_markup.py
+git add index.html css/portal.css js/portal.js tests/test_portal_markup.py
 git commit -m "feat: add unified game portal markup"
 ```
 
-Expected: commit succeeds with only `index.html` and `tests/test_portal_markup.py`.
+Expected: commit succeeds with `index.html`, the two non-behavioral asset scaffolds, and `tests/test_portal_markup.py`.
 
 ---
 
@@ -304,7 +322,7 @@ Expected: commit succeeds with only `index.html` and `tests/test_portal_markup.p
 
 **Files:**
 - Create: `tests/portal.test.mjs`
-- Create: `js/portal.js`
+- Modify: `js/portal.js`
 
 **Interfaces:**
 - Consumes: Task 1 DOM IDs and `data-storage-key` attributes; existing global `redirect()`.
@@ -410,7 +428,7 @@ Run:
 node --test tests/portal.test.mjs
 ```
 
-Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `js/portal.js`.
+Expected: FAIL with `TypeError: Portal.readStoredValue is not a function`; the scaffold module loads, but the behavior does not exist yet.
 
 - [ ] **Step 3: Implement `js/portal.js`**
 
@@ -555,7 +573,7 @@ Expected: commit succeeds with only `js/portal.js` and `tests/portal.test.mjs`.
 ### Task 3: Apply the visual system and complete browser verification
 
 **Files:**
-- Create: `css/portal.css`
+- Modify: `css/portal.css`
 - Modify: `tests/test_portal_markup.py`
 
 **Interfaces:**
@@ -584,7 +602,7 @@ Run:
 python3 -m unittest tests.test_portal_markup.PortalMarkupTests.test_css_has_responsive_and_accessibility_contracts -v
 ```
 
-Expected: FAIL with `FileNotFoundError` for `css/portal.css`.
+Expected: FAIL because the scaffold stylesheet does not yet contain `@media (min-width: 760px)`.
 
 - [ ] **Step 3: Create the complete portal stylesheet**
 
@@ -917,7 +935,7 @@ node --test tests/portal.test.mjs
 git diff --check
 ```
 
-Expected: Python reports `Ran 6 tests` and `OK`; Node reports `4` passing tests; `git diff --check` prints no output.
+Expected: Python reports `Ran 7 tests` and `OK`; Node reports `4` passing tests; `git diff --check` prints no output.
 
 - [ ] **Step 5: Verify the lobby in real browsers**
 
@@ -947,4 +965,3 @@ git commit -m "style: add electronic dictionary portal theme"
 ```
 
 Expected: commit succeeds and `git status --short` is empty.
-
