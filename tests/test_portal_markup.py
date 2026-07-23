@@ -79,6 +79,14 @@ class PortalMarkupTests(unittest.TestCase):
         self.assertTrue((ROOT / "css" / "portal.css").is_file())
         self.assertTrue((ROOT / "js" / "portal.js").is_file())
 
+    def test_css_has_responsive_and_accessibility_contracts(self):
+        css = (ROOT / "css" / "portal.css").read_text(encoding="utf-8")
+        self.assertIn("@media (min-width: 760px)", css)
+        self.assertIn("@media (prefers-reduced-motion: reduce)", css)
+        self.assertIn(".game-grid", css)
+        self.assertIn(".settings-dialog", css)
+        self.assertIn(":focus-visible", css)
+
 
 if __name__ == "__main__":
     unittest.main()
