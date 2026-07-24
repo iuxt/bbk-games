@@ -89,10 +89,10 @@ class PortalMarkupTests(unittest.TestCase):
         self.assertTrue((ROOT / "css" / "portal.css").is_file())
         self.assertTrue((ROOT / "js" / "portal.js").is_file())
 
-    def test_noscript_preserves_version_and_save_links(self):
+    def test_noscript_preserves_auxiliary_links(self):
         self.assertEqual(
             self.parser.noscript_links,
-            {"choose.html", "get-sav.html"},
+            {"choose.html", "backup.html"},
         )
 
     def test_css_has_responsive_and_accessibility_contracts(self):

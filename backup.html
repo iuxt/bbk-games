@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#dfe3d1">
+    <meta name="description" content="备份或还原三国霸业存档文件">
+    <title>备份 / 还原 · 三国霸业</title>
+    <link rel="icon" href="favicon.png">
+    <link rel="stylesheet" href="css/portal.css">
+
+    <script src="js/jquery.min.js"></script>
+    <script src="js/lcd.js?ver=11"></script>
+    <script>
+        // 存档 key：baye//data//sango0.sav ~ sango5.sav，槽 n → sango(2n) + sango(2n+1)
+        function slotKey(n) {
+            return "baye//data//sango" + n + ".sav";
+        }
+
+        function safeSet(key, value) {
+            try { localStorage[key] = value; return true; }
+            catch (e) { return false; }
+        }
+
+        function todayStamp() {
+            var d = new Date();
+            function pad(x) { return (x < 10 ? "0" : "") + x; }
+            return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
+        }
+
+        function showResult(title, help, kind) {
+            $("#result-title").text(title);
+            $("#result-help").text(help);
+            $("#result").removeClass("is-warn").addClass(kind === "warn" ? "is-warn" : "");
+        }
+
+        // 导出存档槽 n（0/1/2）为 .sav 文件
+        function exportSlot(n) {
+            var f0 = localStorage[slotKey(n * 2)];
+            var f1 = localStorage[slotKey(n * 2 + 1)];
+
+            if ((!f0 || !f0.length) && (!f1 || !f1.length)) {
+                showResult("存档 " + (n + 1) + " 是空的",
+                           "请先在游戏中存档，再回来备份。", "warn");
+                return;
+            }
+
+            var payload = {
+                app: "bbk-games",
+                type: "sango-save-slot",
+                ver: 1,
+                libname: getLibName(),
+                libpath: getLibPath(),
+                slot: n,
+                files: [f0 || "", f1 || ""]
+            };
+
+            var blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement("a");
+            a.href = url;
+            a.download = "bbk-save-" + (n + 1) + "-" + todayStamp() + ".sav";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+
+            showResult("已导出存档 " + (n + 1),
+                       "文件名 " + a.download + "。请妥善保存，可用于日后还原。", "ok");
+        }
+
+        // 还原：文件选择 → 解析
+        var pendingRestore = null;
+        var targetSlot = 0;
+
+        function onFilePicked(input) {
+            var file = input.files && input.files[0];
+            if (!file) return;
+
+            var reader = new FileReader();
+            reader.onload = function () {
+                var data;
+                try {
+                    data = JSON.parse(reader.result);
+                } catch (e) {
+                    rejectFile(file.name, "文件格式无效", "无法解析存档文件，请确认是本站导出的 .sav 文件。");
+                    return;
+                }
+
+                if (!data || data.type !== "sango-save-slot" ||
+                    !Array.isArray(data.files) || data.files.length < 2) {
+                    rejectFile(file.name, "存档格式错误", "这不是有效的三国霸业存档备份。");
+                    return;
+                }
+
+                pendingRestore = data;
+                $("#restore-file-name").text(file.name);
+
+                // 默认目标槽 = 文件来源槽
+                targetSlot = (typeof data.slot === "number") ? data.slot : 0;
+                syncSlotPicker();
+                $("#restore-btn").prop("disabled", false);
+
+                var fromSlot = (typeof data.slot === "number") ? (data.slot + 1) : "?";
+                var lib = data.libname || "未知版本";
+                showResult("已读取存档文件",
+                           "来源：存档 " + fromSlot + "（" + lib + "）。选择目标槽后点「还原存档」。", "info");
+            };
+            reader.readAsText(file);
+        }
+
+        function rejectFile(name, title, help) {
+            pendingRestore = null;
+            $("#restore-btn").prop("disabled", true);
+            $("#restore-file-name").text(name);
+            showResult(title, help, "warn");
+        }
+
+        function pickSlot(n) {
+            targetSlot = n;
+            syncSlotPicker();
+        }
+
+        function syncSlotPicker() {
+            $(".slot-chip").each(function () {
+                var active = (Number($(this).data("slot")) === targetSlot);
+                $(this).attr("aria-checked", active ? "true" : "false");
+                $(this).toggleClass("is-active", active);
+            });
+        }
+
+        function doRestore() {
+            if (!pendingRestore) return;
+            var data = pendingRestore;
+            var lib = data.libname || "未知版本";
+
+            // 版本恢复（libpath 为空则保持当前版本）
+            var versionNote;
+            if (data.libpath && data.libpath.length) {
+                if (!safeSet("baye/libname", data.libname) ||
+                    !safeSet("baye/libpath", data.libpath)) {
+                    showResult("版本写入失败", "浏览器存储不可用，还原中止。", "warn");
+                    return;
+                }
+                versionNote = "版本已切换为「" + lib + "」";
+            } else {
+                versionNote = "备份未含版本信息，保持当前版本";
+            }
+
+            // 存档写入目标槽
+            if (!safeSet(slotKey(targetSlot * 2), data.files[0] || "") ||
+                !safeSet(slotKey(targetSlot * 2 + 1), data.files[1] || "")) {
+                showResult("存档写入失败",
+                           "浏览器存储不可用（可能配额已满）。版本已改但存档未写入。", "warn");
+                return;
+            }
+
+            showResult("还原成功",
+                       "已写入存档 " + (targetSlot + 1) + "。" + versionNote +
+                       "。进入游戏后载入对应存档即可。", "ok");
+        }
+
+        $(function () {
+            $("#lib-name").text("当前版本：" + getLibName());
+        });
+    </script>
+</head>
+<body>
+    <main class="device-shell utility-shell">
+        <header class="device-header">
+            <a class="brand" href="index.html" aria-label="返回 BBK 经典游戏首页">
+                <span class="brand-mark">BBK</span>
+                <span>经典游戏</span>
+            </a>
+            <span class="power-light" aria-hidden="true"></span>
+        </header>
+
+        <section class="lcd-panel" aria-labelledby="page-title">
+            <p class="lcd-kicker">GAME 01 / BACKUP &amp; RESTORE</p>
+            <h1 id="page-title">备份 / 还原<span aria-hidden="true">_</span></h1>
+            <p class="lcd-help">导出存档槽为文件备份，或上传文件还原</p>
+        </section>
+
+        <section class="game-section" aria-labelledby="backup-title">
+            <div class="section-heading">
+                <h2 id="backup-title">备份存档</h2>
+                <span>3 SLOTS</span>
+            </div>
+            <div class="save-grid">
+                <button class="game-card game-link save-action" type="button" onclick="exportSlot(0)">
+                    <span class="game-key" aria-hidden="true">01</span>
+                    <span class="game-copy">
+                        <strong>导出存档 1</strong>
+                        <small>下载为 .sav 文件</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </button>
+                <button class="game-card game-link save-action" type="button" onclick="exportSlot(1)">
+                    <span class="game-key" aria-hidden="true">02</span>
+                    <span class="game-copy">
+                        <strong>导出存档 2</strong>
+                        <small>下载为 .sav 文件</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </button>
+                <button class="game-card game-link save-action" type="button" onclick="exportSlot(2)">
+                    <span class="game-key" aria-hidden="true">03</span>
+                    <span class="game-copy">
+                        <strong>导出存档 3</strong>
+                        <small>下载为 .sav 文件</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </button>
+            </div>
+        </section>
+
+        <section class="game-section" aria-labelledby="restore-title">
+            <div class="section-heading">
+                <h2 id="restore-title">还原存档</h2>
+                <span>UPLOAD</span>
+            </div>
+
+            <label class="game-card game-link save-action upload-card">
+                <span class="game-key" aria-hidden="true">↑</span>
+                <span class="game-copy">
+                    <strong>选择存档文件</strong>
+                    <small id="restore-file-name">点击选取 .sav 备份文件</small>
+                </span>
+                <span class="game-arrow" aria-hidden="true">›</span>
+                <input type="file" accept=".sav,.json,application/json" id="restore-file" hidden
+                       onclick="this.value=null" onchange="onFilePicked(this)">
+            </label>
+
+            <p class="slot-label">还原到目标槽</p>
+            <div class="slot-picker" role="radiogroup" aria-label="目标存档槽">
+                <button type="button" class="slot-chip is-active" data-slot="0" aria-checked="true"
+                        onclick="pickSlot(0)">存档 1</button>
+                <button type="button" class="slot-chip" data-slot="1" aria-checked="false"
+                        onclick="pickSlot(1)">存档 2</button>
+                <button type="button" class="slot-chip" data-slot="2" aria-checked="false"
+                        onclick="pickSlot(2)">存档 3</button>
+            </div>
+
+            <button type="button" class="restore-btn" id="restore-btn" disabled
+                    onclick="doRestore()">还原存档</button>
+        </section>
+
+        <section id="result" class="transfer-panel" aria-live="polite" aria-atomic="true">
+            <p class="transfer-version" id="lib-name">当前版本：—</p>
+            <h2 id="result-title">等待操作</h2>
+            <p class="transfer-help" id="result-help">先导出存档做备份，或选择备份文件还原到目标存档槽。</p>
+        </section>
+
+        <footer class="device-footer utility-footer">
+            <span>GAME 01</span>
+            <a class="footer-link" href="index.html">‹ 返回游戏中心</a>
+        </footer>
+    </main>
+
+    <noscript>
+        <p class="noscript-note">备份/还原需要 JavaScript 才能读写存档文件。<a href="index.html">返回游戏中心</a></p>
+    </noscript>
+</body>
+</html>
