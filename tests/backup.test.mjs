@@ -1,134 +1,155 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
 
-// 从 backup.html 提取内联 <script>（无 src 的那块），用 vm 执行真实代码
-const html = readFileSync(new URL('../backup.html', import.meta.url), 'utf8');
-const m = html.match(/<script>([\s\S]*?)<\/script>/);
-assert.ok(m, '未找到 backup.html 的内联脚本');
-const scriptSource = m[1];
+// 以 ES module 方式加载 js/backup.js，对象挂在主 realm 的 globalThis.BBKBackup
+await import('../js/backup.js');
+const B = globalThis.BBKBackup;
+const { SAVE_PROFILES } = B;
 
-function setup(initial = {}) {
-    const localStorage = {
-        ...initial,
-        getItem(key) { return key in this ? this[key] : null; },
-        setItem(key, value) { this[key] = String(value); },
-        removeItem(key) { delete this[key]; },
+// localStorage-like 存储：get 返回原始值（缺失为 null），set 写入
+function makeStore(initial = {}) {
+    const s = { ...initial };
+    return {
+        get: (k) => (k in s ? s[k] : null),
+        set(k, v) { s[k] = String(v); },
+        raw: s,
     };
-    let lastBlob = null;
-    class Blob { constructor(parts) { this.parts = parts; lastBlob = this; } }
-    const document = {
-        createElement: () => ({ click() {}, remove() {} }),
-        body: { appendChild() {} },
-    };
-    class FileReader {
-        readAsText(file) {
-            this.result = file.content; // 真实浏览器完成后 reader.result 即文件文本
-            this.onload({ target: { result: file.content } });
-        }
-    }
-    const chain = {
-        text() { return this; },
-        addClass() { return this; },
-        removeClass() { return this; },
-        prop() { return this; },
-        attr() { return this; },
-        toggleClass() { return this; },
-        html() { return this; },
-        each() { return this; },
-        data() { return null; },
-    };
-    const context = {
-        window: { localStorage },
-        localStorage,
-        document,
-        console: { log() {}, warn() {} },
-        alert() {},
-        Blob,
-        URL: { createObjectURL: () => 'blob:x', revokeObjectURL() {} },
-        FileReader,
-        $: () => chain,
-        getLibName: () => '霸哥自制版',
-        getLibPath: () => 'libs/sc-mod.lib',
-    };
-    vm.runInNewContext(scriptSource, context);
-    context.storage = localStorage;
-    context.lastBlob = () => lastBlob;
-    return context;
 }
 
-test('exportSlot 把存档槽序列化为标准 JSON', () => {
-    const ctx = setup({
+test('baye 导出：槽 0 序列化为标准 payload（双文件 + 版本）', () => {
+    const store = makeStore({
         'baye//data//sango0.sav': 'AAA',
         'baye//data//sango1.sav': 'BBB',
+        'baye/libname': '霸哥自制版',
+        'baye/libpath': 'libs/sc-mod.lib',
     });
-    ctx.exportSlot(0);
-
-    const blob = ctx.lastBlob();
-    assert.ok(blob, '应生成下载 Blob');
-    const data = JSON.parse(blob.parts[0]);
-    assert.equal(data.app, 'bbk-games');
-    assert.equal(data.type, 'sango-save-slot');
-    assert.equal(data.ver, 1);
-    assert.equal(data.slot, 0);
-    assert.equal(data.libname, '霸哥自制版');
-    assert.equal(data.libpath, 'libs/sc-mod.lib');
-    assert.deepEqual(data.files, ['AAA', 'BBB']);
+    const payload = B.buildExportPayload(SAVE_PROFILES.baye, 0, store.get);
+    assert.equal(payload.app, 'bbk-games');
+    assert.equal(payload.type, 'bbk-save-slot');
+    assert.equal(payload.ver, 2);
+    assert.equal(payload.game, 'baye');
+    assert.equal(payload.gameName, '三国霸业');
+    assert.equal(payload.slot, 0);
+    assert.deepEqual(payload.files, ['AAA', 'BBB']);
+    assert.deepEqual(payload.version, {
+        'baye/libname': '霸哥自制版',
+        'baye/libpath': 'libs/sc-mod.lib',
+    });
 });
 
-test('exportSlot 遇到空槽不生成下载', () => {
-    const ctx = setup({});
-    ctx.exportSlot(1);
-    assert.equal(ctx.lastBlob(), null);
+test('baye 空槽不导出', () => {
+    const store = makeStore({});
+    assert.equal(B.buildExportPayload(SAVE_PROFILES.baye, 1, store.get), null);
 });
 
-test('还原往返：导出后还原到另一槽，存档内容与版本均恢复', () => {
-    const ctx = setup({
+test('fmj 导出：槽 0 单文件、无版本', () => {
+    const store = makeStore({ 'sav/fmjsave0': 'FMJ-DATA' });
+    const payload = B.buildExportPayload(SAVE_PROFILES.fmj, 0, store.get);
+    assert.equal(payload.game, 'fmj');
+    assert.equal(payload.gameName, 'RPG（伏魔记等）');
+    assert.deepEqual(payload.files, ['FMJ-DATA']);
+    assert.equal(payload.version, undefined);
+});
+
+test('fmj 空槽不导出', () => {
+    const store = makeStore({});
+    assert.equal(B.buildExportPayload(SAVE_PROFILES.fmj, 0, store.get), null);
+});
+
+test('baye 往返：导出后还原到另一槽，存档与版本均恢复', () => {
+    const store = makeStore({
         'baye//data//sango0.sav': 'AAA',
         'baye//data//sango1.sav': 'BBB',
+        'baye/libname': '霸哥自制版',
+        'baye/libpath': 'libs/sc-mod.lib',
     });
-    ctx.exportSlot(0);
-    const json = ctx.lastBlob().parts[0];
+    const payload = B.buildExportPayload(SAVE_PROFILES.baye, 0, store.get);
 
-    // 模拟换设备/清缓存：清空原槽
-    delete ctx.storage['baye//data//sango0.sav'];
-    delete ctx.storage['baye//data//sango1.sav'];
+    // 模拟换设备：清空原槽
+    delete store.raw['baye//data//sango0.sav'];
+    delete store.raw['baye//data//sango1.sav'];
 
-    // 上传文件 → 选目标槽 2（sango4/sango5）→ 还原
-    ctx.onFilePicked({ files: [{ content: json }] });
-    ctx.pickSlot(2);
-    ctx.doRestore();
-
-    assert.equal(ctx.storage['baye//data//sango4.sav'], 'AAA');
-    assert.equal(ctx.storage['baye//data//sango5.sav'], 'BBB');
-    assert.equal(ctx.storage['baye/libname'], '霸哥自制版');
-    assert.equal(ctx.storage['baye/libpath'], 'libs/sc-mod.lib');
+    // 还原到槽 2（sango4 / sango5）
+    const parsed = B.parseBackup(payload);
+    assert.equal(parsed.profileId, 'baye');
+    const ok = B.applyRestore(SAVE_PROFILES.baye, 2, parsed.files, parsed.version, store.set);
+    assert.equal(ok, true);
+    assert.equal(store.raw['baye//data//sango4.sav'], 'AAA');
+    assert.equal(store.raw['baye//data//sango5.sav'], 'BBB');
+    assert.equal(store.raw['baye/libname'], '霸哥自制版');
+    assert.equal(store.raw['baye/libpath'], 'libs/sc-mod.lib');
 });
 
-test('还原非法文件时不写入任何存档', () => {
-    const ctx = setup({});
-    ctx.onFilePicked({ files: [{ content: '不是存档' }] });
-    ctx.doRestore();
-    assert.equal(ctx.storage['baye//data//sango0.sav'], undefined);
+test('fmj 往返：导出后还原到另一槽', () => {
+    const store = makeStore({ 'sav/fmjsave0': 'FMJ1' });
+    const payload = B.buildExportPayload(SAVE_PROFILES.fmj, 0, store.get);
+    delete store.raw['sav/fmjsave0'];
+
+    const parsed = B.parseBackup(payload);
+    assert.equal(parsed.profileId, 'fmj');
+    assert.equal(parsed.version, null);
+    const ok = B.applyRestore(SAVE_PROFILES.fmj, 2, parsed.files, parsed.version, store.set);
+    assert.equal(ok, true);
+    assert.equal(store.raw['sav/fmjsave2'], 'FMJ1');
 });
 
-test('备份文件可跨任意 Unicode 内容无损往返', () => {
+test('向后兼容：旧 sango-save-slot 文件可还原到 baye', () => {
+    const store = makeStore({});
+    const legacy = {
+        app: 'bbk-games',
+        type: 'sango-save-slot',
+        ver: 1,
+        libname: '霸哥自制版',
+        libpath: 'libs/sc-mod.lib',
+        slot: 0,
+        files: ['AAA', 'BBB'],
+    };
+    const parsed = B.parseBackup(legacy);
+    assert.equal(parsed.profileId, 'baye');
+    assert.deepEqual(parsed.version, {
+        'baye/libname': '霸哥自制版',
+        'baye/libpath': 'libs/sc-mod.lib',
+    });
+    const ok = B.applyRestore(SAVE_PROFILES.baye, 1, parsed.files, parsed.version, store.set);
+    assert.equal(ok, true);
+    assert.equal(store.raw['baye//data//sango2.sav'], 'AAA');
+    assert.equal(store.raw['baye//data//sango3.sav'], 'BBB');
+    assert.equal(store.raw['baye/libname'], '霸哥自制版');
+});
+
+test('非法 / 不匹配的备份不被解析', () => {
+    assert.equal(B.parseBackup(null), null);
+    assert.equal(B.parseBackup({ type: 'unknown' }), null);
+    assert.equal(B.parseBackup({ type: 'bbk-save-slot', game: 'unknown', files: ['x'] }), null);
+    assert.equal(B.parseBackup({ type: 'bbk-save-slot', game: 'baye', files: [] }), null);
+    assert.equal(B.parseBackup({ type: 'sango-save-slot', files: ['only-one'] }), null);
+});
+
+test('备份可跨任意 Unicode 内容无损往返', () => {
     const tricky = '含.点号/斜杠"引号"及 emoji🎮 与换行\n的数据';
-    const ctx = setup({
+    const store = makeStore({
         'baye//data//sango2.sav': tricky,
         'baye//data//sango3.sav': 'XYZ',
     });
-    ctx.exportSlot(1);
-    const json = ctx.lastBlob().parts[0];
+    const payload = B.buildExportPayload(SAVE_PROFILES.baye, 1, store.get);
+    delete store.raw['baye//data//sango2.sav'];
+    delete store.raw['baye//data//sango3.sav'];
 
-    delete ctx.storage['baye//data//sango2.sav'];
-    delete ctx.storage['baye//data//sango3.sav'];
+    const parsed = B.parseBackup(payload);
+    B.applyRestore(SAVE_PROFILES.baye, 1, parsed.files, parsed.version, store.set);
+    assert.equal(store.raw['baye//data//sango2.sav'], tricky);
+    assert.equal(store.raw['baye//data//sango3.sav'], 'XYZ');
+});
 
-    ctx.onFilePicked({ files: [{ content: json }] });
-    ctx.pickSlot(1);
-    ctx.doRestore();
+test('fileName 含游戏 id 与槽位', () => {
+    assert.equal(B.fileName(SAVE_PROFILES.baye, 0, '20260724'), 'bbk-baye-save-1-20260724.sav');
+    assert.equal(B.fileName(SAVE_PROFILES.fmj, 2, '20260724'), 'bbk-fmj-save-3-20260724.sav');
+});
 
-    assert.equal(ctx.storage['baye//data//sango2.sav'], tricky);
-    assert.equal(ctx.storage['baye//data//sango3.sav'], 'XYZ');
+test('还原写入失败时中止并返回 false', () => {
+    const store = makeStore({ 'sav/fmjsave0': 'X' });
+    const payload = B.buildExportPayload(SAVE_PROFILES.fmj, 0, store.get);
+    const parsed = B.parseBackup(payload);
+    const failWrite = () => false;
+    assert.equal(B.applyRestore(SAVE_PROFILES.fmj, 1, parsed.files, parsed.version, failWrite), false);
 });
