@@ -1,27 +1,87 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <title>选择ROM</title>
-    <link rel="stylesheet" type="text/css" href="views/baye.css" />
-    <meta content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" id="viewport" name="viewport">
-    <script src="js/jquery.min.js"></script>
-    <script>
-        $(function(){
-            $("button").click(function(){
-                window.location.href = "games/" + $(this).text();
-            });
-        });
-    </script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#dfe3d1">
+    <meta name="description" content="选择 RPG 游戏">
+    <title>选择游戏 · RPG</title>
+    <link rel="icon" href="../favicon.png">
+    <link rel="stylesheet" href="../css/portal.css">
 </head>
 <body>
+    <main class="device-shell utility-shell">
+        <header class="device-header">
+            <a class="brand" href="../index.html" aria-label="返回 BBK 经典游戏首页">
+                <span class="brand-mark">BBK</span>
+                <span>经典游戏</span>
+            </a>
+            <span class="power-light" aria-hidden="true"></span>
+        </header>
 
-<div id="list">
-        <button class="btn menu" type="button">伏魔记</button>
-        <button class="btn menu" type="button">金庸群侠传</button>
-        <button class="btn menu" type="button">赤壁之战之乱世枭雄</button>
-        <button class="btn menu" type="button">赤壁之战之谁与争锋</button>
-        <button class="btn menu" type="button">侠客行</button>
-</div>
+        <section class="lcd-panel" aria-labelledby="page-title">
+            <p class="lcd-kicker">GAME 04 / RPG SELECT</p>
+            <h1 id="page-title">选择游戏<span aria-hidden="true">_</span></h1>
+            <p class="lcd-help">选择一个 RPG 游戏开始</p>
+        </section>
+
+        <section class="game-section" aria-labelledby="game-list-title">
+            <div class="section-heading">
+                <h2 id="game-list-title">RPG 游戏</h2>
+                <span>5 GAMES</span>
+            </div>
+            <div class="game-grid">
+                <a class="game-card game-link" href="games/伏魔记/" data-game="fumo">
+                    <span class="game-key" aria-hidden="true">01</span>
+                    <span class="game-copy">
+                        <strong>伏魔记</strong>
+                        <small>回合制 · 经典 RPG</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </a>
+
+                <a class="game-card game-link" href="games/金庸群侠传/" data-game="jyx">
+                    <span class="game-key" aria-hidden="true">02</span>
+                    <span class="game-copy">
+                        <strong>金庸群侠传</strong>
+                        <small>开放世界 · 武侠</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </a>
+
+                <a class="game-card game-link" href="games/赤壁之战之乱世枭雄/" data-game="cb1">
+                    <span class="game-key" aria-hidden="true">03</span>
+                    <span class="game-copy">
+                        <strong>赤壁之战之乱世枭雄</strong>
+                        <small>策略 · 三国战役</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </a>
+
+                <a class="game-card game-link" href="games/赤壁之战之谁与争锋/" data-game="cb2">
+                    <span class="game-key" aria-hidden="true">04</span>
+                    <span class="game-copy">
+                        <strong>赤壁之战之谁与争锋</strong>
+                        <small>策略 · 三国战役</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </a>
+
+                <a class="game-card game-link" href="games/侠客行/" data-game="xiakexing">
+                    <span class="game-key" aria-hidden="true">05</span>
+                    <span class="game-copy">
+                        <strong>侠客行</strong>
+                        <small>武侠 · 奇遇冒险</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </a>
+            </div>
+        </section>
+
+        <footer class="device-footer utility-footer">
+            <span>GAME 04</span>
+            <a class="footer-link" href="../index.html">‹ 返回游戏中心</a>
+        </footer>
+    </main>
 </body>
 </html>
