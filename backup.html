@@ -227,10 +227,12 @@
             <span class="power-light" aria-hidden="true"></span>
         </header>
 
-        <section class="lcd-panel" aria-labelledby="page-title">
+        <section class="lcd-panel" id="result" aria-labelledby="page-title" aria-live="polite" aria-atomic="true">
             <p class="lcd-kicker">BACKUP &amp; RESTORE</p>
             <h1 id="page-title">备份 / 还原<span aria-hidden="true">_</span></h1>
-            <p class="lcd-help"><span id="page-game-name">游戏</span> · 导出存档槽为文件备份，或上传文件还原</p>
+            <p id="lib-name" class="lcd-version">当前版本：—</p>
+            <h2 id="result-title" class="lcd-result-title">等待操作</h2>
+            <p id="result-help" class="lcd-result-help"><span id="page-game-name">游戏</span> · 导出存档槽为文件备份，或上传文件还原</p>
         </section>
 
         <section class="game-section" aria-labelledby="backup-title">
@@ -263,12 +265,6 @@
 
             <button type="button" class="restore-btn" id="restore-btn" disabled
                     onclick="doRestore()">还原存档</button>
-        </section>
-
-        <section id="result" class="transfer-panel" aria-live="polite" aria-atomic="true">
-            <p class="transfer-version" id="lib-name">当前版本：—</p>
-            <h2 id="result-title">等待操作</h2>
-            <p class="transfer-help" id="result-help">先导出存档做备份，或选择备份文件还原到目标存档槽。</p>
         </section>
 
         <footer class="device-footer utility-footer">
