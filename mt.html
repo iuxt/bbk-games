@@ -5,8 +5,46 @@
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
         <title>魔塔</title>
         <link rel="icon" href="favicon.png">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+        <meta name="apple-mobile-web-app-capable" content="yes">
         <link rel="stylesheet" type="text/css" href="css/flex-layout-attribute.css" />
         <link rel="stylesheet" type="text/css" href="css/baye.css" />
+        <style>
+            /* 虚拟按键 - 默认隐藏，移动端显示 */
+            #touchpad {
+                display: none;
+                max-width: 480px;
+                margin: 12px auto 0;
+                padding: 0 8px;
+                box-sizing: border-box;
+            }
+            #touchpad .kb-row {
+                display: flex;
+                gap: 6px;
+                margin-top: 6px;
+            }
+            #touchpad .btn {
+                flex: 1;
+                height: 52px;
+                border: 0;
+                border-radius: 6px;
+                font-size: 16px;
+                color: #fff;
+                cursor: pointer;
+                -webkit-tap-highlight-color: transparent;
+                -webkit-appearance: none;
+            }
+            #touchpad .btn:active { opacity: 0.65; }
+            #touchpad .btn.nav   { background: #aaaaaa; } /* 方向键 */
+            #touchpad .btn.fn    { background: #3d9970; } /* 帮助/查找 */
+            #touchpad .btn.enter { background: #0074d9; } /* 输入 */
+            #touchpad .btn.exit  { background: #ff851b; } /* 返回 */
+            /* 窄屏 / 触屏：显示虚拟按键，隐藏键盘说明，LCD 自适应 */
+            @media (max-width: 768px), (hover: none) and (pointer: coarse) {
+                .mt-keyhelp { display: none; }
+                #touchpad { display: block; }
+            }
+        </style>
         <script src="js/jquery.min.js"></script>
         <script src="js/encoding-indexes.js"></script>
         <script src="js/encoding.js"></script>
@@ -16,7 +54,7 @@
     </head>
     <body>
         <div layout="row center-center" >
-            <div class="container" style="width:480px">
+            <div class="container" style="max-width:480px;width:100%">
                 <div class="dummy"></div>
                 <div class="element lcd">
                     <canvas class="fill" id="lcd" width="160" height="96">然而你的浏览器并不支持HTML5</canvas>
@@ -25,8 +63,8 @@
         </div>
         <p></p>
         <div layout="row center-center" >
-            <div style="width:480px" >
-                <div layout="row center-stretch">
+            <div style="max-width:480px;width:100%" >
+                <div class="mt-keyhelp" layout="row center-stretch">
                     <div layout="column center-left" style="font-size:14px;line-height:140%" >
                         <div><h2>按键说明:</h2></div>
                         <div>电脑键盘 -> 电子词典</div>
@@ -37,19 +75,43 @@
                         <div>空格键 -> 返回</div>
                     </div>
                 </div>
-                <br>
-                <br>
+                <br class="mt-keyhelp">
+                <br class="mt-keyhelp">
                 <div id="lib-name"></div>
+            </div>
+        </div>
+
+        <div id="touchpad">
+            <div class="kb-row">
+                <button class="btn fn"    type="button" ontap="sendKey(VK_HELP)">帮助</button>
+                <button class="btn nav"   type="button" ontap="sendKey(VK_UP)">↑</button>
+                <button class="btn fn"    type="button" ontap="sendKey(VK_SEARCH)">查找</button>
+            </div>
+            <div class="kb-row">
+                <button class="btn nav"   type="button" ontap="sendKey(VK_LEFT)">←</button>
+                <button class="btn nav"   type="button" ontap="sendKey(VK_DOWN)">↓</button>
+                <button class="btn nav"   type="button" ontap="sendKey(VK_RIGHT)">→</button>
+            </div>
+            <div class="kb-row">
+                <button class="btn exit"  type="button" ontap="sendKey(VK_EXIT)">返回</button>
+                <button class="btn enter" type="button" ontap="sendKey(VK_ENTER)">输入</button>
             </div>
         </div>
     </body>
 </html>
 <script src="js/lcd.js?ver=11"></script>
 <script src="js/mtower.js?ver=201801201234"></script>
+<script src="js/tappy.js"></script>
 <script>
     window.bayeStart = undefined;
     lcdSetDotSize(1);
     _main();
     document.onkeydown = onKeyDown;
+
+    // 虚拟按键：把 ontap 绑定到 tappy 的 tap 事件（与 m-ktouch.html 同款）
+    $(".btn").each(function () {
+        var action = $(this).attr("ontap");
+        $(this).bind("tap", function () { eval(action); });
+    });
 </script>
 
