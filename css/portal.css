@@ -30,6 +30,7 @@ body {
 
 a { color: inherit; }
 button, select { font: inherit; }
+button { color: inherit; }
 
 .sr-only {
     position: absolute;
@@ -136,6 +137,8 @@ button, select { font: inherit; }
 .section-heading h2 { margin: 0; font-size: 15px; }
 .section-heading span { font: 700 9px/1 ui-monospace, monospace; opacity: .52; }
 .game-grid { display: grid; gap: 10px; }
+.action-list,
+.save-grid { display: grid; gap: 10px; }
 
 .game-card {
     min-width: 0;
@@ -156,10 +159,24 @@ button, select { font: inherit; }
     transition: transform .16s ease, background-color .16s ease;
 }
 
+.save-action,
+.version-main {
+    width: 100%;
+    border: 0;
+    text-align: left;
+    cursor: pointer;
+}
+
+.save-action {
+    position: relative;
+    background: var(--paper);
+}
+
 .game-key {
     display: grid;
     place-items: center;
     flex: 0 0 48px;
+    width: 48px;
     height: 48px;
     border-radius: 8px;
     color: #dbe1c3;
@@ -200,6 +217,112 @@ button, select { font: inherit; }
 
 .device-footer span { font: 800 9px/1 ui-monospace, monospace; letter-spacing: .08em; }
 .device-footer p { margin: 0; font-size: 10px; opacity: .62; text-align: right; }
+
+.utility-shell { max-width: 760px; }
+
+.version-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    overflow: hidden;
+}
+
+.version-main { background: transparent; }
+.version-main:disabled { cursor: wait; opacity: .7; }
+.version-key { font-size: 10px; letter-spacing: .06em; }
+
+.detail-key {
+    width: 42px;
+    height: 42px;
+    margin-right: 8px;
+    border-radius: 8px;
+    font: 800 15px/1 ui-monospace, monospace;
+}
+
+.version-detail {
+    grid-column: 1 / -1;
+    padding: 13px 15px 15px;
+    border-top: 1px dashed rgba(46,56,43,.27);
+    background: rgba(197,208,155,.48);
+    font-size: 12px;
+    line-height: 1.65;
+}
+
+.loading-card {
+    padding: 22px;
+    border: 1px dashed rgba(48,59,46,.25);
+    border-radius: 12px;
+    background: var(--paper);
+    font-size: 12px;
+    text-align: center;
+    opacity: .65;
+}
+
+.transfer-panel {
+    margin-top: 16px;
+    padding: 17px;
+    border: 2px solid #63705e;
+    border-radius: 10px;
+    background: var(--lcd);
+    box-shadow: inset 0 0 0 2px #98a27e;
+}
+
+.transfer-version {
+    margin: 0 0 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed rgba(46,56,43,.27);
+    font: 800 10px/1.2 ui-monospace, monospace;
+    letter-spacing: .04em;
+    opacity: .65;
+}
+
+.transfer-panel h2 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.transfer-url {
+    min-height: 24px;
+    margin-top: 8px;
+    overflow-wrap: anywhere;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.transfer-url a {
+    display: inline-block;
+    padding: 9px 12px;
+    border: 1px solid #505a4c;
+    border-radius: 7px;
+    color: #eef0e7;
+    background: var(--key);
+    box-shadow: inset 0 -3px 0 var(--key-edge);
+    text-decoration: none;
+}
+
+.transfer-help {
+    margin: 10px 0 0;
+    font-size: 11px;
+    line-height: 1.55;
+    opacity: .68;
+}
+
+.transfer-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 12px;
+    margin-top: 11px;
+    font: 700 9px/1.3 ui-monospace, monospace;
+    opacity: .45;
+}
+
+.utility-footer { min-height: 36px; }
+
+.footer-link {
+    font-size: 11px;
+    font-weight: 800;
+    text-decoration: none;
+}
 
 .dialog-overlay {
     position: fixed;
@@ -288,7 +411,7 @@ button, select { font: inherit; }
 .noscript-note { width: min(100%, 980px); margin: 12px auto 0; font-size: 12px; text-align: center; }
 
 .game-link:hover { background: rgba(255,255,255,.2); }
-.game-link:active, .device-button:active, .settings-key:active, .close-key:active { transform: translateY(2px); }
+.game-link:active, .device-button:active, .settings-key:active, .close-key:active, .transfer-url a:active { transform: translateY(2px); }
 
 :focus-visible {
     outline: 3px solid var(--focus);
@@ -300,6 +423,16 @@ button, select { font: inherit; }
     .device-shell { padding: 28px; }
     .lcd-panel { padding: 32px 28px; }
     .game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .save-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .save-action {
+        align-items: flex-start;
+        flex-direction: column;
+        min-height: 142px;
+    }
+    .save-action .game-arrow {
+        position: absolute;
+        align-self: flex-end;
+    }
     .dialog-overlay:not([hidden]) { align-items: center; }
     .settings-dialog { border-radius: 20px; padding: 22px; }
 }

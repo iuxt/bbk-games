@@ -1,20 +1,14 @@
-<!DOCTYPE html>
-
-<html lang="en">
+<!doctype html>
+<html lang="zh-CN">
 <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>导出存档网址</title>
-    <link rel="stylesheet" type="text/css" href="css/baye.css" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#dfe3d1">
+    <meta name="description" content="生成三国霸业存档传送链接">
+    <title>传送存档 · 三国霸业</title>
     <link rel="icon" href="favicon.png">
-    <meta content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" id="viewport" name="viewport">
-    <style>
-        .btn.menu {
-            margin-bottom: 2px;
-        }
-        #url {
-            font-size: 30px;
-        }
-    </style>
+    <link rel="stylesheet" href="css/portal.css">
+
     <script src="js/jquery.min.js"></script>
     <script src="js/lzma_worker-min.js"></script>
     <script src="js/base64.js"></script>
@@ -22,26 +16,26 @@
     <script src="js/spin.min.js"></script>
     <script>
         var opts = {
-              lines: 13 // The number of lines to draw
-            , length: 28 // The length of each line
-            , width: 14 // The line thickness
-            , radius: 42 // The radius of the inner circle
-            , scale: 1 // Scales overall size of the spinner
-            , corners: 1 // Corner roundness (0..1)
-            , color: '#000' // #rgb or #rrggbb or array of colors
-            , opacity: 0.25 // Opacity of the lines
-            , rotate: 0 // The rotation offset
-            , direction: 1 // 1: clockwise, -1: counterclockwise
-            , speed: 1 // Rounds per second
-            , trail: 60 // Afterglow percentage
-            , fps: 20 // Frames per second when using setTimeout() as a fallback for CSS
-            , zIndex: 2e9 // The z-index (defaults to 2000000000)
-            , className: 'spinner' // The CSS class to assign to the spinner
-            , top: '50%' // Top position relative to parent
-            , left: '50%' // Left position relative to parent
-            , shadow: true // Whether to render a shadow
-            , hwaccel: true // Whether to use hardware acceleration
-            , position: 'absolute' // Element positioning
+              lines: 13
+            , length: 28
+            , width: 14
+            , radius: 42
+            , scale: 1
+            , corners: 1
+            , color: '#253024'
+            , opacity: 0.25
+            , rotate: 0
+            , direction: 1
+            , speed: 1
+            , trail: 60
+            , fps: 20
+            , zIndex: 2e9
+            , className: 'spinner'
+            , top: '50%'
+            , left: '50%'
+            , shadow: true
+            , hwaccel: true
+            , position: 'absolute'
         };
         var spinner = new Spinner(opts);
 
@@ -54,7 +48,7 @@
         }
 
         function dump(n) {
-            return getfile(n*2) + '.' + getfile(n*2+1);
+            return getfile(n * 2) + '.' + getfile(n * 2 + 1);
         }
 
         function relPathToAbs(sRelPath) {
@@ -73,66 +67,116 @@
         }
 
         function upload(n) {
-            var self = $(this);
             spinner.spin(document.body);
 
-            setTimeout(function(){
+            setTimeout(function() {
                 var data = dump(n);
 
-                $("#osize").html('origin:' + data.length);
+                $("#osize").text("原始数据：" + data.length);
 
                 if (data.length < 100) {
-                    $("#url-title").html("");
-                    $("#url").html("该存档为空!");
+                    $("#url-title").text("");
+                    $("#url").text("这个存档槽还是空的");
                     spinner.stop();
                     return;
                 }
 
-                $("#result").html("请求中...");
+                $("#url-title").text("正在生成传送链接…");
+                $("#url").text("");
                 var result = LZMA.compress(data, 9);
-
                 var b64data = Base64.encode(result);
 
-                $("#zsize").html('result:' + result.length);
-                $("#bsize").html('b64data:' + b64data.length);
+                $("#zsize").text("压缩数据：" + result.length);
+                $("#bsize").text("链接数据：" + b64data.length);
 
                 var libName = getLibName();
                 var loadUrl = relPathToAbs("load.html?sav=" + b64data + '&name=' + libName);
 
-                function showLongUrl(url, n) {
-                    $("#url-title").html("已生成存档" + (n + 1) + "的长网址，点击后请返回当前游戏版本【" + libName + "】并载入第四个存档:");
-                    $("#url").html('<a href="' + url + '">' + "长按复制链接" + '</a>');
-                }
-
-                // 原 http://50r.cn 短网址服务为明文 http，在 https 站点会被混合内容策略阻断，
-                // 且服务可能已失效，故移除短网址分支，仅生成长网址
+                $("#url-title").text("已生成存档" + (n + 1) + "的传送链接");
+                $("#url").empty().append(
+                    $("<a>")
+                        .attr("href", loadUrl)
+                        .text("打开或长按复制链接")
+                );
+                $("#result-help").text("打开链接后，请返回当前游戏版本“" + libName + "”并载入第四个存档。");
                 spinner.stop();
-                showLongUrl(loadUrl, n);
             }, 10);
         }
-    </script>
-    <script>
-        $(function(){
-            var libName = getLibName();
-            $("#lib-name").html("当前版本: " + libName);
+
+        $(function() {
+            $("#lib-name").text("当前版本：" + getLibName());
         });
     </script>
 </head>
 <body>
+    <main class="device-shell utility-shell">
+        <header class="device-header">
+            <a class="brand" href="index.html" aria-label="返回 BBK 经典游戏首页">
+                <span class="brand-mark">BBK</span>
+                <span>经典游戏</span>
+            </a>
+            <span class="power-light" aria-hidden="true"></span>
+        </header>
 
-    <button class="btn menu" type="button" onclick="upload(0)">导出存档1</button>
-    <button class="btn menu" type="button" onclick="upload(1)">导出存档2</button>
-    <button class="btn menu" type="button" onclick="upload(2)">导出存档3</button>
+        <section class="lcd-panel" aria-labelledby="page-title">
+            <p class="lcd-kicker">GAME 01 / SAVE TRANSFER</p>
+            <h1 id="page-title">传送存档<span aria-hidden="true">_</span></h1>
+            <p class="lcd-help">选择存档槽，生成可复制的传送链接</p>
+        </section>
 
-    <div >
-        <div id="lib-name"></div>
-        <div id="url-title"></div>
-        <div id="url"></div>
-        <br>
-        <div id="osize"></div>
-        <div id="zsize"></div>
-        <div id="bsize"></div>
-    </div>
+        <section class="game-section" aria-labelledby="save-list-title">
+            <div class="section-heading">
+                <h2 id="save-list-title">选择存档槽</h2>
+                <span>3 SLOTS</span>
+            </div>
+            <div class="save-grid">
+                <button class="game-card game-link save-action" type="button" onclick="upload(0)">
+                    <span class="game-key" aria-hidden="true">01</span>
+                    <span class="game-copy">
+                        <strong>导出存档 1</strong>
+                        <small>生成传送链接</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </button>
+                <button class="game-card game-link save-action" type="button" onclick="upload(1)">
+                    <span class="game-key" aria-hidden="true">02</span>
+                    <span class="game-copy">
+                        <strong>导出存档 2</strong>
+                        <small>生成传送链接</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </button>
+                <button class="game-card game-link save-action" type="button" onclick="upload(2)">
+                    <span class="game-key" aria-hidden="true">03</span>
+                    <span class="game-copy">
+                        <strong>导出存档 3</strong>
+                        <small>生成传送链接</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </button>
+            </div>
+        </section>
 
+        <section id="result" class="transfer-panel" aria-live="polite" aria-atomic="true">
+            <p id="lib-name" class="transfer-version">当前版本：步步高原版</p>
+            <h2 id="url-title">传送链接将在这里显示</h2>
+            <div id="url" class="transfer-url">请选择一个有内容的存档槽</div>
+            <p id="result-help" class="transfer-help">链接包含存档数据，请妥善保存。</p>
+            <div class="transfer-meta" aria-label="存档处理数据">
+                <span id="osize"></span>
+                <span id="zsize"></span>
+                <span id="bsize"></span>
+            </div>
+        </section>
+
+        <footer class="device-footer utility-footer">
+            <span>GAME 01</span>
+            <a class="footer-link" href="index.html">‹ 返回游戏中心</a>
+        </footer>
+    </main>
+
+    <noscript>
+        <p class="noscript-note">传送存档需要 JavaScript 才能生成链接。<a href="index.html">返回游戏中心</a></p>
+    </noscript>
 </body>
 </html>
