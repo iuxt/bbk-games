@@ -66,7 +66,7 @@
                 $("#result").removeClass("is-warn").addClass(kind === "warn" ? "is-warn" : "");
             }
 
-            // 导出存档槽 n 为 .sav 文件
+            // 导出存档槽 n 为 .json 文件
             function exportSlot(slot) {
                 var payload = B.buildExportPayload(profile, slot, readKey);
                 if (!payload) {
@@ -103,7 +103,7 @@
                     try {
                         data = JSON.parse(reader.result);
                     } catch (e) {
-                        rejectFile(file.name, "文件格式无效", "无法解析存档文件，请确认是本站导出的 .sav 文件。");
+                        rejectFile(file.name, "文件格式无效", "无法解析存档文件，请确认是本站导出的 .json 文件。");
                         return;
                     }
 
@@ -194,7 +194,7 @@
                         $("<button class=\"game-card game-link save-action\" type=\"button\"></button>")
                             .append('<span class="game-key" aria-hidden="true">' + key + "</span>")
                             .append('<span class="game-copy"><strong>导出存档 ' + (slot + 1) +
-                                    '</strong><small>下载为 .sav 文件</small></span>')
+                                    '</strong><small>下载为 .json 文件</small></span>')
                             .append('<span class="game-arrow" aria-hidden="true">›</span>')
                             .on("click", function () { exportSlot(slot); })
                             .appendTo($grid);
@@ -226,7 +226,7 @@
                 pendingRestore = null;
                 targetSlot = 0;
                 $("#restore-btn").prop("disabled", true);
-                $("#restore-file-name").text("点击选取 .sav 备份文件");
+                $("#restore-file-name").text("点击选取 .json 备份文件");
                 render();
             }
 
@@ -346,10 +346,13 @@
                 <span class="game-key" aria-hidden="true">↑</span>
                 <span class="game-copy">
                     <strong>选择存档文件</strong>
-                    <small id="restore-file-name">点击选取 .sav 备份文件</small>
+                    <small id="restore-file-name">点击选取 .json 备份文件</small>
                 </span>
                 <span class="game-arrow" aria-hidden="true">›</span>
-                <input type="file" accept=".sav,.json,application/json" id="restore-file" hidden
+                <!-- 不设 accept：移动端文件选择器对 accept 过滤严格，且从 PC 传来或历史 .sav
+                     备份的后缀可能在传输中被改动。文件有效性由 onFilePicked 里的 JSON.parse +
+                     parseBackup 校验，无需依赖后缀过滤 -->
+                <input type="file" id="restore-file" hidden
                        onclick="this.value=null" onchange="onFilePicked(this)">
             </label>
 

@@ -236,10 +236,10 @@
         return true;
     }
 
-    // 备份文件名：bbk-{game}-save-{slot+1}-{stamp}.sav（id 中的 / 转为 -）
+    // 备份文件名：bbk-{game}-save-{slot+1}-{stamp}.json（id 中的 / 转为 -）
     function fileName(profile, slot, stamp) {
         var id = profile.id.replace(/\//g, "-");
-        return "bbk-" + id + "-save-" + (slot + 1) + "-" + stamp + ".sav";
+        return "bbk-" + id + "-save-" + (slot + 1) + "-" + stamp + ".json";
     }
 
     global.BBKBackup = {

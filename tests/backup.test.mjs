@@ -274,11 +274,11 @@ test('备份可跨任意 Unicode 内容无损往返', () => {
 });
 
 test('fileName 含游戏 id 与槽位，id 中的斜杠转为横杠', () => {
-    assert.equal(B.fileName(SGBY, 0, '20260724'), 'bbk-baye-SGBY-save-1-20260724.sav');
-    assert.equal(B.fileName(SCMOD, 2, '20260724'), 'bbk-baye-sc-mod-save-3-20260724.sav');
+    assert.equal(B.fileName(SGBY, 0, '20260724'), 'bbk-baye-SGBY-save-1-20260724.json');
+    assert.equal(B.fileName(SCMOD, 2, '20260724'), 'bbk-baye-sc-mod-save-3-20260724.json');
     assert.equal(
         B.fileName(SAVE_PROFILES['fmj/伏魔记'], 2, '20260724'),
-        'bbk-fmj-伏魔记-save-3-20260724.sav'
+        'bbk-fmj-伏魔记-save-3-20260724.json'
     );
 });
 
