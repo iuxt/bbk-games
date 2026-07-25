@@ -96,7 +96,7 @@ class ChooseMarkupTests(unittest.TestCase):
             self.parser.scripts,
             [
                 "js/jquery.min.js",
-                "js/lcd.js?ver=12",
+                "js/lcd.js?ver=13",
                 "js/base64.js",
                 "js/portal.js",
             ],

@@ -10,17 +10,26 @@
     <link rel="stylesheet" href="css/portal.css">
 
     <script src="js/jquery.min.js"></script>
-    <script src="js/lcd.js?ver=11"></script>
-    <script src="js/backup.js?ver=1"></script>
+    <script src="js/lcd.js?ver=13"></script>
+    <script src="js/backup.js?ver=2"></script>
     <script>
-        // 通用存档备份 / 还原：按 ?game= 选择 profile（baye / fmj），槽位与版本由 profile 驱动
+        // 通用存档备份 / 还原：按 ?game= 选择 profile（baye / fmj / fmj/<游戏>），
+        // fmj 组显示游戏选择器，baye 按当前 lib 版本隔离存档
         $(function () {
             var B = window.BBKBackup;
-            var profile = B.getProfile(new URLSearchParams(location.search).get("game")) || B.SAVE_PROFILES.baye;
+
+            var param = new URLSearchParams(location.search).get("game") || "baye";
+            if (param === "fmj") param = "fmj/" + B.FMJ_GAMES[0];
+            var profile = B.getProfile(param) || B.SAVE_PROFILES.baye;
 
             // 门户编号（页眉 / 页脚显示用）
             var PORTAL_NO = { baye: "GAME 01", fmj: "GAME 04" };
-            var portalNo = PORTAL_NO[profile.id] || "GAME";
+            var portalNo = PORTAL_NO[profile.group] || "GAME";
+
+            // baye 的存档按当前 lib 版本隔离（与 lcd.js 的 bayeSaveKey 一致）
+            function ctx() {
+                return profile.group === "baye" && typeof getLibId === "function" ? getLibId() : "";
+            }
 
             var storage = window.localStorage;
             function readKey(k) { return storage.getItem(k); }
@@ -35,10 +44,13 @@
                 return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
             }
 
-            // baye 的版本显示名（fmj 无版本，返回 null）
-            function versionLabel() {
-                if (profile.versionKeys.indexOf("baye/libname") >= 0 && typeof getLibName === "function") {
-                    return getLibName();
+            // 版本/游戏显示名
+            function targetLabel() {
+                if (profile.group === "baye" && typeof getLibName === "function") {
+                    return "当前版本：" + getLibName() + "（存档按版本独立）";
+                }
+                if (profile.group === "fmj") {
+                    return "当前游戏：" + profile.name + "（存档按游戏独立）";
                 }
                 return null;
             }
@@ -51,7 +63,7 @@
 
             // 导出存档槽 n 为 .sav 文件
             function exportSlot(slot) {
-                var payload = B.buildExportPayload(profile, slot, readKey);
+                var payload = B.buildExportPayload(profile, slot, readKey, ctx());
                 if (!payload) {
                     showResult("存档 " + (slot + 1) + " 是空的",
                                "请先在游戏中存档，再回来备份。", "warn");
@@ -95,7 +107,7 @@
                         rejectFile(file.name, "存档格式错误", "这不是有效的 " + profile.name + " 存档备份。");
                         return;
                     }
-                    if (parsed.profileId !== profile.id) {
+                    if (!B.canRestore(parsed, profile)) {
                         var src = B.getProfile(parsed.profileId);
                         rejectFile(file.name, "存档类型不匹配",
                                    "该备份属于「" + (src ? src.name : parsed.profileId) +
@@ -113,8 +125,11 @@
                     $("#restore-btn").prop("disabled", false);
 
                     var fromSlot = (typeof parsed.slot === "number") ? (parsed.slot + 1) : "?";
-                    showResult("已读取存档文件",
-                               "来源：存档 " + fromSlot + "。选择目标槽后点「还原存档」。", "info");
+                    var help = "来源：存档 " + fromSlot + "。选择目标槽后点「还原存档」。";
+                    if (parsed.profileId === B.LEGACY_FMJ_ID) {
+                        help = "旧版备份未标注游戏，请确认当前选择的是正确的游戏。" + help;
+                    }
+                    showResult("已读取存档文件", help, "info");
                 };
                 reader.readAsText(file);
             }
@@ -143,14 +158,14 @@
                 if (!pendingRestore) return;
                 var parsed = pendingRestore;
 
-                var ok = B.applyRestore(profile, targetSlot, parsed.files, parsed.version, safeSet);
+                var ok = B.applyRestore(profile, targetSlot, parsed.files, parsed.version, safeSet, ctx());
                 if (!ok) {
                     showResult("存档写入失败",
                                "浏览器存储不可用（可能配额已满）。还原中止。", "warn");
                     return;
                 }
 
-                var note = "已写入存档 " + (targetSlot + 1) + "。";
+                var note = "已写入「" + profile.name + "」存档 " + (targetSlot + 1) + "。";
                 if (parsed.version) {
                     var lib = parsed.version["baye/libname"];
                     note += lib ? ("版本已切换为「" + lib + "」；") : "版本信息已恢复；";
@@ -194,26 +209,64 @@
                 }
             }
 
-            // 初始化页面文案
-            document.title = "备份 / 还原 · " + profile.name;
-            $(".lcd-kicker").text(portalNo + " / BACKUP & RESTORE");
-            $("#page-game-name").text(profile.name);
-            $("#portal-no-footer").text(portalNo);
-            var label = versionLabel();
-            if (label) {
-                $("#lib-name").text("当前版本：" + label).show();
-            } else {
-                $("#lib-name").hide();
+            // fmj 组：渲染游戏选择器，切换游戏即切换存档空间
+            function pickGame(id) {
+                var next = B.getProfile(id);
+                if (!next || next.id === profile.id) return;
+                profile = next;
+                pendingRestore = null;
+                targetSlot = 0;
+                $("#restore-btn").prop("disabled", true);
+                $("#restore-file-name").text("点击选取 .sav 备份文件");
+                render();
             }
-            renderExport();
-            renderSlotPicker();
+
+            function renderGamePicker() {
+                var $picker = $("#game-picker").empty();
+                for (var n = 0; n < B.FMJ_GAMES.length; n++) {
+                    (function (game) {
+                        var id = "fmj/" + game;
+                        $("<button type=\"button\" class=\"slot-chip game-chip\" data-game-id=\"" + id +
+                          "\">" + game + "</button>")
+                            .attr("aria-checked", id === profile.id ? "true" : "false")
+                            .toggleClass("is-active", id === profile.id)
+                            .on("click", function () { pickGame(id); })
+                            .appendTo($picker);
+                    })(B.FMJ_GAMES[n]);
+                }
+            }
+
+            function render() {
+                document.title = "备份 / 还原 · " + profile.name;
+                $("#page-game-name").text(profile.name);
+                var label = targetLabel();
+                if (label) {
+                    $("#lib-name").text(label).show();
+                } else {
+                    $("#lib-name").hide();
+                }
+                if (profile.group === "fmj") {
+                    $("#game-section").show();
+                    renderGamePicker();
+                } else {
+                    $("#game-section").hide();
+                }
+                renderExport();
+                renderSlotPicker();
+                window.__profile = profile;
+            }
+
+            // 初始化页面文案
+            $(".lcd-kicker").text(portalNo + " / BACKUP & RESTORE");
+            $("#portal-no-footer").text(portalNo);
+            render();
 
             // 暴露给测试与内联事件
             window.exportSlot = exportSlot;
             window.onFilePicked = onFilePicked;
             window.pickSlot = pickSlot;
+            window.pickGame = pickGame;
             window.doRestore = doRestore;
-            window.__profile = profile;
         });
     </script>
 </head>
@@ -233,6 +286,14 @@
             <p id="lib-name" class="lcd-version">当前版本：—</p>
             <h2 id="result-title" class="lcd-result-title">等待操作</h2>
             <p id="result-help" class="lcd-result-help"><span id="page-game-name">游戏</span> · 导出存档槽为文件备份，或上传文件还原</p>
+        </section>
+
+        <section class="game-section" id="game-section" aria-labelledby="game-picker-title" hidden>
+            <div class="section-heading">
+                <h2 id="game-picker-title">选择游戏</h2>
+                <span>GAMES</span>
+            </div>
+            <div class="slot-picker" id="game-picker" role="radiogroup" aria-label="目标游戏"></div>
         </section>
 
         <section class="game-section" aria-labelledby="backup-title">

@@ -112,3 +112,61 @@ test("chooseLib stores the new version before launching", () => {
     assert.equal(storage["baye/libpath"], "libs/SGBY.lib");
     assert.equal(pathAtRedirect, "libs/SGBY.lib");
 });
+
+test("bayeSaveKey namespaces save files per lib version", () => {
+    const context = loadLcd({ "baye/libpath": "libs/SGBY.lib" });
+
+    assert.equal(
+        context.bayeSaveKey("baye//data//sango0.sav"),
+        "baye//data//sango0.sav@SGBY"
+    );
+    // 版本设置项不做隔离
+    assert.equal(context.bayeSaveKey("baye/libname"), "baye/libname");
+});
+
+test("bayeSaveKey leaves keys untouched without a selected version", () => {
+    const context = loadLcd();
+
+    assert.equal(
+        context.bayeSaveKey("baye//data//sango0.sav"),
+        "baye//data//sango0.sav"
+    );
+});
+
+test("save and load use the versioned key of the current lib", () => {
+    const { context, storage } = loadLcd({
+        "baye/libpath": "libs/SGBY.lib",
+    });
+
+    context.bayeSaveFileContent("baye//data//sango0.sav", "save-data");
+
+    assert.equal(storage["baye//data//sango0.sav@SGBY"], "save-data");
+    assert.equal(storage["baye//data//sango0.sav"], undefined);
+    assert.equal(context.bayeLoadFileContent("baye//data//sango0.sav"), "save-data");
+});
+
+test("different lib versions have isolated save slots", () => {
+    const { context, storage } = loadLcd({ "baye/libpath": "libs/SGBY.lib" });
+    context.bayeSaveFileContent("baye//data//sango0.sav", "sgby-save");
+
+    // 模拟切换到另一个版本
+    storage["baye/libpath"] = "libs/whxf.lib";
+    context.bayeSaveFileContent("baye//data//sango0.sav", "whxf-save");
+
+    assert.equal(storage["baye//data//sango0.sav@SGBY"], "sgby-save");
+    assert.equal(storage["baye//data//sango0.sav@whxf"], "whxf-save");
+
+    storage["baye/libpath"] = "libs/SGBY.lib";
+    assert.equal(context.bayeLoadFileContent("baye//data//sango0.sav"), "sgby-save");
+    storage["baye/libpath"] = "libs/whxf.lib";
+    assert.equal(context.bayeLoadFileContent("baye//data//sango0.sav"), "whxf-save");
+});
+
+test("load falls back to legacy shared key when versioned slot is empty", () => {
+    const context = loadLcd({
+        "baye/libpath": "libs/SGBY.lib",
+        "baye//data//sango0.sav": "legacy-save",
+    });
+
+    assert.equal(context.bayeLoadFileContent("baye//data//sango0.sav"), "legacy-save");
+});

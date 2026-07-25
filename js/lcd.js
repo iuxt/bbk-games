@@ -175,6 +175,21 @@ function getLibPath() {
     return window.localStorage['baye/libpath'] || "";
 }
 
+// 当前版本的标识（如 "libs/SGBY.lib" → "SGBY"），用于隔离不同版本的存档
+function getLibId() {
+    var path = getLibPath();
+    if (!path) return "";
+    return path.split("/").pop().replace(/\.lib$/i, "");
+}
+
+// 存档按版本隔离：引擎的固定文件名映射为带版本后缀的 localStorage key，
+// 让三个版本各自拥有独立的存档空间；版本设置项（baye/libname 等）不受影响
+function bayeSaveKey(filename) {
+    var libId = getLibId();
+    if (!libId || filename.indexOf("baye//data//") !== 0) return filename;
+    return filename + "@" + libId;
+}
+
 function clearLibData() {
     window.localStorage.removeItem('baye//data/dat.lib');
     window.localStorage.removeItem('baye/libname');
@@ -695,18 +710,22 @@ function bayeExit() {
 
 function bayeLoadFileContent(filename) {
     console.log("Loading " + filename);
-    var data = window.localStorage[filename];
     if (filename == 'baye//data/dat.lib') {
         return dynLib;
-    } else {
-        return data;
     }
+    var key = bayeSaveKey(filename);
+    var data = window.localStorage[key];
+    if (data === undefined && key !== filename) {
+        // 兼容旧的跨版本共享存档：版本空间还没有数据时回退到旧 key
+        data = window.localStorage[filename];
+    }
+    return data;
 }
 
 function bayeSaveFileContent(filename, content) {
     console.log("Saving " + filename);
     try {
-        window.localStorage[filename] = content;
+        window.localStorage[bayeSaveKey(filename)] = content;
     } catch (e) {
         // 配额超限/隐私模式/存储被禁用时吞掉异常，避免抛回引擎导致存档流程崩溃
         console.warn("bayeSaveFileContent failed: " + e);

@@ -57,17 +57,36 @@
         imagePixel(img, ind*4, color);
     }
 
-    function getStorage(path) {
-        if (path.startsWith("sav/")) {
-            return window.localStorage
-        } else {
-            return fmj.rom;
+    // 从页面路径推导游戏标识（/fm/games/伏魔记/pc.html → 伏魔记），
+    // 让每个游戏拥有独立的存档空间；无法识别时不做隔离
+    function gameId() {
+        var m = window.location.pathname.match(/\/games\/([^\/]+)\//);
+        if (!m) return "";
+        try {
+            return decodeURIComponent(m[1]);
+        } catch (e) {
+            return m[1];
         }
+    }
+
+    // sav/fmjsave0 → sav/<游戏>/fmjsave0
+    function saveKey(path) {
+        var id = gameId();
+        return id ? "sav/" + id + "/" + path.slice(4) : path;
     }
 
     global.sysStorageGet = function(path) {
         try {
-            return getStorage(path)[path];
+            if (!path.startsWith("sav/")) {
+                return fmj.rom[path];
+            }
+            var key = saveKey(path);
+            var value = window.localStorage[key];
+            if (value == null && key !== path) {
+                // 兼容旧的跨游戏共享存档
+                value = window.localStorage[path];
+            }
+            return value;
         } catch (e) {
             console.warn("sysStorageGet failed: " + e);
             return null;
@@ -76,7 +95,10 @@
 
     global.sysStorageSet = function(path, value) {
         try {
-            return getStorage(path)[path] = value;
+            if (path.startsWith("sav/")) {
+                return window.localStorage[saveKey(path)] = value;
+            }
+            return fmj.rom[path] = value;
         } catch (e) {
             // 隐私模式/配额超限/存储被禁用时，吞掉异常避免抛回 Kotlin 调用栈导致游戏循环崩溃
             console.warn("sysStorageSet failed: " + e);
@@ -86,7 +108,12 @@
 
     global.sysStorageHas = function(path) {
         try {
-            return getStorage(path)[path] != null;
+            if (!path.startsWith("sav/")) {
+                return fmj.rom[path] != null;
+            }
+            var key = saveKey(path);
+            return window.localStorage[key] != null ||
+                (key !== path && window.localStorage[path] != null);
         } catch (e) {
             return false;
         }
