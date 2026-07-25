@@ -136,7 +136,13 @@ function onKeyDown(e) {
         case 39:
             sendKey(VK_RIGHT);
             break;
+        default:
+            return;
     }
+
+    // 已映射的游戏按键阻止默认行为，避免方向键/空格滚动页面
+    if (event.preventDefault) event.preventDefault();
+    return false;
 }
 
 function bin2hex (s) {

@@ -1,105 +1,131 @@
-<!DOCTYPE html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+    <meta name="theme-color" content="#dfe3d1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="description" content="魔塔 · 步步高电子词典经典游戏">
+    <title>魔塔 · BBK 经典游戏</title>
+    <link rel="icon" href="favicon.png">
+    <link rel="stylesheet" href="css/portal.css">
+    <style>
+        /* 虚拟按键 - 默认隐藏，移动端显示 */
+        #touchpad {
+            display: none;
+            margin-top: 14px;
+        }
+        #touchpad .kb-row {
+            display: flex;
+            gap: 8px;
+        }
+        #touchpad .kb-row + .kb-row { margin-top: 8px; }
+        #touchpad .btn {
+            flex: 1;
+            height: 52px;
+            border: 0;
+            border-radius: 8px;
+            color: #eef0e7;
+            background: var(--key);
+            box-shadow: inset 0 -4px 0 var(--key-edge);
+            font-size: 15px;
+            font-weight: 800;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-appearance: none;
+            touch-action: manipulation;
+        }
+        #touchpad .btn:active { transform: translateY(2px); }
+        #touchpad .btn.enter {
+            background: var(--accent);
+            box-shadow: inset 0 -4px 0 #7d3a2f;
+        }
+        /* 窄屏 / 触屏：显示虚拟按键，隐藏键盘说明 */
+        @media (max-width: 768px), (hover: none) and (pointer: coarse) {
+            .mt-keyhelp { display: none; }
+            #touchpad { display: block; }
+        }
+    </style>
+    <script src="js/jquery.min.js"></script>
+    <script src="js/encoding-indexes.js"></script>
+    <script src="js/encoding.js"></script>
+    <script src="js/sprintf.js"></script>
+    <script src="js/lzma_worker-min.js"></script>
+    <script src="js/base64.js"></script>
+</head>
+<body>
+    <main class="device-shell utility-shell">
+        <header class="device-header">
+            <a class="brand" href="index.html" aria-label="返回 BBK 经典游戏首页">
+                <span class="brand-mark">BBK</span>
+                <span>经典游戏</span>
+            </a>
+            <span class="power-light" aria-hidden="true"></span>
+        </header>
 
-<html>
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-        <title>魔塔</title>
-        <link rel="icon" href="favicon.png">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <link rel="stylesheet" type="text/css" href="css/flex-layout-attribute.css" />
-        <link rel="stylesheet" type="text/css" href="css/baye.css" />
-        <style>
-            /* 虚拟按键 - 默认隐藏，移动端显示 */
-            #touchpad {
-                display: none;
-                max-width: 480px;
-                margin: 12px auto 0;
-                padding: 0 8px;
-                box-sizing: border-box;
-            }
-            #touchpad .kb-row {
-                display: flex;
-                gap: 6px;
-                margin-top: 6px;
-            }
-            #touchpad .btn {
-                flex: 1;
-                height: 52px;
-                border: 0;
-                border-radius: 6px;
-                font-size: 16px;
-                color: #fff;
-                cursor: pointer;
-                -webkit-tap-highlight-color: transparent;
-                -webkit-appearance: none;
-            }
-            #touchpad .btn:active { opacity: 0.65; }
-            #touchpad .btn.nav   { background: #aaaaaa; } /* 方向键 */
-            #touchpad .btn.fn    { background: #3d9970; } /* 帮助/查找 */
-            #touchpad .btn.enter { background: #0074d9; } /* 输入 */
-            #touchpad .btn.exit  { background: #ff851b; } /* 返回 */
-            /* 窄屏 / 触屏：显示虚拟按键，隐藏键盘说明，LCD 自适应 */
-            @media (max-width: 768px), (hover: none) and (pointer: coarse) {
-                .mt-keyhelp { display: none; }
-                #touchpad { display: block; }
-            }
-        </style>
-        <script src="js/jquery.min.js"></script>
-        <script src="js/encoding-indexes.js"></script>
-        <script src="js/encoding.js"></script>
-        <script src="js/sprintf.js"></script>
-        <script src="js/lzma_worker-min.js"></script>
-        <script src="js/base64.js"></script>
-    </head>
-    <body>
-        <div layout="row center-center" >
-            <div class="container" style="max-width:480px;width:100%">
-                <div class="dummy"></div>
-                <div class="element lcd">
-                    <canvas class="fill" id="lcd" width="160" height="96">然而你的浏览器并不支持HTML5</canvas>
+        <div class="section-heading game-title">
+            <h1>魔塔</h1>
+            <span>MTOWER · 160×96</span>
+        </div>
+
+        <section class="lcd-panel lcd-panel-screen" aria-label="魔塔游戏画面">
+            <canvas id="lcd" width="160" height="96">然而你的浏览器并不支持HTML5</canvas>
+        </section>
+
+        <section class="game-section mt-keyhelp" aria-labelledby="keys-title">
+            <div class="section-heading">
+                <h2 id="keys-title">按键映射</h2>
+                <span>KEYBOARD</span>
+            </div>
+            <div class="key-map">
+                <div class="key-map-item">
+                    <span class="key-chip">↑ ↓ ← →</span>
+                    <span>移动 / 选择</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">Enter</span>
+                    <span>确认 / 输入</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">Space / Esc</span>
+                    <span>取消 / 返回</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">H</span>
+                    <span>帮助</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">S</span>
+                    <span>查找</span>
                 </div>
             </div>
-        </div>
-        <p></p>
-        <div layout="row center-center" >
-            <div style="max-width:480px;width:100%" >
-                <div class="mt-keyhelp" layout="row center-stretch">
-                    <div layout="column center-left" style="font-size:14px;line-height:140%" >
-                        <div><h2>按键说明:</h2></div>
-                        <div>电脑键盘 -> 电子词典</div>
-                        <div>上下左右 -> 上下左右</div>
-                        <div>H键 -> 帮助</div>
-                        <div>S键 -> 查找</div>
-                        <div>回车键 -> 输入</div>
-                        <div>空格键 -> 返回</div>
-                    </div>
-                </div>
-                <br class="mt-keyhelp">
-                <br class="mt-keyhelp">
-                <div id="lib-name"></div>
-            </div>
-        </div>
+        </section>
 
         <div id="touchpad">
             <div class="kb-row">
-                <button class="btn fn"    type="button" ontap="sendKey(VK_HELP)">帮助</button>
-                <button class="btn nav"   type="button" ontap="sendKey(VK_UP)">↑</button>
-                <button class="btn fn"    type="button" ontap="sendKey(VK_SEARCH)">查找</button>
+                <button class="btn"       type="button" ontap="sendKey(VK_HELP)">帮助</button>
+                <button class="btn"       type="button" ontap="sendKey(VK_UP)">↑</button>
+                <button class="btn"       type="button" ontap="sendKey(VK_SEARCH)">查找</button>
             </div>
             <div class="kb-row">
-                <button class="btn nav"   type="button" ontap="sendKey(VK_LEFT)">←</button>
-                <button class="btn nav"   type="button" ontap="sendKey(VK_DOWN)">↓</button>
-                <button class="btn nav"   type="button" ontap="sendKey(VK_RIGHT)">→</button>
+                <button class="btn"       type="button" ontap="sendKey(VK_LEFT)">←</button>
+                <button class="btn"       type="button" ontap="sendKey(VK_DOWN)">↓</button>
+                <button class="btn"       type="button" ontap="sendKey(VK_RIGHT)">→</button>
             </div>
             <div class="kb-row">
-                <button class="btn exit"  type="button" ontap="sendKey(VK_EXIT)">返回</button>
+                <button class="btn"       type="button" ontap="sendKey(VK_EXIT)">返回</button>
                 <button class="btn enter" type="button" ontap="sendKey(VK_ENTER)">输入</button>
             </div>
         </div>
-    </body>
+
+        <footer class="device-footer utility-footer">
+            <span>GAME 03 · TOWER</span>
+            <a class="footer-link" href="index.html">‹ 返回游戏中心</a>
+        </footer>
+    </main>
+</body>
 </html>
-<script src="js/lcd.js?ver=11"></script>
+<script src="js/lcd.js?ver=12"></script>
 <script src="js/mtower.js?ver=201801201234"></script>
 <script src="js/tappy.js"></script>
 <script>
@@ -114,4 +140,3 @@
         $(this).bind("tap", function () { eval(action); });
     });
 </script>
-
