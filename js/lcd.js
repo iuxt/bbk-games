@@ -366,6 +366,7 @@ function loadLibLists(container) {
             html += tpl.format(
             {
              title: json[i]["title"],
+             num: ("0" + (parseInt(i, 10) + 1)).slice(-2),
              libpath: json[i]["path"],
              descid: i,
              descpath: json[i]["path"]+'.txt',

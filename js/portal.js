@@ -83,28 +83,34 @@
         var opener = document.getElementById("settings-trigger");
         var closeButton = document.getElementById("settings-close");
         var startLink = document.getElementById("start-baye");
-        var controller = createDialogController({
-            overlay: overlay,
-            opener: opener,
-            closeButton: closeButton,
-            body: document.body,
-        });
 
-        opener.addEventListener("click", controller.open);
-        closeButton.addEventListener("click", controller.close);
-        overlay.addEventListener("click", function (event) {
-            if (event.target === overlay) {
-                controller.close();
-            }
-        });
-        document.addEventListener("keydown", function (event) {
-            if (event.key === "Escape" && !overlay.hidden) {
-                controller.close();
-            }
-        });
-        startLink.addEventListener("click", function (event) {
-            launchWithFallback(event, global.redirect);
-        });
+        var controller = null;
+        if (overlay && opener && closeButton) {
+            controller = createDialogController({
+                overlay: overlay,
+                opener: opener,
+                closeButton: closeButton,
+                body: document.body,
+            });
+
+            opener.addEventListener("click", controller.open);
+            closeButton.addEventListener("click", controller.close);
+            overlay.addEventListener("click", function (event) {
+                if (event.target === overlay) {
+                    controller.close();
+                }
+            });
+            document.addEventListener("keydown", function (event) {
+                if (event.key === "Escape" && !overlay.hidden) {
+                    controller.close();
+                }
+            });
+        }
+        if (startLink) {
+            startLink.addEventListener("click", function (event) {
+                launchWithFallback(event, global.redirect);
+            });
+        }
 
         return controller;
     }

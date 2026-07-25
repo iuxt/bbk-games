@@ -31,22 +31,14 @@
                 <span>4 GAMES</span>
             </div>
             <div class="game-grid">
-                <article class="game-card game-card-featured">
-                    <a id="start-baye" class="game-link" href="pc.html" data-game="baye">
-                        <span class="game-key" aria-hidden="true">01</span>
-                        <span class="game-copy">
-                            <strong>三国霸业</strong>
-                            <small>策略 · 经典战役</small>
-                        </span>
-                        <span class="game-arrow" aria-hidden="true">›</span>
-                    </a>
-                    <button id="settings-trigger" class="settings-key" type="button"
-                            aria-haspopup="dialog" aria-expanded="false"
-                            aria-controls="settings-dialog">
-                        <span aria-hidden="true">⚙</span>
-                        <span class="sr-only">打开三国霸业设置</span>
-                    </button>
-                </article>
+                <a class="game-card game-link" href="choose.html" data-game="baye">
+                    <span class="game-key" aria-hidden="true">01</span>
+                    <span class="game-copy">
+                        <strong>三国霸业</strong>
+                        <small>策略 · 经典战役</small>
+                    </span>
+                    <span class="game-arrow" aria-hidden="true">›</span>
+                </a>
 
                 <a class="game-card game-link" href="bbk-games/index.html" data-game="bbk">
                     <span class="game-key" aria-hidden="true">02</span>
@@ -82,59 +74,5 @@
             <p>把经典电子词典游戏，重新装进口袋。</p>
         </footer>
     </main>
-
-    <div id="settings-overlay" class="dialog-overlay" hidden>
-        <section id="settings-dialog" class="settings-dialog" role="dialog"
-                 aria-modal="true" aria-labelledby="settings-title">
-            <header class="dialog-header">
-                <div>
-                    <p>GAME 01</p>
-                    <h2 id="settings-title">三国霸业设置</h2>
-                </div>
-                <button id="settings-close" class="close-key" type="button"
-                        aria-label="关闭设置">×</button>
-            </header>
-
-            <div class="settings-list">
-                <label class="setting-row">
-                    <span><strong>操作模式</strong><small>选择手机端控制方式</small></span>
-                    <select data-storage-key="baye/mpage">
-                        <option value="0">横屏 &amp; 触控</option>
-                        <option value="1">竖屏 &amp; 键盘</option>
-                        <option value="2">横屏 &amp; 手势</option>
-                    </select>
-                </label>
-                <label class="setting-row">
-                    <span><strong>分辨率</strong><small>调整游戏画面尺寸</small></span>
-                    <select data-storage-key="baye/resolution">
-                        <option value="0">4988</option>
-                        <option value="1">加大</option>
-                    </select>
-                </label>
-                <label class="setting-row">
-                    <span><strong>像素锐化</strong><small>切换像素显示效果</small></span>
-                    <select data-storage-key="baye/clearmode">
-                        <option value="0">禁用</option>
-                        <option value="1">启用</option>
-                    </select>
-                </label>
-            </div>
-
-            <nav class="dialog-actions" aria-label="三国霸业辅助功能">
-                <a class="device-button" href="choose.html">选择版本</a>
-                <a class="device-button" href="backup.html?game=baye">备份/还原</a>
-            </nav>
-        </section>
-    </div>
-
-    <noscript>
-        <p class="noscript-note">
-            JavaScript 已关闭；其他游戏入口仍可直接使用，三国霸业将进入桌面版。
-            <a href="choose.html">选择版本</a> · <a href="backup.html">备份/还原</a>
-        </p>
-    </noscript>
-    <script src="js/jquery.min.js"></script>
-    <script src="js/lcd.js?ver=10"></script>
-    <script src="js/portal.js"></script>
 </body>
 </html>

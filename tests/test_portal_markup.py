@@ -14,13 +14,10 @@ class PortalParser(HTMLParser):
         self.stylesheets = []
         self.scripts = []
         self.h1_count = 0
-        self.noscript_links = set()
-        self.inside_noscript = False
+        self.links = set()
 
     def handle_starttag(self, tag, attrs):
         values = dict(attrs)
-        if tag == "noscript":
-            self.inside_noscript = True
         if values.get("id"):
             self.ids.add(values["id"])
         if tag == "h1":
@@ -33,19 +30,20 @@ class PortalParser(HTMLParser):
             self.stylesheets.append(values.get("href"))
         if tag == "script" and values.get("src"):
             self.scripts.append(values["src"])
-        if tag == "a" and self.inside_noscript and values.get("href"):
-            self.noscript_links.add(values["href"])
-
-    def handle_endtag(self, tag):
-        if tag == "noscript":
-            self.inside_noscript = False
+        if tag == "a" and values.get("href"):
+            self.links.add(values["href"])
 
 
-class PortalMarkupTests(unittest.TestCase):
+def parse(page):
+    parser = PortalParser()
+    parser.feed((ROOT / page).read_text(encoding="utf-8"))
+    return parser
+
+
+class IndexMarkupTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.parser = PortalParser()
-        cls.parser.feed((ROOT / "index.html").read_text(encoding="utf-8"))
+        cls.parser = parse("index.html")
 
     def test_has_one_primary_heading(self):
         self.assertEqual(self.parser.h1_count, 1)
@@ -54,23 +52,38 @@ class PortalMarkupTests(unittest.TestCase):
         self.assertEqual(
             self.parser.games,
             {
-                "baye": "pc.html",
+                "baye": "choose.html",
                 "bbk": "bbk-games/index.html",
                 "tower": "mt.html",
                 "rpg": "fm/index.html",
             },
         )
 
-    def test_preserves_baye_actions_and_dialog_hooks(self):
-        self.assertTrue(
+    def test_is_static_without_dialog_hooks(self):
+        self.assertEqual(self.parser.scripts, [])
+        self.assertEqual(self.parser.storage_keys, set())
+        self.assertFalse(
             {
                 "start-baye",
                 "settings-trigger",
                 "settings-dialog",
                 "settings-overlay",
                 "settings-close",
-            }.issubset(self.parser.ids)
+            }
+            & self.parser.ids
         )
+
+    def test_loads_portal_stylesheet(self):
+        self.assertIn("css/portal.css", self.parser.stylesheets)
+
+
+class ChooseMarkupTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.parser = parse("choose.html")
+
+    def test_has_one_primary_heading(self):
+        self.assertEqual(self.parser.h1_count, 1)
 
     def test_preserves_storage_keys(self):
         self.assertEqual(
@@ -78,29 +91,31 @@ class PortalMarkupTests(unittest.TestCase):
             {"baye/mpage", "baye/resolution", "baye/clearmode"},
         )
 
-    def test_loads_portal_assets_and_existing_launcher(self):
-        self.assertIn("css/portal.css", self.parser.stylesheets)
+    def test_loads_version_list_and_settings_assets(self):
         self.assertEqual(
             self.parser.scripts,
-            ["js/jquery.min.js", "js/lcd.js?ver=10", "js/portal.js"],
+            [
+                "js/jquery.min.js",
+                "js/lcd.js?ver=12",
+                "js/base64.js",
+                "js/portal.js",
+            ],
         )
+
+    def test_keeps_backup_link(self):
+        self.assertIn("backup.html?game=baye", self.parser.links)
 
     def test_declared_local_assets_exist(self):
         self.assertTrue((ROOT / "css" / "portal.css").is_file())
         self.assertTrue((ROOT / "js" / "portal.js").is_file())
-
-    def test_noscript_preserves_auxiliary_links(self):
-        self.assertEqual(
-            self.parser.noscript_links,
-            {"choose.html", "backup.html"},
-        )
+        self.assertTrue((ROOT / "js" / "lcd.js").is_file())
 
     def test_css_has_responsive_and_accessibility_contracts(self):
         css = (ROOT / "css" / "portal.css").read_text(encoding="utf-8")
         self.assertIn("@media (min-width: 760px)", css)
         self.assertIn("@media (prefers-reduced-motion: reduce)", css)
         self.assertIn(".game-grid", css)
-        self.assertIn(".settings-dialog", css)
+        self.assertIn(".settings-list", css)
         self.assertIn(":focus-visible", css)
 
 
