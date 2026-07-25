@@ -20,6 +20,15 @@
     <style>
         /* 禁用移动端点击按钮时的默认矩形高亮（按钮自身的 :active 反馈不受影响） */
         * { -webkit-tap-highlight-color: transparent; }
+
+        /* 修复十字方向键点击区与背景图偏差：
+           原 CSS 四臂按钮是 14vw 小正方形、只覆盖“臂根”，且左/上臂缺锚定会漂移，
+           导致点击有效区与视觉十字臂错位。此处按背景图臂的真实比例用百分比
+           重新定位（相对 .src_cross 容器，大小屏一套规则通吃），点击区精确覆盖整臂。 */
+        .src_crossUp__pNTAw { left: 25%; top: 7.5%; width: 50%; height: 30%; }
+        .src_crossDown__xzhzA { left: 25%; top: 62.5%; width: 50%; height: 30%; bottom: auto; }
+        .src_crossLeft__hGGg\+ { left: 7.5%; top: 25%; width: 30%; height: 50%; }
+        .src_crossRight__x8\+eL { left: 62.5%; top: 25%; width: 30%; height: 50%; right: auto; }
     </style>
 </head>
 
