@@ -112,7 +112,10 @@
 
     global.sysAddKeyDownListener = function(callback) {
         $('body').keydown(function(e){
-            call(callback, transCode(e.keyCode));
+            var key = transCode(e.keyCode);
+            // 已映射的游戏按键阻止默认行为，避免方向键/空格滚动页面
+            if (key !== 255) e.preventDefault();
+            call(callback, key);
         });
     };
 
