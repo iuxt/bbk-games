@@ -1,8 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <title>伏魔记</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#dfe3d1">
+    <meta name="description" content="侠客行 · 步步高电子词典经典 RPG">
+    <title>侠客行 · BBK 经典游戏</title>
+    <link rel="icon" href="../../../favicon.png">
+    <link rel="stylesheet" href="../../../css/portal.css">
     <script src="../../js/jquery.min.js"></script>
     <script src="../../js/encoding-indexes.js"></script>
     <script src="../../js/encoding.js"></script>
@@ -10,28 +15,56 @@
     <script src="../../js/kotlin.js"></script>
     <script src="../../js/font.js"></script>
     <script src="rom.js"></script>
-    <style>
-        body {
-            background-color: white;
-        }
-        .fill {
-            background-color: green;
-            width: 320px;
-            height: 192px;
-        }
-    </style>
 </head>
 <body>
-    <div class="element lcd">
-        <canvas class="fill" id="lcd" width="160" height="96"></canvas>
-    </div>
-    <div>
-        按键映射<br>
-        [ -> PageUp<br>
-        ] -> PageDown<br>
-        Space -> Esc<br>
-        Enter -> 输入<br>
-    </div>
+    <main class="device-shell utility-shell">
+        <header class="device-header">
+            <a class="brand" href="../index.html" aria-label="返回 RPG 游戏列表">
+                <span class="brand-mark">BBK</span>
+                <span>经典游戏</span>
+            </a>
+            <span class="power-light" aria-hidden="true"></span>
+        </header>
+
+        <div class="section-heading game-title">
+            <h1>侠客行</h1>
+            <span>FMJ · 160×96</span>
+        </div>
+
+        <section class="lcd-panel lcd-panel-screen" aria-label="侠客行游戏画面">
+            <canvas id="lcd" width="160" height="96">你的浏览器不支持 HTML5 Canvas</canvas>
+        </section>
+
+        <section class="game-section" aria-labelledby="keys-title">
+            <div class="section-heading">
+                <h2 id="keys-title">按键映射</h2>
+                <span>KEYBOARD</span>
+            </div>
+            <div class="key-map">
+                <div class="key-map-item">
+                    <span class="key-chip">↑ ↓ ← →</span>
+                    <span>移动 / 选择</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">Enter</span>
+                    <span>确认 / 输入</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">Space / Esc</span>
+                    <span>取消 / 返回</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">[ ]</span>
+                    <span>翻页</span>
+                </div>
+            </div>
+        </section>
+
+        <footer class="device-footer utility-footer">
+            <span>GAME 04 · RPG</span>
+            <a class="footer-link" href="../index.html">‹ 返回游戏列表</a>
+        </footer>
+    </main>
+    <script src="../../js/fmj.core.js"></script>
 </body>
-<script src="../../js/fmj.core.js"></script>
 </html>

@@ -447,3 +447,49 @@ button { color: inherit; }
 }
 .restore-btn:active { transform: translateY(2px); }
 .restore-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+
+/* fm RPG 游戏页：游戏画面内嵌 LCD 屏幕 */
+.game-title { margin-bottom: 10px; }
+.game-title h1 { margin: 0; font-size: 15px; }
+
+.lcd-panel-screen { padding: 10px; }
+.lcd-panel-screen canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: var(--lcd);
+    image-rendering: pixelated;
+}
+
+.key-map {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+}
+.key-map-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 9px 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--paper);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+    font-size: 12px;
+}
+.key-chip {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    min-width: 32px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 7px;
+    color: #dbe1c3;
+    background: var(--key);
+    box-shadow: inset 0 -3px 0 var(--key-edge);
+    font: 800 11px/1 ui-monospace, monospace;
+    white-space: nowrap;
+}
+.key-map-item span:last-child { opacity: .65; }
