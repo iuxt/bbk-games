@@ -11,25 +11,30 @@
 
     <script src="js/jquery.min.js"></script>
     <script src="js/lcd.js?ver=13"></script>
-    <script src="js/backup.js?ver=2"></script>
+    <script src="js/backup.js?ver=3"></script>
     <script>
-        // 通用存档备份 / 还原：按 ?game= 选择 profile（baye / fmj / fmj/<游戏>），
-        // fmj 组显示游戏选择器，baye 按当前 lib 版本隔离存档
+        // 通用存档备份 / 还原：按 ?game= 选择 profile 组（baye / fmj），
+        // baye 组显示版本选择器、fmj 组显示游戏选择器，切换即切换存档空间
         $(function () {
             var B = window.BBKBackup;
 
+            // baye 默认选中当前游戏启动版本；fmj 默认第一个游戏；其余按字面 id 解析
+            function resolveProfile(p) {
+                if (p === "fmj") return B.getProfile("fmj/" + B.FMJ_GAMES[0]);
+                if (p === "baye") {
+                    var curLibId = (typeof getLibId === "function") ? getLibId() : "";
+                    return B.getProfile("baye/" + curLibId) ||
+                           B.getProfile("baye/" + B.BAYE_LIBS[0].id);
+                }
+                return B.getProfile(p);
+            }
+
             var param = new URLSearchParams(location.search).get("game") || "baye";
-            if (param === "fmj") param = "fmj/" + B.FMJ_GAMES[0];
-            var profile = B.getProfile(param) || B.SAVE_PROFILES.baye;
+            var profile = resolveProfile(param) || B.getProfile("baye/" + B.BAYE_LIBS[0].id);
 
             // 门户编号（页眉 / 页脚显示用）
             var PORTAL_NO = { baye: "GAME 01", fmj: "GAME 04" };
             var portalNo = PORTAL_NO[profile.group] || "GAME";
-
-            // baye 的存档按当前 lib 版本隔离（与 lcd.js 的 bayeSaveKey 一致）
-            function ctx() {
-                return profile.group === "baye" && typeof getLibId === "function" ? getLibId() : "";
-            }
 
             var storage = window.localStorage;
             function readKey(k) { return storage.getItem(k); }
@@ -46,8 +51,8 @@
 
             // 版本/游戏显示名
             function targetLabel() {
-                if (profile.group === "baye" && typeof getLibName === "function") {
-                    return "当前版本：" + getLibName() + "（存档按版本独立）";
+                if (profile.group === "baye") {
+                    return "当前版本：" + profile.name + "（存档按版本独立）";
                 }
                 if (profile.group === "fmj") {
                     return "当前游戏：" + profile.name + "（存档按游戏独立）";
@@ -63,7 +68,7 @@
 
             // 导出存档槽 n 为 .sav 文件
             function exportSlot(slot) {
-                var payload = B.buildExportPayload(profile, slot, readKey, ctx());
+                var payload = B.buildExportPayload(profile, slot, readKey);
                 if (!payload) {
                     showResult("存档 " + (slot + 1) + " 是空的",
                                "请先在游戏中存档，再回来备份。", "warn");
@@ -109,9 +114,11 @@
                     }
                     if (!B.canRestore(parsed, profile)) {
                         var src = B.getProfile(parsed.profileId);
-                        rejectFile(file.name, "存档类型不匹配",
-                                   "该备份属于「" + (src ? src.name : parsed.profileId) +
-                                   "」，与当前「" + profile.name + "」不符。");
+                        var srcName = src ? src.name
+                            : (parsed.profileId === B.LEGACY_BAYE_ID ? "旧版三国霸业" : parsed.profileId);
+                        rejectFile(file.name, "存档版本不匹配",
+                                   "该备份属于「" + srcName +
+                                   "」，与当前「" + profile.name + "」不符。请先切换到对应版本再还原。");
                         return;
                     }
 
@@ -126,7 +133,9 @@
 
                     var fromSlot = (typeof parsed.slot === "number") ? (parsed.slot + 1) : "?";
                     var help = "来源：存档 " + fromSlot + "。选择目标槽后点「还原存档」。";
-                    if (parsed.profileId === B.LEGACY_FMJ_ID) {
+                    if (parsed.profileId === B.LEGACY_BAYE_ID) {
+                        help = "旧版备份未标注版本，将还原到当前「" + profile.name + "」，请确认版本正确。" + help;
+                    } else if (parsed.profileId === B.LEGACY_FMJ_ID) {
                         help = "旧版备份未标注游戏，请确认当前选择的是正确的游戏。" + help;
                     }
                     showResult("已读取存档文件", help, "info");
@@ -146,8 +155,9 @@
                 syncSlotPicker();
             }
 
+            // 仅同步目标槽选择器，避免误清版本 / 游戏选择器（同样带 slot-chip 类）的高亮
             function syncSlotPicker() {
-                $(".slot-chip").each(function () {
+                $("#slot-picker .slot-chip").each(function () {
                     var active = (Number($(this).data("slot")) === targetSlot);
                     $(this).attr("aria-checked", active ? "true" : "false");
                     $(this).toggleClass("is-active", active);
@@ -158,21 +168,20 @@
                 if (!pendingRestore) return;
                 var parsed = pendingRestore;
 
-                var ok = B.applyRestore(profile, targetSlot, parsed.files, parsed.version, safeSet, ctx());
+                var ok = B.applyRestore(profile, targetSlot, parsed.files, parsed.version, safeSet);
                 if (!ok) {
                     showResult("存档写入失败",
                                "浏览器存储不可用（可能配额已满）。还原中止。", "warn");
                     return;
                 }
 
-                var note = "已写入「" + profile.name + "」存档 " + (targetSlot + 1) + "。";
-                if (parsed.version) {
-                    var lib = parsed.version["baye/libname"];
-                    note += lib ? ("版本已切换为「" + lib + "」；") : "版本信息已恢复；";
-                } else if (profile.versionKeys.length) {
-                    note += "备份未含版本信息，保持当前版本；";
+                var note;
+                if (parsed.profileId === B.LEGACY_BAYE_ID) {
+                    note = "旧版备份未标注版本，已写入当前「" + profile.name + "」存档 " + (targetSlot + 1) + "。";
+                } else {
+                    note = "已写入「" + profile.name + "」存档 " + (targetSlot + 1) + "。";
                 }
-                note += "进入游戏后载入对应存档即可。";
+                note += "进入对应版本游戏后载入该存档即可。";
                 showResult("还原成功", note, "ok");
             }
 
@@ -209,8 +218,8 @@
                 }
             }
 
-            // fmj 组：渲染游戏选择器，切换游戏即切换存档空间
-            function pickGame(id) {
+            // 切换 profile（baye 版本 / fmj 游戏），即切换存档空间
+            function pickProfile(id) {
                 var next = B.getProfile(id);
                 if (!next || next.id === profile.id) return;
                 profile = next;
@@ -230,9 +239,25 @@
                           "\">" + game + "</button>")
                             .attr("aria-checked", id === profile.id ? "true" : "false")
                             .toggleClass("is-active", id === profile.id)
-                            .on("click", function () { pickGame(id); })
+                            .on("click", function () { pickProfile(id); })
                             .appendTo($picker);
                     })(B.FMJ_GAMES[n]);
+                }
+            }
+
+            // baye 组：渲染版本选择器，切换版本即切换存档空间（不改游戏启动版本）
+            function renderVersionPicker() {
+                var $picker = $("#game-picker").empty();
+                for (var n = 0; n < B.BAYE_LIBS.length; n++) {
+                    (function (lib) {
+                        var id = "baye/" + lib.id;
+                        $("<button type=\"button\" class=\"slot-chip game-chip\" data-game-id=\"" + id +
+                          "\">" + lib.name + "</button>")
+                            .attr("aria-checked", id === profile.id ? "true" : "false")
+                            .toggleClass("is-active", id === profile.id)
+                            .on("click", function () { pickProfile(id); })
+                            .appendTo($picker);
+                    })(B.BAYE_LIBS[n]);
                 }
             }
 
@@ -246,8 +271,15 @@
                     $("#lib-name").hide();
                 }
                 if (profile.group === "fmj") {
+                    $("#game-picker-title").text("选择游戏");
+                    $("#game-section .section-heading span").text("GAMES");
                     $("#game-section").show();
                     renderGamePicker();
+                } else if (profile.group === "baye") {
+                    $("#game-picker-title").text("选择版本");
+                    $("#game-section .section-heading span").text("VERSIONS");
+                    $("#game-section").show();
+                    renderVersionPicker();
                 } else {
                     $("#game-section").hide();
                 }
@@ -265,7 +297,7 @@
             window.exportSlot = exportSlot;
             window.onFilePicked = onFilePicked;
             window.pickSlot = pickSlot;
-            window.pickGame = pickGame;
+            window.pickProfile = pickProfile;
             window.doRestore = doRestore;
         });
     </script>
