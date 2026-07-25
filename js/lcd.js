@@ -399,23 +399,8 @@ function redirect(page) {
     }
     var isMobile = false;
     if(navigator.userAgent.match(/(iPhone|iPod|Android|ios|Mobile|ARM)/i)){
-        var defaultMPage = "m.html";
-        switch (window.localStorage['baye/mpage']) {
-        case '0':
-            defaultMPage = "m.html"
-            break;
-        case '1':
-        case '3':
-            // 原 case '1' 指向不存在的 m-old.html 会 404，改为虚拟键盘页 m-ktouch.html
-            defaultMPage = "m-ktouch.html"
-            break;
-        case '2':
-            defaultMPage = "m-ges.html"
-            break;
-        }
-        console.log('page:' + page);
-        console.log('defpage:' + defaultMPage);
-        page = page || defaultMPage;
+        // 移动端统一为 portal 虚拟按键页 m.html（与魔塔/RPG 同款），不再按操作模式分流
+        page = page || "m.html";
         isMobile = true;
     } else {
         page = "pc.html";

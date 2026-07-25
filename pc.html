@@ -1,57 +1,85 @@
-<!DOCTYPE html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#dfe3d1">
+    <meta name="description" content="三国霸业 · 步步高电子词典经典游戏">
+    <title>三国霸业 · BBK 经典游戏</title>
+    <link rel="icon" href="favicon.png">
+    <link rel="stylesheet" href="css/portal.css">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/encoding-indexes.js"></script>
+    <script src="js/encoding.js"></script>
+    <script src="js/sprintf.js"></script>
+    <script src="js/lzma_worker-min.js"></script>
+    <script src="js/base64.js"></script>
+</head>
+<body>
+    <main class="device-shell utility-shell">
+        <header class="device-header">
+            <a class="brand" href="index.html" aria-label="返回 BBK 经典游戏首页">
+                <span class="brand-mark">BBK</span>
+                <span>经典游戏</span>
+            </a>
+            <span class="power-light" aria-hidden="true"></span>
+        </header>
 
-<html>
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-        <title>三国霸业</title>
-        <link rel="icon" href="favicon.png">
-        <link rel="stylesheet" type="text/css" href="css/flex-layout-attribute.css" />
-        <link rel="stylesheet" type="text/css" href="css/baye.css" />
-        <script src="js/jquery.min.js"></script>
-        <script src="js/encoding-indexes.js"></script>
-        <script src="js/encoding.js"></script>
-        <script src="js/sprintf.js"></script>
-        <script src="js/lzma_worker-min.js"></script>
-        <script src="js/base64.js"></script>
-    </head>
-    <body>
-        <div layout="row center-center" >
-            <div class="container" style="width:480px">
-                <div class="dummy"></div>
-                <div class="element lcd">
-                    <canvas class="fill" id="lcd" width="160" height="96">然而你的浏览器并不支持HTML5</canvas>
+        <div class="section-heading game-title">
+            <h1>三国霸业</h1>
+            <span id="game-sub">BAYE · 160×96</span>
+        </div>
+
+        <section class="lcd-panel lcd-panel-screen" aria-label="三国霸业游戏画面">
+            <canvas id="lcd" width="160" height="96">然而你的浏览器并不支持HTML5</canvas>
+        </section>
+
+        <section class="game-section" aria-labelledby="keys-title">
+            <div class="section-heading">
+                <h2 id="keys-title">按键映射</h2>
+                <span>KEYBOARD</span>
+            </div>
+            <div class="key-map">
+                <div class="key-map-item">
+                    <span class="key-chip">↑ ↓ ← →</span>
+                    <span>移动 / 选择</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">Enter</span>
+                    <span>输入 / 确认</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">Space</span>
+                    <span>返回 / 取消</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">H</span>
+                    <span>帮助</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">S</span>
+                    <span>查找</span>
                 </div>
             </div>
-        </div>
-        <p></p>
-        <div layout="row center-center" >
-            <div style="width:480px" >
-                <div layout="row center-stretch">
-                    <div layout="column center-left" style="font-size:14px;line-height:140%" >
-                        <div><h2>按键说明:</h2></div>
-                        <div>电脑键盘 -> 电子词典</div>
-                        <div>上下左右 -> 上下左右</div>
-                        <div>H键 -> 帮助</div>
-                        <div>S键 -> 查找</div>
-                        <div>回车键 -> 输入</div>
-                        <div>空格键 -> 返回</div>
-                    </div>
-                </div>
-                <br>
-                <br>
-                <div id="lib-name"></div>
-            </div>
-        </div>
-    </body>
+        </section>
+
+        <footer class="device-footer utility-footer">
+            <span>GAME 01 · BAYE</span>
+            <a class="footer-link" href="index.html">‹ 返回游戏中心</a>
+        </footer>
+    </main>
+    <script src="js/bridge.js?ver=201801201234"></script>
+    <script src="js/lcd.js?ver=13"></script>
+    <script src="js/baye.js?ver=201801201234"></script>
+    <script>
+        lcdInit();
+        var libName = getLibName();
+        if (libName) {
+            $("#game-sub").text("BAYE · " + libName);
+            document.title = "三国霸业 - " + libName + " · BBK 经典游戏";
+        }
+        document.onkeydown = onKeyDown;
+        bayeMain();
+    </script>
+</body>
 </html>
-<script src="js/bridge.js?ver=201801201234"></script>
-<script src="js/lcd.js?ver=13"></script>
-<script src="js/baye.js?ver=201801201234"></script>
-<script>
-    lcdInit();
-    var libName = getLibName() || "步步高原版";
-    $("#lib-name").html("当前版本: " + libName);
-    bayeMain();
-    document.onkeydown = onKeyDown;
-</script>
-

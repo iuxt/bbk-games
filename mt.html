@@ -134,7 +134,7 @@
     _main();
     document.onkeydown = onKeyDown;
 
-    // 虚拟按键：把 ontap 绑定到 tappy 的 tap 事件（与 m-ktouch.html 同款）
+    // 虚拟按键：把 ontap 绑定到 tappy 的 tap 事件
     $(".btn").each(function () {
         var action = $(this).attr("ontap");
         $(this).bind("tap", function () { eval(action); });
