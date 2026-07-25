@@ -21,6 +21,31 @@
 
 <body><noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    <script>
+        // 隐藏未开发的功能入口：点击只会弹出"开发中 / 暂无 app"提示，没有实际功能。
+        // 这些按钮与有效按钮共用同一 class，无法用 CSS 区分，故按文字精准隐藏，
+        // 并用 MutationObserver 在每次弹窗/工具栏渲染后持续生效。
+        (function () {
+            var HIDE = { "金手指（作弊工具）": 1, "切换横屏": 1, "下载APP": 1 };
+            function clean() {
+                var nodes = document.querySelectorAll("div,span,button,a,li");
+                for (var i = 0; i < nodes.length; i++) {
+                    var el = nodes[i];
+                    if (el.dataset.bbkChecked) continue;
+                    el.dataset.bbkChecked = "1";
+                    if (el.children.length) continue; // 只匹配文字直接所在的叶子节点
+                    var t = el.textContent && el.textContent.trim();
+                    if (t && HIDE[t]) el.style.display = "none";
+                }
+            }
+            function start() {
+                clean();
+                new MutationObserver(clean).observe(document.body, { childList: true, subtree: true });
+            }
+            if (document.body) start();
+            else document.addEventListener("DOMContentLoaded", start);
+        })();
+    </script>
 </body>
 
 </html>
