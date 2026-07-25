@@ -20,6 +20,11 @@
                 $("#current-version").text("当前版本：" + getLibName());
             }
         });
+
+        // 从 bfcache（浏览器后退）恢复时，重置版本按钮，避免残留 disabled 状态
+        window.addEventListener("pageshow", function () {
+            $(".version-main").prop("disabled", false);
+        });
     </script>
 
     <script type="text/html" id="item_temp">

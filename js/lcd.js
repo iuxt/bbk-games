@@ -339,7 +339,6 @@ function bayeMain() {
 
 function chooseLib(title, path, self_) {
     var self = $(self_);
-    self.html("请稍候...");
     self.attr("disabled", "disabled");
 
     clearLibData();
