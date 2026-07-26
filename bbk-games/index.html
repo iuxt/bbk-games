@@ -35,11 +35,23 @@
 <body><noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
     <script>
-        // 隐藏未开发的功能入口：点击只会弹出"开发中 / 暂无 app"提示，没有实际功能。
-        // 这些按钮与有效按钮共用同一 class，无法用 CSS 区分，故按文字精准隐藏，
+        // 隐藏未开发或已下线的功能入口。
+        // 这些按钮与有效按钮共用同一 class，无法用 CSS 区分，故按文字 / class 精准隐藏，
         // 并用 MutationObserver 在每次弹窗/工具栏渲染后持续生效。
+        //
+        // 已下线功能：按键声音、按键震动、屏幕滤镜，以及随之失去作用的「设置」入口。
+        // 三项功能的开关都存在 localStorage，这里在启动时强制关闭；设置齿轮图标按 class
+        // 隐藏后，整个设置面板（含上述三项及「特别声明」）均不可达。
         (function () {
+            try {
+                localStorage.setItem("enableAudio", "false");
+                localStorage.setItem("enableVibrate", "false");
+                localStorage.removeItem("renderPeixel");
+            } catch (e) {}
+
             var HIDE = { "金手指（作弊工具）": 1, "切换横屏": 1, "下载APP": 1 };
+            var HIDE_CLASS = ["setting_settingIcon"]; // 设置齿轮图标，无文字，按 class 片段匹配
+
             function clean() {
                 var nodes = document.querySelectorAll("div,span,button,a,li");
                 for (var i = 0; i < nodes.length; i++) {
@@ -49,6 +61,10 @@
                     if (el.children.length) continue; // 只匹配文字直接所在的叶子节点
                     var t = el.textContent && el.textContent.trim();
                     if (t && HIDE[t]) el.style.display = "none";
+                }
+                for (var c = 0; c < HIDE_CLASS.length; c++) {
+                    var matched = document.querySelectorAll('[class*="' + HIDE_CLASS[c] + '"]');
+                    for (var j = 0; j < matched.length; j++) matched[j].style.display = "none";
                 }
             }
             function start() {
