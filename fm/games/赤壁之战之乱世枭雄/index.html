@@ -1,9 +1,26 @@
-<script>
-(function() {
-    var page = "/fm/games/赤壁之战之乱世枭雄/pc.html";
-    if(navigator.userAgent.match(/(iPhone|iPod|Android|ios|Mobile|ARM)/i)){
-        page = "/fm/games/赤壁之战之乱世枭雄/m.html";
-    }
-    window.location.href = page;
-})();
-</script>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="启动 赤壁之战之乱世枭雄">
+    <title>启动 赤壁之战之乱世枭雄 · BBK 经典游戏</title>
+    <script>
+        (function () {
+            var page = "pc.html";
+            if (navigator.userAgent.match(/(iPhone|iPod|Android|ios|Mobile|ARM)/i)) {
+                page = "m.html";
+            }
+            window.location.replace(page);
+        })();
+    </script>
+</head>
+<body>
+    <noscript>
+        <p>
+            <a href="pc.html">桌面版</a>
+            <a href="m.html">移动版</a>
+        </p>
+    </noscript>
+</body>
+</html>

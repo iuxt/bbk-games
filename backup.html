@@ -11,7 +11,7 @@
 
     <script src="js/jquery.min.js"></script>
     <script src="js/lcd.js?ver=13"></script>
-    <script src="js/backup.js?ver=3"></script>
+    <script src="js/backup.js?ver=4"></script>
     <script>
         // 通用存档备份 / 还原：按 ?game= 选择 profile 组（baye / fmj），
         // baye 组显示版本选择器、fmj 组显示游戏选择器，切换即切换存档空间
@@ -36,10 +36,26 @@
             var PORTAL_NO = { baye: "GAME 01", fmj: "GAME 04" };
             var portalNo = PORTAL_NO[profile.group] || "GAME";
 
-            var storage = window.localStorage;
-            function readKey(k) { return storage.getItem(k); }
+            var storage = null;
+            try { storage = window.localStorage; } catch (e) {}
+            function readKey(k) {
+                if (!storage) throw new Error("storage unavailable");
+                return storage.getItem(k);
+            }
             function safeSet(k, v) {
-                try { storage.setItem(k, v); return true; }
+                try {
+                    if (!storage) return false;
+                    storage.setItem(k, v);
+                    return true;
+                }
+                catch (e) { return false; }
+            }
+            function safeRemove(k) {
+                try {
+                    if (!storage) return false;
+                    storage.removeItem(k);
+                    return true;
+                }
                 catch (e) { return false; }
             }
 
@@ -68,7 +84,14 @@
 
             // 导出存档槽 n 为 .json 文件
             function exportSlot(slot) {
-                var payload = B.buildExportPayload(profile, slot, readKey);
+                var payload;
+                try {
+                    payload = B.buildExportPayload(profile, slot, readKey);
+                } catch (e) {
+                    showResult("无法读取存档",
+                               "浏览器存储不可用，请检查隐私模式或站点存储权限。", "warn");
+                    return;
+                }
                 if (!payload) {
                     showResult("存档 " + (slot + 1) + " 是空的",
                                "请先在游戏中存档，再回来备份。", "warn");
@@ -168,7 +191,15 @@
                 if (!pendingRestore) return;
                 var parsed = pendingRestore;
 
-                var ok = B.applyRestore(profile, targetSlot, parsed.files, parsed.version, safeSet);
+                var ok = B.applyRestore(
+                    profile,
+                    targetSlot,
+                    parsed.files,
+                    parsed.version,
+                    safeSet,
+                    readKey,
+                    safeRemove
+                );
                 if (!ok) {
                     showResult("存档写入失败",
                                "浏览器存储不可用（可能配额已满）。还原中止。", "warn");

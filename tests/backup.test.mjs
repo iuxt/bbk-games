@@ -12,6 +12,7 @@ function makeStore(initial = {}) {
     return {
         get: (k) => (k in s ? s[k] : null),
         set(k, v) { s[k] = String(v); },
+        remove(k) { delete s[k]; },
         raw: s,
     };
 }
@@ -256,6 +257,13 @@ test('非法 / 不匹配的备份不被解析', () => {
     assert.equal(B.parseBackup({ type: 'bbk-save-slot', game: 'baye/SGBY', files: [] }), null);
     assert.equal(B.parseBackup({ type: 'bbk-save-slot', game: 'fmj/伏魔记', files: [] }), null);
     assert.equal(B.parseBackup({ type: 'sango-save-slot', files: ['only-one'] }), null);
+    assert.equal(B.parseBackup({ type: 'bbk-save-slot', game: 'baye/SGBY', slot: -1, files: ['x', 'y'] }), null);
+    assert.equal(B.parseBackup({ type: 'bbk-save-slot', game: 'baye/SGBY', slot: 3, files: ['x', 'y'] }), null);
+    assert.equal(B.parseBackup({ type: 'bbk-save-slot', game: 'baye/SGBY', slot: 1.5, files: ['x', 'y'] }), null);
+    assert.equal(B.parseBackup({ type: 'bbk-save-slot', game: 'baye/SGBY', files: ['only-one'] }), null);
+    assert.equal(B.parseBackup({ type: 'bbk-save-slot', game: 'baye/SGBY', files: ['x', 'y', 'extra'] }), null);
+    assert.equal(B.parseBackup({ type: 'bbk-save-slot', game: 'baye/SGBY', files: ['x', {}] }), null);
+    assert.equal(B.parseBackup({ type: 'bbk-save-slot', game: 'fmj/伏魔记', files: ['x', 'extra'] }), null);
 });
 
 test('备份可跨任意 Unicode 内容无损往返', () => {
@@ -290,6 +298,69 @@ test('还原写入失败时中止并返回 false', () => {
         B.applyRestore(SAVE_PROFILES['fmj/伏魔记'], 1, parsed.files, parsed.version, failWrite),
         false
     );
+});
+
+test('还原第二个文件失败时回滚第一个文件', () => {
+    const store = makeStore({
+        'baye//data//sango0.sav@SGBY': 'OLD-A',
+        'baye//data//sango1.sav@SGBY': 'OLD-B',
+    });
+    let failed = false;
+    function failSecondKey(key, value) {
+        if (key.endsWith('sango1.sav@SGBY') && value === 'NEW-B' && !failed) {
+            failed = true;
+            return false;
+        }
+        store.set(key, value);
+        return true;
+    }
+
+    assert.equal(
+        B.applyRestore(
+            SGBY,
+            0,
+            ['NEW-A', 'NEW-B'],
+            null,
+            failSecondKey,
+            store.get,
+            store.remove
+        ),
+        false
+    );
+    assert.equal(store.raw['baye//data//sango0.sav@SGBY'], 'OLD-A');
+    assert.equal(store.raw['baye//data//sango1.sav@SGBY'], 'OLD-B');
+});
+
+test('还原到空槽失败时移除已写入的新文件', () => {
+    const store = makeStore({});
+    function failSecondKey(key, value) {
+        if (key.endsWith('sango1.sav@SGBY')) return false;
+        store.set(key, value);
+        return true;
+    }
+
+    assert.equal(
+        B.applyRestore(
+            SGBY,
+            0,
+            ['NEW-A', 'NEW-B'],
+            null,
+            failSecondKey,
+            store.get,
+            store.remove
+        ),
+        false
+    );
+    assert.equal(store.raw['baye//data//sango0.sav@SGBY'], undefined);
+    assert.equal(store.raw['baye//data//sango1.sav@SGBY'], undefined);
+});
+
+test('applyRestore 直接拒绝非法槽位和文件结构', () => {
+    const store = makeStore({});
+    assert.equal(B.applyRestore(SGBY, -1, ['A', 'B'], null, store.set), false);
+    assert.equal(B.applyRestore(SGBY, 0, ['A'], null, store.set), false);
+    assert.equal(B.applyRestore(SGBY, 0, ['A', {}], null, store.set), false);
+    assert.deepEqual(store.raw, {});
 });
 
 test('libIdFromPath 从 lib 路径推导版本标识', () => {

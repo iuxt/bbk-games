@@ -1,0 +1,11 @@
+{
+  "name": "bbk-games-static",
+  "private": true,
+  "scripts": {
+    "generate:fmj": "node scripts/generate-fmj-pages.mjs",
+    "check:fmj": "node scripts/generate-fmj-pages.mjs --check",
+    "test:node": "node --test tests/*.test.mjs",
+    "test:python": "python3 -m unittest discover -s tests -p 'test_*.py'",
+    "test": "npm run check:fmj && npm run test:node && npm run test:python"
+  }
+}

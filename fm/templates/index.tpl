@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="启动 伏魔记">
-    <title>启动 伏魔记 · BBK 经典游戏</title>
+    <meta name="description" content="启动 {{GAME_NAME}}">
+    <title>启动 {{GAME_NAME}} · BBK 经典游戏</title>
     <script>
         (function () {
             var page = "pc.html";

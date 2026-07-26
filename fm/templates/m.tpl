@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
     <meta name="theme-color" content="#dfe3d1">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="description" content="赤壁之战之乱世枭雄 · 步步高电子词典经典 RPG">
-    <title>赤壁之战之乱世枭雄 · BBK 经典游戏</title>
+    <meta name="description" content="{{GAME_NAME}} · 步步高电子词典经典 RPG">
+    <title>{{GAME_NAME}} · BBK 经典游戏</title>
     <link rel="icon" href="../../../favicon.png">
     <link rel="stylesheet" href="../../../css/portal.css">
     <style>
@@ -68,11 +68,11 @@
         </header>
 
         <div class="section-heading game-title">
-            <h1>赤壁之战之乱世枭雄</h1>
+            <h1>{{GAME_NAME}}</h1>
             <span>RPG · 160×96</span>
         </div>
 
-        <section class="lcd-panel lcd-panel-screen" aria-label="赤壁之战之乱世枭雄游戏画面">
+        <section class="lcd-panel lcd-panel-screen" aria-label="{{GAME_NAME}}游戏画面">
             <canvas id="lcd" width="160" height="96">你的浏览器不支持 HTML5</canvas>
         </section>
 

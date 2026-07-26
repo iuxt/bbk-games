@@ -5,12 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
     <meta name="theme-color" content="#dfe3d1">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="description" content="RPG · 步步高电子词典经典游戏">
-    <title>RPG · BBK 经典游戏</title>
+    <meta name="description" content="伏魔记 · 步步高电子词典经典 RPG">
+    <title>伏魔记 · BBK 经典游戏</title>
     <link rel="icon" href="../../../favicon.png">
     <link rel="stylesheet" href="../../../css/portal.css">
     <style>
-        /* 游戏画面：160×96 横向矩形，宽度自适应、像素锐利 */
         #lcd {
             width: 100%;
             height: auto;
@@ -19,7 +18,6 @@
             display: block;
         }
 
-        /* 虚拟按键：沿用魔塔 m.html 的 #touchpad 风格 */
         #touchpad {
             margin-top: 14px;
         }
@@ -70,11 +68,11 @@
         </header>
 
         <div class="section-heading game-title">
-            <h1 id="game-title">RPG</h1>
+            <h1>伏魔记</h1>
             <span>RPG · 160×96</span>
         </div>
 
-        <section class="lcd-panel lcd-panel-screen" aria-label="RPG 游戏画面">
+        <section class="lcd-panel lcd-panel-screen" aria-label="伏魔记游戏画面">
             <canvas id="lcd" width="160" height="96">你的浏览器不支持 HTML5</canvas>
         </section>
 
@@ -103,34 +101,42 @@
 
     <script src="../../js/fmj.core.js"></script>
     <script>
-        // 从页面路径推导游戏名（/fm/games/伏魔记/m.html → 伏魔记）作为标题
-        (function () {
-            var m = location.pathname.match(/\/games\/([^\/]+)\//);
-            var name = "RPG";
-            if (m) { try { name = decodeURIComponent(m[1]); } catch (e) { name = m[1]; } }
-            $("#game-title").text(name);
-            document.title = name + " · BBK 经典游戏";
-        })();
-
-        // 虚拟按键：方向键（↑↓←→）支持长按连续触发，PgUp/PgDn/确认/取消为单次
-        var HOLD_KEYS = { 1: 1, 2: 1, 3: 1, 4: 1 };
+        var HOLD_KEYS = { 1: true, 2: true, 3: true, 4: true };
 
         $("#touchpad .btn").each(function () {
-            var key = Number($(this).data("key"));
-            var iv = null;
-            $(this).on("touchstart mousedown", function (e) {
-                e.preventDefault();
+            var button = this;
+            var key = Number($(button).data("key"));
+            var repeatTimer = null;
+
+            function stopRepeat() {
+                if (repeatTimer !== null) {
+                    clearInterval(repeatTimer);
+                    repeatTimer = null;
+                }
+            }
+
+            $(button).on("pointerdown", function (event) {
+                event.preventDefault();
+                stopRepeat();
                 onKeyDown(key);
+                if (button.setPointerCapture) {
+                    try {
+                        button.setPointerCapture(event.pointerId);
+                    } catch (error) {
+                        // 合成事件或旧浏览器可能没有可捕获的活动指针，继续处理单次按键
+                    }
+                }
                 if (HOLD_KEYS[key]) {
-                    iv = setInterval(function () { onKeyDown(key); }, 450);
+                    repeatTimer = setInterval(function () { onKeyDown(key); }, 450);
                 }
             });
-            $(this).on("touchend touchcancel mouseup mouseleave", function () {
-                if (iv) { clearInterval(iv); iv = null; }
+            $(button).on("pointerup pointercancel lostpointercapture", stopRepeat);
+            $(button).on("click", function (event) {
+                // 键盘触发的按钮 click 没有指针坐标，保留无障碍操作。
+                if (event.detail === 0) onKeyDown(key);
             });
         });
 
-        // 物理键盘仍可用
         document.onkeydown = onKeyDown;
     </script>
 </body>

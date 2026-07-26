@@ -99,7 +99,29 @@
         return SAVE_PROFILES[id] || null;
     }
 
+    function isValidSlot(profile, slot) {
+        return !!profile &&
+            typeof slot === "number" &&
+            isFinite(slot) &&
+            Math.floor(slot) === slot &&
+            slot >= 0 &&
+            slot < profile.slots;
+    }
+
+    function expectedFileCount(profile) {
+        return profile && profile.slotKeys ? profile.slotKeys(0).length : 0;
+    }
+
+    function areValidFiles(files, count) {
+        if (!Array.isArray(files) || files.length !== count) return false;
+        for (var i = 0; i < files.length; i++) {
+            if (typeof files[i] !== "string") return false;
+        }
+        return true;
+    }
+
     function readSlotFiles(profile, slot, readKey) {
+        if (!isValidSlot(profile, slot) || typeof readKey !== "function") return null;
         var keys = profile.slotKeys(slot);
         var legacyKeys = profile.legacySlotKeys ? profile.legacySlotKeys(slot) : null;
         var files = [];
@@ -115,6 +137,7 @@
     }
 
     function isSlotEmpty(files) {
+        if (!files) return true;
         for (var i = 0; i < files.length; i++) {
             if (files[i] && files[i].length) return false;
         }
@@ -134,6 +157,7 @@
 
     // 构造导出 payload；空槽返回 null
     function buildExportPayload(profile, slot, readKey) {
+        if (!isValidSlot(profile, slot)) return null;
         var files = readSlotFiles(profile, slot, readKey);
         if (isSlotEmpty(files)) return null;
         var payload = {
@@ -150,8 +174,26 @@
         return payload;
     }
 
-    function slotNumberOf(data) {
-        return typeof data.slot === "number" ? data.slot : 0;
+    function slotNumberOf(data, slots) {
+        if (!Object.prototype.hasOwnProperty.call(data, "slot")) return 0;
+        var slot = data.slot;
+        return typeof slot === "number" &&
+            isFinite(slot) &&
+            Math.floor(slot) === slot &&
+            slot >= 0 &&
+            slot < slots ? slot : null;
+    }
+
+    function parsedBackup(profileId, profile, data, fileCount) {
+        var slots = profile ? profile.slots : 3;
+        var slot = slotNumberOf(data, slots);
+        if (slot === null || !areValidFiles(data.files, fileCount)) return null;
+        return {
+            profileId: profileId,
+            slot: slot,
+            version: null,
+            files: data.files.slice()
+        };
     }
 
     // 解析上传的备份 JSON → { profileId, slot, version, files } | null
@@ -160,51 +202,31 @@
         if (!data || typeof data !== "object") return null;
 
         if (data.type === PAYLOAD_TYPE) {
-            if (!Array.isArray(data.files) || !data.files.length) return null;
-
             // 旧 fmj 共享存档备份：无法得知来源游戏，标记为 legacy id，
             // 由还原方允许写入任意 fmj 游戏并提示用户确认
             if (data.game === LEGACY_FMJ_ID) {
-                return {
-                    profileId: LEGACY_FMJ_ID,
-                    slot: slotNumberOf(data),
-                    version: null,
-                    files: data.files
-                };
+                return parsedBackup(LEGACY_FMJ_ID, null, data, 1);
             }
 
             // 旧 baye 备份（game=baye，未标注具体版本）：尝试用 version.libpath
             // 推导版本；推导不出则标记为 legacy，允许还原到任意 baye 版本
             if (data.game === LEGACY_BAYE_ID) {
                 var libId = libIdFromVersion(data.version);
-                return {
-                    profileId: libId ? "baye/" + libId : LEGACY_BAYE_ID,
-                    slot: slotNumberOf(data),
-                    version: null,
-                    files: data.files
-                };
+                var legacyProfileId = libId ? "baye/" + libId : LEGACY_BAYE_ID;
+                return parsedBackup(legacyProfileId, SAVE_PROFILES[legacyProfileId], data, 2);
             }
 
             // 新通用格式：game 已含版本/游戏标识，严格按其匹配
-            if (!SAVE_PROFILES[data.game]) return null;
-            return {
-                profileId: data.game,
-                slot: slotNumberOf(data),
-                version: data.version || null,
-                files: data.files
-            };
+            var profile = SAVE_PROFILES[data.game];
+            if (!profile) return null;
+            return parsedBackup(data.game, profile, data, expectedFileCount(profile));
         }
 
         // 向后兼容：更老的 baye 单槽备份（libname/libpath → 推导版本）
         if (data.type === LEGACY_TYPE) {
-            if (!Array.isArray(data.files) || data.files.length < 2) return null;
             var legacyLibId = libIdFromPath(data.libpath);
-            return {
-                profileId: legacyLibId ? "baye/" + legacyLibId : LEGACY_BAYE_ID,
-                slot: slotNumberOf(data),
-                version: null,
-                files: data.files
-            };
+            var oldProfileId = legacyLibId ? "baye/" + legacyLibId : LEGACY_BAYE_ID;
+            return parsedBackup(oldProfileId, SAVE_PROFILES[oldProfileId], data, 2);
         }
 
         return null;
@@ -220,17 +242,69 @@
         return parsed.profileId === LEGACY_FMJ_ID && profile.group === "fmj";
     }
 
-    // 应用还原：files 写入目标槽（版本/游戏标识固化在 profile 的 slotKeys 里）
-    // writeKey 返回 false 表示写入失败（如配额超限）→ 立即中止并返回 false
-    function applyRestore(profile, slot, files, version, writeKey) {
-        var keys = profile.slotKeys(slot);
-        for (var i = 0; i < keys.length; i++) {
-            if (writeKey(keys[i], files[i] || "") === false) return false;
+    function restorePrevious(entries, completed, previous, writeKey, removeKey) {
+        for (var i = completed - 1; i >= 0; i--) {
+            try {
+                if (previous[i] === null && typeof removeKey === "function") {
+                    removeKey(entries[i].key);
+                } else if (previous[i] !== null) {
+                    writeKey(entries[i].key, previous[i]);
+                }
+            } catch (error) {
+                // 尽最大努力回滚；调用方仍会收到 false 并提示还原失败
+            }
         }
-        if (version) {
-            for (var k in version) {
-                if (!Object.prototype.hasOwnProperty.call(version, k)) continue;
-                if (writeKey(k, version[k]) === false) return false;
+    }
+
+    // 应用还原：files 写入目标槽（版本/游戏标识固化在 profile 的 slotKeys 里）。
+    // 提供 readKey/removeKey 时会先保存旧值，并在任一写入失败后回滚已写项目。
+    function applyRestore(profile, slot, files, version, writeKey, readKey, removeKey) {
+        if (!isValidSlot(profile, slot) ||
+            !areValidFiles(files, expectedFileCount(profile)) ||
+            typeof writeKey !== "function") {
+            return false;
+        }
+
+        var keys = profile.slotKeys(slot);
+        var entries = [];
+        for (var i = 0; i < keys.length; i++) {
+            entries.push({ key: keys[i], value: files[i] });
+        }
+
+        // 只允许写 profile 明确声明的版本键，拒绝备份文件注入任意 localStorage key。
+        if (version && typeof version === "object" && profile.versionKeys) {
+            for (var v = 0; v < profile.versionKeys.length; v++) {
+                var versionKey = profile.versionKeys[v];
+                if (typeof version[versionKey] === "string") {
+                    entries.push({ key: versionKey, value: version[versionKey] });
+                }
+            }
+        }
+
+        var previous = [];
+        if (typeof readKey === "function") {
+            try {
+                for (var r = 0; r < entries.length; r++) {
+                    previous.push(readKey(entries[r].key));
+                }
+            } catch (error) {
+                return false;
+            }
+        }
+
+        for (var w = 0; w < entries.length; w++) {
+            try {
+                if (writeKey(entries[w].key, entries[w].value) === false) {
+                    if (previous.length) {
+                        restorePrevious(entries, w, previous, writeKey, removeKey);
+                    }
+                    return false;
+                }
+            } catch (error) {
+                if (previous.length) {
+                    restorePrevious(entries, w, previous, writeKey, removeKey);
+                }
+                return false;
             }
         }
         return true;
@@ -251,6 +325,8 @@
         LEGACY_FMJ_ID: LEGACY_FMJ_ID,
         LEGACY_BAYE_ID: LEGACY_BAYE_ID,
         getProfile: getProfile,
+        isValidSlot: isValidSlot,
+        areValidFiles: areValidFiles,
         libIdFromPath: libIdFromPath,
         readSlotFiles: readSlotFiles,
         isSlotEmpty: isSlotEmpty,

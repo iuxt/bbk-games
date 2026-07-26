@@ -103,18 +103,18 @@
 
         <div id="touchpad">
             <div class="kb-row">
-                <button class="btn"       type="button" ontap="sendKey(VK_HELP)">帮助</button>
-                <button class="btn"       type="button" ontap="sendKey(VK_UP)">↑</button>
-                <button class="btn"       type="button" ontap="sendKey(VK_SEARCH)">查找</button>
+                <button class="btn"       type="button" data-key="help">帮助</button>
+                <button class="btn"       type="button" data-key="up">↑</button>
+                <button class="btn"       type="button" data-key="search">查找</button>
             </div>
             <div class="kb-row">
-                <button class="btn"       type="button" ontap="sendKey(VK_LEFT)">←</button>
-                <button class="btn"       type="button" ontap="sendKey(VK_DOWN)">↓</button>
-                <button class="btn"       type="button" ontap="sendKey(VK_RIGHT)">→</button>
+                <button class="btn"       type="button" data-key="left">←</button>
+                <button class="btn"       type="button" data-key="down">↓</button>
+                <button class="btn"       type="button" data-key="right">→</button>
             </div>
             <div class="kb-row">
-                <button class="btn"       type="button" ontap="sendKey(VK_EXIT)">返回</button>
-                <button class="btn enter" type="button" ontap="sendKey(VK_ENTER)">输入</button>
+                <button class="btn"       type="button" data-key="exit">返回</button>
+                <button class="btn enter" type="button" data-key="enter">输入</button>
             </div>
         </div>
 
@@ -123,20 +123,29 @@
             <a class="footer-link" href="index.html">‹ 返回游戏中心</a>
         </footer>
     </main>
+    <script src="js/lcd.js?ver=13"></script>
+    <script src="js/mtower.js?ver=201801201234"></script>
+    <script src="js/tappy.js"></script>
+    <script>
+        window.bayeStart = undefined;
+        lcdSetDotSize(1);
+        _main();
+        document.onkeydown = onKeyDown;
+
+        var virtualKeys = {
+            help: VK_HELP,
+            up: VK_UP,
+            search: VK_SEARCH,
+            left: VK_LEFT,
+            down: VK_DOWN,
+            right: VK_RIGHT,
+            exit: VK_EXIT,
+            enter: VK_ENTER
+        };
+        $(".btn[data-key]").each(function () {
+            var key = virtualKeys[$(this).attr("data-key")];
+            $(this).bind("tap", function () { sendKey(key); });
+        });
+    </script>
 </body>
 </html>
-<script src="js/lcd.js?ver=13"></script>
-<script src="js/mtower.js?ver=201801201234"></script>
-<script src="js/tappy.js"></script>
-<script>
-    window.bayeStart = undefined;
-    lcdSetDotSize(1);
-    _main();
-    document.onkeydown = onKeyDown;
-
-    // 虚拟按键：把 ontap 绑定到 tappy 的 tap 事件
-    $(".btn").each(function () {
-        var action = $(this).attr("ontap");
-        $(this).bind("tap", function () { eval(action); });
-    });
-</script>

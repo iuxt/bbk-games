@@ -1,23 +1,4 @@
 <!DOCTYPE html>
-
-<script>
-    window.bayeDebugMode = window.location.href.match(/(localhost|debug=1)/);
-    //goHomeIfNeeded
-    (function() {
-        if (!bayeDebugMode) {
-            match = window.location.hash.match(/#([0-9]*)/i);
-            if(match){
-                var ts = parseInt(match[1]);
-                var now = new Date().getTime() / 1000;
-                var dt = now - ts;
-                if (ts && 0 <= dt && dt < 3600) {
-                    return;
-                }
-            }
-            window.location.href = "index.html";
-        }
-    })();
-</script>
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
@@ -65,6 +46,24 @@
     <script src="js/sprintf.js"></script>
     <script src="js/lzma_worker-min.js"></script>
     <script src="js/base64.js"></script>
+    <script>
+        window.bayeDebugMode = window.location.href.match(/(localhost|debug=1)/);
+        // 防止用户长时间后从历史记录直接恢复游戏页；开发环境和带有效时间戳的入口除外
+        (function () {
+            if (!window.bayeDebugMode) {
+                var match = window.location.hash.match(/#([0-9]*)/i);
+                if (match) {
+                    var ts = parseInt(match[1], 10);
+                    var now = new Date().getTime() / 1000;
+                    var dt = now - ts;
+                    if (ts && 0 <= dt && dt < 3600) {
+                        return;
+                    }
+                }
+                window.location.href = "index.html";
+            }
+        })();
+    </script>
 </head>
 <body>
     <main class="device-shell utility-shell">
@@ -87,18 +86,18 @@
 
         <div id="touchpad">
             <div class="kb-row">
-                <button class="btn" type="button" ontap="sendKey(VK_HELP)">帮助</button>
-                <button class="btn" type="button" ontap="sendKey(VK_UP)">↑</button>
-                <button class="btn" type="button" ontap="sendKey(VK_SEARCH)">查找</button>
+                <button class="btn" type="button" data-key="help">帮助</button>
+                <button class="btn" type="button" data-key="up">↑</button>
+                <button class="btn" type="button" data-key="search">查找</button>
             </div>
             <div class="kb-row">
-                <button class="btn" type="button" ontap="sendKey(VK_LEFT)">←</button>
-                <button class="btn" type="button" ontap="sendKey(VK_DOWN)">↓</button>
-                <button class="btn" type="button" ontap="sendKey(VK_RIGHT)">→</button>
+                <button class="btn" type="button" data-key="left">←</button>
+                <button class="btn" type="button" data-key="down">↓</button>
+                <button class="btn" type="button" data-key="right">→</button>
             </div>
             <div class="kb-row">
-                <button class="btn" type="button" ontap="sendKey(VK_EXIT)">返回</button>
-                <button class="btn enter" type="button" ontap="sendKey(VK_ENTER)">输入</button>
+                <button class="btn" type="button" data-key="exit">返回</button>
+                <button class="btn enter" type="button" data-key="enter">输入</button>
             </div>
         </div>
 
@@ -107,21 +106,30 @@
             <a class="footer-link" href="index.html">‹ 返回游戏中心</a>
         </footer>
     </main>
+    <script src="js/tappy.js"></script>
+    <script src="js/bridge.js?ver=201801201234"></script>
+    <script src="js/lcd.js?ver=13"></script>
+    <script src="js/baye.js?ver=201801201234"></script>
+    <script>
+        lcdInit();
+
+        var virtualKeys = {
+            help: VK_HELP,
+            up: VK_UP,
+            search: VK_SEARCH,
+            left: VK_LEFT,
+            down: VK_DOWN,
+            right: VK_RIGHT,
+            exit: VK_EXIT,
+            enter: VK_ENTER
+        };
+        $(".btn[data-key]").each(function () {
+            var key = virtualKeys[$(this).attr("data-key")];
+            $(this).bind("tap", function () { sendKey(key); });
+        });
+
+        document.onkeydown = onKeyDown;
+        bayeMain();
+    </script>
 </body>
 </html>
-<script src="js/tappy.js"></script>
-<script src="js/bridge.js?ver=201801201234"></script>
-<script src="js/lcd.js?ver=13"></script>
-<script src="js/baye.js?ver=201801201234"></script>
-<script>
-    lcdInit();
-
-    // 虚拟按键：把 ontap 绑定到 tappy 的 tap 事件（与 mt.html 同款）
-    $(".btn").each(function () {
-        var action = $(this).attr("ontap");
-        $(this).bind("tap", function () { eval(action); });
-    });
-
-    document.onkeydown = onKeyDown;
-    bayeMain();
-</script>

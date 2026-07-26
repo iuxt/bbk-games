@@ -12,3 +12,15 @@
 
 另附伏魔记地址:
 http://gitee.com/bgwp/fmj.kt
+
+开发检查：
+
+```bash
+npm test
+```
+
+RPG 的桌面、移动及分流页面由 `fm/templates/` 统一生成。修改模板后运行：
+
+```bash
+npm run generate:fmj
+```

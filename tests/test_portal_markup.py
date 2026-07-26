@@ -88,7 +88,7 @@ class ChooseMarkupTests(unittest.TestCase):
     def test_preserves_storage_keys(self):
         self.assertEqual(
             self.parser.storage_keys,
-            {"baye/mpage", "baye/resolution", "baye/clearmode"},
+            {"baye/resolution", "baye/clearmode"},
         )
 
     def test_loads_version_list_and_settings_assets(self):
@@ -117,6 +117,30 @@ class ChooseMarkupTests(unittest.TestCase):
         self.assertIn(".game-grid", css)
         self.assertIn(".settings-list", css)
         self.assertIn(":focus-visible", css)
+
+
+class MobileGameMarkupTests(unittest.TestCase):
+    def test_mobile_pages_keep_scripts_inside_document(self):
+        for page in ("m.html", "mt.html"):
+            with self.subTest(page=page):
+                markup = (ROOT / page).read_text(encoding="utf-8")
+                self.assertTrue(markup.rstrip().endswith("</html>"))
+                self.assertLess(markup.rfind("<script"), markup.rfind("</body>"))
+
+    def test_mobile_pages_do_not_use_eval_or_inline_tap_code(self):
+        for page in ("m.html", "mt.html"):
+            with self.subTest(page=page):
+                markup = (ROOT / page).read_text(encoding="utf-8")
+                self.assertNotIn("eval(", markup)
+                self.assertNotIn("ontap=", markup)
+                self.assertIn('data-key="enter"', markup)
+
+    def test_rpg_entries_use_relative_launch_routes(self):
+        game = "伏魔记"
+        markup = (ROOT / "fm" / "games" / game / "index.html").read_text(encoding="utf-8")
+        self.assertIn('var page = "pc.html"', markup)
+        self.assertIn('page = "m.html"', markup)
+        self.assertNotIn('"/fm/games/', markup)
 
 
 if __name__ == "__main__":
