@@ -193,7 +193,7 @@ class SimulatorMarkupTests(unittest.TestCase):
         self.assertEqual(self.parser.h1_count, 1)
         self.assertEqual(
             self.parser.stylesheets,
-            ["../css/portal.css", "app.css?v=5"],
+            ["../css/portal.css", "app.css?v=6"],
         )
         self.assertEqual(
             self.parser.scripts,
@@ -214,6 +214,8 @@ class SimulatorMarkupTests(unittest.TestCase):
         self.assertIn("overscroll-behavior-y: none", css)
         self.assertIn("-webkit-overflow-scrolling: touch", css)
         self.assertIn("touch-action: pan-y", css)
+        self.assertIn("scrollbar-width: none", css)
+        self.assertIn(".rom-list::-webkit-scrollbar", css)
         self.assertIn("@media (max-width: 520px)", css)
         self.assertIn("@media (prefers-reduced-motion: reduce)", css)
         self.assertIn('global.fetch("roms/catalog.json")', script)
