@@ -11,6 +11,19 @@
         return global.document.getElementById(id);
     }
 
+    function isMappedGameKey(event) {
+        var keyCode = event && (event.keyCode || event.which);
+        return keyCode === 13 ||
+            keyCode === 27 ||
+            keyCode === 32 ||
+            keyCode === 37 ||
+            keyCode === 38 ||
+            keyCode === 39 ||
+            keyCode === 40 ||
+            keyCode === 219 ||
+            keyCode === 221;
+    }
+
     function readStorage(key) {
         try {
             return global.localStorage.getItem(key) || "";
@@ -301,6 +314,15 @@
         });
     }
 
+    function bindGameKeyboard() {
+        global.document.addEventListener("keydown", function (event) {
+            if (byId("game-picker").hidden && isMappedGameKey(event)) {
+                // 内核仍会收到按键；这里只阻止方向键和空格等触发页面滚动。
+                event.preventDefault();
+            }
+        });
+    }
+
     function loadCore() {
         var status = byId("screen-status");
         var script = global.document.createElement("script");
@@ -361,14 +383,18 @@
             }
         });
         picker.addEventListener("keydown", function (event) {
+            if (isMappedGameKey(event)) {
+                // 搜索框与弹窗按钮自行处理键盘，不把按键传给游戏内核。
+                event.stopPropagation();
+            }
             if (event.key === "Escape") {
                 event.preventDefault();
-                event.stopPropagation();
                 closePicker();
             }
         });
 
         bindControlKeyboard();
+        bindGameKeyboard();
         loadCatalog();
         loadCore();
     }
@@ -376,7 +402,8 @@
     global.BBKSimulator = {
         arrayBufferToHex: arrayBufferToHex,
         romStorageId: romStorageId,
-        migrateLegacySaves: migrateLegacySaves
+        migrateLegacySaves: migrateLegacySaves,
+        isMappedGameKey: isMappedGameKey
     };
 
     if (global.document) {

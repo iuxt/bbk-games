@@ -19,6 +19,13 @@ test("simulator handles an empty ROM buffer", () => {
     assert.equal(Simulator.arrayBufferToHex(new ArrayBuffer(0)), "");
 });
 
+test("simulator recognizes every physical key handled by the game core", () => {
+    for (const keyCode of [13, 27, 32, 37, 38, 39, 40, 219, 221]) {
+        assert.equal(Simulator.isMappedGameKey({ keyCode }), true);
+    }
+    assert.equal(Simulator.isMappedGameKey({ keyCode: 65 }), false);
+});
+
 test("simulator gives same-length local ROMs distinct stable storage IDs", () => {
     const first = Uint8Array.from([1, 2, 3, 4]).buffer;
     const second = Uint8Array.from([4, 3, 2, 1]).buffer;

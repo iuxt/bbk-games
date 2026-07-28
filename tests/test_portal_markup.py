@@ -211,7 +211,7 @@ class SimulatorMarkupTests(unittest.TestCase):
         )
         self.assertEqual(
             self.parser.scripts,
-            ["../js/game-page.js?v=1", "app.js?v=2"],
+            ["../js/game-page.js?v=1", "app.js?v=3"],
         )
         self.assertIn("../index.html", self.parser.links)
 
@@ -237,6 +237,7 @@ class SimulatorMarkupTests(unittest.TestCase):
         self.assertIn("@media (prefers-reduced-motion: reduce)", css)
         self.assertIn('global.fetch("roms/catalog.json")', script)
         self.assertIn("arrayBufferToHex", script)
+        self.assertIn("isMappedGameKey", script)
         self.assertIn('class="footer-action"', markup)
         self.assertNotIn('class="simulator-tools"', markup)
         self.assertNotIn("static/js", markup)
