@@ -98,7 +98,7 @@ class ChooseMarkupTests(unittest.TestCase):
             self.parser.scripts,
             [
                 "js/jquery.min.js",
-                "js/lcd.js?ver=15",
+                "js/lcd.js?ver=16",
             ],
         )
 
@@ -131,7 +131,14 @@ class MobileGameMarkupTests(unittest.TestCase):
             with self.subTest(page=page):
                 markup = (ROOT / page).read_text(encoding="utf-8")
                 self.assertIn('id="game-load-error"', markup)
-                self.assertIn("js/lcd.js?ver=15", markup)
+                self.assertIn("js/lcd.js?ver=16", markup)
+
+    def test_game_pages_do_not_load_retired_codec_helpers(self):
+        for page in ("m.html", "mt.html", "pc.html"):
+            with self.subTest(page=page):
+                markup = (ROOT / page).read_text(encoding="utf-8")
+                self.assertNotIn("base64.js", markup)
+                self.assertNotIn("lzma_worker-min.js", markup)
 
     def test_mobile_pages_do_not_use_eval_or_inline_tap_code(self):
         for page in ("m.html", "mt.html"):

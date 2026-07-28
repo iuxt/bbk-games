@@ -61,8 +61,7 @@ button { color: inherit; }
 
 .device-header,
 .section-heading,
-.game-link,
-.game-card-featured {
+.game-link {
     display: flex;
     align-items: center;
 }
@@ -173,9 +172,6 @@ button { color: inherit; }
     box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
 }
 
-.game-card-featured { padding-right: 8px; }
-.game-card-featured .game-link { flex: 1; min-width: 0; }
-
 .game-link {
     min-height: 76px;
     gap: 12px;
@@ -253,8 +249,6 @@ button { color: inherit; }
 
 .version-main { background: transparent; }
 .version-main:disabled { cursor: wait; opacity: .7; }
-.version-key { font-size: 10px; letter-spacing: .06em; }
-
 .detail-key {
     width: 42px;
     height: 42px;

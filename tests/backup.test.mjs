@@ -105,7 +105,7 @@ test('baye 往返：还原到另一槽，仅写入同一版本空间', () => {
 
     const parsed = B.parseBackup(payload);
     assert.equal(parsed.profileId, 'baye/SGBY');
-    assert.equal(B.applyRestore(SGBY, 2, parsed.files, parsed.version, store.set), true);
+    assert.equal(B.applyRestore(SGBY, 2, parsed.files, store.set), true);
 
     assert.equal(store.raw['baye//data//sango4.sav@SGBY'], 'AAA');
     assert.equal(store.raw['baye//data//sango5.sav@SGBY'], 'BBB');
@@ -152,7 +152,7 @@ test('legacy sango-save-slot 带 libpath：识别版本并严格匹配', () => {
     assert.equal(B.canRestore(parsed, SGBY), false);
 
     const store = makeStore({});
-    B.applyRestore(SCMOD, 1, parsed.files, parsed.version, store.set);
+    B.applyRestore(SCMOD, 1, parsed.files, store.set);
     assert.equal(store.raw['baye//data//sango2.sav@sc-mod'], 'AAA');
     assert.equal(store.raw['baye//data//sango3.sav@sc-mod'], 'BBB');
 });
@@ -227,8 +227,7 @@ test('fmj 往返：还原到另一槽，写入游戏独立空间', () => {
 
     const parsed = B.parseBackup(payload);
     assert.equal(parsed.profileId, 'fmj/伏魔记');
-    assert.equal(parsed.version, null);
-    assert.equal(B.applyRestore(SAVE_PROFILES['fmj/伏魔记'], 2, parsed.files, parsed.version, store.set), true);
+    assert.equal(B.applyRestore(SAVE_PROFILES['fmj/伏魔记'], 2, parsed.files, store.set), true);
     assert.equal(store.raw['sav/伏魔记/fmjsave2'], 'FMJ1');
     assert.equal(store.raw['sav/fmjsave2'], undefined);
 });
@@ -246,7 +245,7 @@ test('向后兼容：旧 fmj 共享存档备份可还原到任意 fmj 游戏', (
     assert.equal(B.canRestore(parsed, SGBY), false);
 
     const store = makeStore({});
-    B.applyRestore(SAVE_PROFILES['fmj/伏魔记'], 0, parsed.files, parsed.version, store.set);
+    B.applyRestore(SAVE_PROFILES['fmj/伏魔记'], 0, parsed.files, store.set);
     assert.equal(store.raw['sav/伏魔记/fmjsave0'], 'OLD-FMJ');
 });
 
@@ -288,7 +287,7 @@ test('备份可跨任意 Unicode 内容无损往返', () => {
     delete store.raw['baye//data//sango2.sav@sc-mod'];
     delete store.raw['baye//data//sango3.sav@sc-mod'];
 
-    B.applyRestore(SCMOD, 1, B.parseBackup(payload).files, null, store.set);
+    B.applyRestore(SCMOD, 1, B.parseBackup(payload).files, store.set);
     assert.equal(store.raw['baye//data//sango2.sav@sc-mod'], tricky);
     assert.equal(store.raw['baye//data//sango3.sav@sc-mod'], 'XYZ');
 });
@@ -307,7 +306,7 @@ test('还原写入失败时中止并返回 false', () => {
     const parsed = B.parseBackup(B.buildExportPayload(SAVE_PROFILES['fmj/伏魔记'], 0, store.get));
     const failWrite = () => false;
     assert.equal(
-        B.applyRestore(SAVE_PROFILES['fmj/伏魔记'], 1, parsed.files, parsed.version, failWrite),
+        B.applyRestore(SAVE_PROFILES['fmj/伏魔记'], 1, parsed.files, failWrite),
         false
     );
 });
@@ -332,7 +331,6 @@ test('还原第二个文件失败时回滚第一个文件', () => {
             SGBY,
             0,
             ['NEW-A', 'NEW-B'],
-            null,
             failSecondKey,
             store.get,
             store.remove
@@ -356,7 +354,6 @@ test('还原到空槽失败时移除已写入的新文件', () => {
             SGBY,
             0,
             ['NEW-A', 'NEW-B'],
-            null,
             failSecondKey,
             store.get,
             store.remove
@@ -369,9 +366,9 @@ test('还原到空槽失败时移除已写入的新文件', () => {
 
 test('applyRestore 直接拒绝非法槽位和文件结构', () => {
     const store = makeStore({});
-    assert.equal(B.applyRestore(SGBY, -1, ['A', 'B'], null, store.set), false);
-    assert.equal(B.applyRestore(SGBY, 0, ['A'], null, store.set), false);
-    assert.equal(B.applyRestore(SGBY, 0, ['A', {}], null, store.set), false);
+    assert.equal(B.applyRestore(SGBY, -1, ['A', 'B'], store.set), false);
+    assert.equal(B.applyRestore(SGBY, 0, ['A'], store.set), false);
+    assert.equal(B.applyRestore(SGBY, 0, ['A', {}], store.set), false);
     assert.deepEqual(store.raw, {});
 });
 

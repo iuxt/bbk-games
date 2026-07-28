@@ -21,9 +21,9 @@
     // 三国霸业的三个版本（与 libs.json 对应）。id 取 lib 文件名（去 .lib），
     // 作为存档 key 的版本后缀（见 lcd.js 的 bayeSaveKey），让三版本存档彼此隔离。
     var BAYE_LIBS = [
-        { id: "SGBY",   name: "三国霸业-原版精修", path: "libs/SGBY.lib" },
-        { id: "whxf",   name: "无痕修复版",        path: "libs/whxf.lib" },
-        { id: "sc-mod", name: "霸哥自制版",        path: "libs/sc-mod.lib" }
+        { id: "SGBY",   name: "三国霸业-原版精修" },
+        { id: "whxf",   name: "无痕修复版" },
+        { id: "sc-mod", name: "霸哥自制版" }
     ];
 
     // fmj 引擎游戏：每个游戏独立的存档空间 sav/<游戏>/fmjsave{n}；
@@ -39,8 +39,7 @@
             },
             legacySlotKeys: function (slot) {
                 return ["sav/fmjsave" + slot];
-            },
-            versionKeys: []
+            }
         };
     }
 
@@ -52,7 +51,6 @@
             id: "baye/" + libId,
             group: "baye",
             name: lib.name,
-            libId: libId,
             slots: 3,
             slotKeys: function (slot) {
                 return [
@@ -65,8 +63,7 @@
                     "baye//data//sango" + (slot * 2) + ".sav",
                     "baye//data//sango" + (slot * 2 + 1) + ".sav"
                 ];
-            },
-            versionKeys: []
+            }
         };
     }
 
@@ -145,17 +142,6 @@
         return true;
     }
 
-    function readVersion(profile, readKey) {
-        if (!profile.versionKeys.length) return null;
-        var v = {};
-        var hasAny = false;
-        for (var i = 0; i < profile.versionKeys.length; i++) {
-            var val = readKey(profile.versionKeys[i]);
-            if (val) { v[profile.versionKeys[i]] = val; hasAny = true; }
-        }
-        return hasAny ? v : null;
-    }
-
     // 构造导出 payload；空槽返回 null
     function buildExportPayload(profile, slot, readKey) {
         if (!isValidSlot(profile, slot)) return null;
@@ -170,8 +156,6 @@
             slot: slot,
             files: files
         };
-        var version = readVersion(profile, readKey);
-        if (version) payload.version = version;
         return payload;
     }
 
@@ -192,12 +176,11 @@
         return {
             profileId: profileId,
             slot: slot,
-            version: null,
             files: data.files.slice()
         };
     }
 
-    // 解析上传的备份 JSON → { profileId, slot, version, files } | null
+    // 解析上传的备份 JSON → { profileId, slot, files } | null
     // 识别新通用格式，以及旧 fmj 共享存档 / 旧 baye（sango-save-slot 与 game=baye）格式
     function parseBackup(data) {
         if (!data || typeof data !== "object") return null;
@@ -259,7 +242,7 @@
 
     // 应用还原：files 写入目标槽（版本/游戏标识固化在 profile 的 slotKeys 里）。
     // 提供 readKey/removeKey 时会先保存旧值，并在任一写入失败后回滚已写项目。
-    function applyRestore(profile, slot, files, version, writeKey, readKey, removeKey) {
+    function applyRestore(profile, slot, files, writeKey, readKey, removeKey) {
         if (!isValidSlot(profile, slot) ||
             !areValidFiles(files, expectedFileCount(profile)) ||
             typeof writeKey !== "function") {
@@ -270,16 +253,6 @@
         var entries = [];
         for (var i = 0; i < keys.length; i++) {
             entries.push({ key: keys[i], value: files[i] });
-        }
-
-        // 只允许写 profile 明确声明的版本键，拒绝备份文件注入任意 localStorage key。
-        if (version && typeof version === "object" && profile.versionKeys) {
-            for (var v = 0; v < profile.versionKeys.length; v++) {
-                var versionKey = profile.versionKeys[v];
-                if (typeof version[versionKey] === "string") {
-                    entries.push({ key: versionKey, value: version[versionKey] });
-                }
-            }
         }
 
         var previous = [];
@@ -321,8 +294,6 @@
         SAVE_PROFILES: SAVE_PROFILES,
         FMJ_GAMES: FMJ_GAMES,
         BAYE_LIBS: BAYE_LIBS,
-        PAYLOAD_TYPE: PAYLOAD_TYPE,
-        LEGACY_TYPE: LEGACY_TYPE,
         LEGACY_FMJ_ID: LEGACY_FMJ_ID,
         LEGACY_BAYE_ID: LEGACY_BAYE_ID,
         getProfile: getProfile,
@@ -331,7 +302,6 @@
         libIdFromPath: libIdFromPath,
         readSlotFiles: readSlotFiles,
         isSlotEmpty: isSlotEmpty,
-        readVersion: readVersion,
         buildExportPayload: buildExportPayload,
         parseBackup: parseBackup,
         canRestore: canRestore,

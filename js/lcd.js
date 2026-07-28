@@ -75,8 +75,6 @@ function sendKey(key) {
     _bayeSendKey(key);
 }
 
-var 		VK_PGUP =			0x20;
-var 		VK_PGDN	=			0x21;
 var 		VK_UP	=			0x22;
 var 		VK_DOWN	=			0x23;
 var 		VK_LEFT	=			0x24;
@@ -85,9 +83,6 @@ var 		VK_HELP	=			0x26;
 var 		VK_ENTER=			0x27;
 var 		VK_EXIT	=			0x28;
 
-var 		VK_INSERT	=		0x30;
-var 		VK_DEL		=		0x31;
-var 		VK_MODIFY	=		0x32;
 var 		VK_SEARCH	=		0x33;
 
 function onKeyDown(e) {
@@ -147,18 +142,6 @@ function bin2hex (s) {
   return o;
 }
 
-function binarray2hex (arr) {
-
-  var i, l, o = "", n;
-
-  for (i = 0, l = arr.length; i < l; i++) {
-    n = arr[i].toString(16)
-    o += n.length < 2 ? "0" + n : n;
-  }
-
-  return o;
-}
-
 function getLibPath() {
     return window.localStorage['baye/libpath'] || "";
 }
@@ -184,11 +167,6 @@ function clearLibData() {
     window.localStorage.removeItem('baye/libpath');
 }
 
-function clearLib() {
-    clearLibData();
-    redirect();
-}
-
 function getLibName() {
     return window.localStorage['baye/libname'] || "步步高原版";
 }
@@ -197,68 +175,6 @@ if (typeof(Storage) === "undefined") {
     alert("你的浏览器不支持存档");
 }
 
-
-var layoutType = 0;
-var keypadWidth = 250;
-
-
-function layoutKeyboard() {
-    var w = window.innerWidth
-    var h = window.innerHeight
-
-    if (h / w > lcdHeight/lcdWidth) {
-        var availableHeight = h - w * lcdHeight/lcdWidth;
-        var isCompatLayout = (layoutType == 1 || layoutType == 2);
-
-        var kbWidth = isCompatLayout ? keypadWidth : w;
-
-        var ratio = availableHeight / 3 / kbWidth * 100;
-        if (ratio > 30) {
-            ratio = 30;
-        }
-
-        $(".dummy30").css("margin-top", ratio + "%");
-        $(".keypad").removeAttr("style");
-
-        if (isCompatLayout) {
-            $(".keypad").css("width", keypadWidth);
-            if (layoutType == 1) {
-                $(".keypad").css("float", 'right');
-            } else {
-                $(".keypad").css("float", 'left');
-            }
-        }
-
-        if (layoutType == 3) {
-            $("#keypad1").hide();
-            $("#keypad2").show();
-        } else {
-            $("#keypad2").hide();
-            $("#keypad1").show();
-        }
-    }
-}
-
-function saveKeyboardLayout() {
-    window.localStorage['baye.kb.layout'] = String(layoutType);
-}
-
-function loadKeyboardLayout() {
-    layoutType = parseInt(window.localStorage['baye.kb.layout']);
-    if (!layoutType) {
-        layoutType = 0;
-    }
-    layoutKeyboard();
-}
-
-function switchLayout() {
-    layoutType += 1;
-    layoutType %= 4;
-    saveKeyboardLayout();
-    layoutKeyboard();
-}
-
-loadKeyboardLayout();
 
 String.prototype.format = function(args) {
     var result = this;
@@ -437,269 +353,6 @@ function redirect(page) {
 
 function goHome() {
     window.location.href = "index.html";
-}
-
-function disablePageScroll() {
-    document.body.addEventListener('touchmove', function(event) {
-        event.preventDefault();
-    }, {
-        passive: false,
-        capture: false
-    });
-    window.onscroll = function() {  window.scrollTo(0, 0); }
-}
-
-function touchPadInit(elementID) {
-    var activeTouch = null;
-    var originX = 0;
-    var originY = 0;
-    var lastX = 0;
-    var lastY = 0;
-    var touchMoved = false;
-    var xMoved = 0;
-    var yMoved = 0;
-    var previousMovingTime = 0;
-    var previousX = 0;
-    var previousY = 0;
-//    var normalBackgroundColor = "#fff";
-    function convertTouch(touch) {
-        switch (lcdRotateMode) {
-        case 0:
-            break;
-        case 1:
-            return {
-                x: touch.screenY,
-                y: window.screen.width-touch.screenX,
-            };
-        case 2:
-            return {
-                x: window.screen.height-touch.screenY,
-                y: touch.screenX,
-            };
-        }
-        return {
-            x: touch.screenX,
-            y: touch.screenY,
-        };
-    }
-
-    function raiseKey(key) {
-        sendKey(key);
-    }
-
-    function resetTouch() {
-        activeTouch = null;
-        touchMoved = false;
-        xMoved = 0;
-        yMoved = 0;
-        previousX = 0;
-        previousY = 0;
-        // todo: reset color
-    }
-
-    function touchBegan(event) {
-        if (activeTouch || event.targetTouches.length < 1) {
-            return;
-        }
-        activeTouch = event.targetTouches[0];
-        previousMovingTime = event.timeStamp;
-        var touch = convertTouch(activeTouch);
-        previousX = lastX = originX = touch.x;
-        previousY = lastY = originY = touch.y;
-        touchMoved = false;
-        // todo: color
-    }
-
-    function find(touches, touch) {
-         for (var i in touches) {
-            if (touch.identifier == touches[i].identifier) {
-                return touches[i];
-            }
-         }
-         return null;
-    }
-
-    function touchEnded(event) {
-        if (activeTouch && find(event.changedTouches, activeTouch)) {
-            resetTouch();
-        }
-    }
-
-    function processPointMove(point,
-                        previousPoint,
-                        previousStayPoint,
-                        dT,
-                        stepMax,
-                        stepMin,
-                        speedMax,
-                        speedThreshold,
-                        vkUp,
-                        vkDown)
-    {
-        var speed = (point - previousPoint) / dT;
-        var dP = point - previousStayPoint;
-
-
-        speed = Math.abs(speed);
-        if (speed > speedThreshold) {
-            speed -= speedThreshold;
-        }
-        else {
-            speed = 0;
-        }
-
-        speed = Math.pow(speed, 3);
-        speedMax = Math.pow(speedMax, 3);
-        speed = Math.min(speed, speedMax);
-
-        var step = stepMax - speed / speedMax * (stepMax - stepMin);
-        var count = Math.floor(Math.abs(dP) / step);
-        if (count > 0) {
-            for (var i = 0; i < count; i++) {
-                raiseKey( dP < 0 ? vkUp : vkDown);
-            }
-            return point;
-        }
-        return previousStayPoint;
-    }
-
-    function touchMove(event) {
-        if (activeTouch) {
-            var newTouch = find(event.changedTouches, activeTouch);
-            if (!newTouch) {
-                return;
-            }
-
-            var touch = convertTouch(newTouch);
-            var x = touch.x;
-            var y = touch.y;
-
-            var dt = event.timeStamp - previousMovingTime;
-            previousMovingTime = event.timeStamp;
-
-            var dX = x - previousX;
-            var dY = y - previousY;
-
-            lastY = processPointMove(y, previousY, lastY, dt, 30, 0.3, 2000, 800, VK_UP, VK_DOWN);
-            lastX = processPointMove(x, previousX, lastX, dt, 30, 8, 1000, 500, VK_LEFT, VK_RIGHT);
-
-            previousX = x;
-            previousY = y;
-
-            touchMoved = true;
-        }
-    }
-
-    var element = document.getElementById(elementID);
-
-    element.addEventListener("touchstart", touchBegan);
-    element.addEventListener("touchmove", touchMove);
-    element.addEventListener("touchend", touchEnded);
-    element.addEventListener("touchcancel", touchEnded);
-    disablePageScroll();
-}
-
-var lcdRotateMode = 0;
-
-function touchScreenInit(lcdID) {
-    var lcd = document.getElementById(lcdID);
-
-    var activeTouch = null;
-
-    var VT_TOUCH_DOWN = 1
-    var VT_TOUCH_UP = 2
-    var VT_TOUCH_MOVE = 3
-    var VT_TOUCH_CANCEL = 4
-
-    function raiseTouchEvent(key, touch) {
-        var rect = lcd.getBoundingClientRect();
-
-        var webX = touch.clientX - rect.left;
-        var webY = touch.clientY - rect.top;
-
-        var gameX = webX / rect.width * lcdWidth;
-        var gameY = webY / rect.height * lcdHeight;
-
-        switch (lcdRotateMode) {
-        case 0:
-            break;
-        case 1:
-            gameX = webY / rect.height * lcdWidth;
-            gameY = (rect.width - webX) / rect.width * lcdHeight;
-            break;
-        case 2:
-            gameX = (rect.height - webY) / rect.height * lcdWidth;
-            gameY = webX / rect.width * lcdHeight;
-            break;
-        }
-        if (window.bayeDebugMode) {
-            var html = "";
-            html += sprintf('canvas:(%.1f,%.1f)<br>', rect.left, rect.top);
-            html += sprintf('client:(%.1f,%.1f)<br>', touch.clientX, touch.clientY);
-            html += sprintf('web:(%.1f,%.1f)<br>', webX, webY);
-            html += sprintf('game:(%.1f,%.1f)<br>', gameX, gameY);
-            $('#info').html(html);
-        }
-        _bayeSendTouchEvent(key, gameX, gameY);
-    }
-
-    function resetTouch() {
-        activeTouch = null;
-    }
-
-    function touchBegan(event) {
-        if (activeTouch || event.targetTouches.length < 1) {
-            return;
-        }
-        activeTouch = event.targetTouches[0];
-        raiseTouchEvent(VT_TOUCH_DOWN, activeTouch);
-    }
-
-    function find(touches, touch) {
-         for (var i in touches) {
-            if (touch.identifier == touches[i].identifier) {
-                return touches[i];
-            }
-         }
-         return null;
-    }
-
-    function touchEnded(event) {
-        if (activeTouch) {
-            var touch = find(event.changedTouches, activeTouch);
-            if (!touch) {
-                return;
-            }
-            raiseTouchEvent(VT_TOUCH_UP, touch);
-            resetTouch();
-        }
-    }
-
-    function touchMove(event) {
-        if (activeTouch) {
-            var touch = find(event.changedTouches, activeTouch);
-            if (!touch) {
-                return;
-            }
-            raiseTouchEvent(VT_TOUCH_MOVE, touch);
-        }
-    }
-
-    function touchCanceled(event) {
-        if (activeTouch) {
-            var touch = find(event.changedTouches, activeTouch);
-            if (!touch) {
-                return;
-            }
-            raiseTouchEvent(VT_TOUCH_CANCEL, touch);
-            resetTouch();
-        }
-    }
-    lcd.addEventListener("touchstart", touchBegan);
-    lcd.addEventListener("touchmove", touchMove);
-    lcd.addEventListener("touchend", touchEnded);
-    lcd.addEventListener("touchcancel", touchCanceled);
-    disablePageScroll();
 }
 
 // --------- Engine callbacks ---------
