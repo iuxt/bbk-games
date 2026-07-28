@@ -258,11 +258,12 @@
 
     function openPicker() {
         var overlay = byId("game-picker");
+        var dialog = overlay.querySelector(".game-picker-dialog");
         state.opener = global.document.activeElement;
         overlay.hidden = false;
         byId("game-picker-open").setAttribute("aria-expanded", "true");
         global.document.body.classList.add("dialog-open");
-        byId("game-search").focus();
+        dialog.focus();
     }
 
     function closePicker() {
