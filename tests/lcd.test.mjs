@@ -35,6 +35,9 @@ function loadLcd(storageValues = {}) {
     };
     const context = {
         window,
+        document: {
+            getElementById() { return null; },
+        },
         navigator: { userAgent: 'Desktop' },
         Storage: function Storage() {},
         alert() {},
@@ -92,6 +95,54 @@ test('bayeMain keeps loading the selected version', () => {
     context.bayeMain();
 
     assert.equal(loadedPath, 'libs/SGBY.lib');
+});
+
+test('bayeMain reports a ROM loading failure', () => {
+    const context = loadLcd({
+        'baye/libpath': 'libs/SGBY.lib',
+    });
+    const errorElement = { textContent: '', hidden: true };
+    context.document.getElementById = () => errorElement;
+    context.loadLibFromUrl = (path, success, failure) => failure();
+
+    context.bayeMain();
+
+    assert.equal(errorElement.hidden, false);
+    assert.match(errorElement.textContent, /游戏数据载入失败/);
+});
+
+test('ajaxGet reports non-success responses', () => {
+    const context = loadLcd();
+    let failed = false;
+    context.XMLHttpRequest = class {
+        open() {}
+        send() {
+            this.status = 404;
+            this.onload();
+        }
+    };
+
+    context.ajaxGet('missing.lib', () => {
+        assert.fail('success callback should not run');
+    }, () => {
+        failed = true;
+    });
+
+    assert.equal(failed, true);
+});
+
+test('lcdInit always uses the fixed game resolution', () => {
+    const context = loadLcd({
+        'baye/resolution': '1',
+    });
+    let size = null;
+    context.bayeResizeScreen = (width, height) => {
+        size = [width, height];
+    };
+
+    context.lcdInit();
+
+    assert.deepEqual(size, [160, 96]);
 });
 
 test("chooseLib stores the new version before launching", () => {

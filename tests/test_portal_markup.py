@@ -86,20 +86,19 @@ class ChooseMarkupTests(unittest.TestCase):
     def test_has_one_primary_heading(self):
         self.assertEqual(self.parser.h1_count, 1)
 
-    def test_preserves_storage_keys(self):
-        self.assertEqual(
-            self.parser.storage_keys,
-            {"baye/resolution", "baye/clearmode"},
-        )
+    def test_game_settings_are_removed(self):
+        markup = (ROOT / "choose.html").read_text(encoding="utf-8")
+        self.assertEqual(self.parser.storage_keys, set())
+        self.assertNotIn("settings-title", self.parser.ids)
+        self.assertNotIn("baye/resolution", markup)
+        self.assertNotIn("baye/clearmode", markup)
 
-    def test_loads_version_list_and_settings_assets(self):
+    def test_loads_only_version_list_assets(self):
         self.assertEqual(
             self.parser.scripts,
             [
                 "js/jquery.min.js",
-                "js/lcd.js?ver=13",
-                "js/base64.js",
-                "js/portal.js",
+                "js/lcd.js?ver=15",
             ],
         )
 
@@ -108,7 +107,6 @@ class ChooseMarkupTests(unittest.TestCase):
 
     def test_declared_local_assets_exist(self):
         self.assertTrue((ROOT / "css" / "portal.css").is_file())
-        self.assertTrue((ROOT / "js" / "portal.js").is_file())
         self.assertTrue((ROOT / "js" / "lcd.js").is_file())
 
     def test_css_has_responsive_and_accessibility_contracts(self):
@@ -116,7 +114,7 @@ class ChooseMarkupTests(unittest.TestCase):
         self.assertIn("@media (min-width: 760px)", css)
         self.assertIn("@media (prefers-reduced-motion: reduce)", css)
         self.assertIn(".game-grid", css)
-        self.assertIn(".settings-list", css)
+        self.assertNotIn(".settings-list", css)
         self.assertIn(":focus-visible", css)
 
 
@@ -128,6 +126,13 @@ class MobileGameMarkupTests(unittest.TestCase):
                 self.assertTrue(markup.rstrip().endswith("</html>"))
                 self.assertLess(markup.rfind("<script"), markup.rfind("</body>"))
 
+    def test_baye_pages_expose_rom_load_errors(self):
+        for page in ("m.html", "pc.html"):
+            with self.subTest(page=page):
+                markup = (ROOT / page).read_text(encoding="utf-8")
+                self.assertIn('id="game-load-error"', markup)
+                self.assertIn("js/lcd.js?ver=15", markup)
+
     def test_mobile_pages_do_not_use_eval_or_inline_tap_code(self):
         for page in ("m.html", "mt.html"):
             with self.subTest(page=page):
@@ -136,12 +141,33 @@ class MobileGameMarkupTests(unittest.TestCase):
                 self.assertNotIn("ontap=", markup)
                 self.assertIn('data-key="enter"', markup)
 
-    def test_tower_exit_key_stays_inside_the_game(self):
-        markup = (ROOT / "mt.html").read_text(encoding="utf-8")
+    def test_exit_key_stays_inside_mobile_games(self):
+        for page in ("m.html", "mt.html"):
+            with self.subTest(page=page):
+                markup = (ROOT / page).read_text(encoding="utf-8")
 
-        self.assertIn("window.bayeExitToHome = false", markup)
-        self.assertIn('data-key="exit">返回</button>', markup)
-        self.assertIn('href="index.html">‹ 返回游戏中心</a>', markup)
+                self.assertIn("window.bayeExitToHome = false", markup)
+                self.assertIn('data-key="exit">返回</button>', markup)
+                self.assertIn('href="index.html">‹ 返回游戏中心</a>', markup)
+
+    def test_game_pages_load_iphone_safari_pull_refresh_guard(self):
+        pages = (
+            ROOT / "m.html",
+            ROOT / "mt.html",
+            ROOT / "pc.html",
+            ROOT / "bbk-games" / "index.html",
+            ROOT / "fm" / "templates" / "m.tpl",
+            ROOT / "fm" / "templates" / "pc.tpl",
+        )
+        for page in pages:
+            with self.subTest(page=page.relative_to(ROOT)):
+                markup = page.read_text(encoding="utf-8")
+                self.assertIn("game-page.js?v=1", markup)
+
+        script = (ROOT / "js" / "game-page.js").read_text(encoding="utf-8")
+        self.assertIn('"touchmove"', script)
+        self.assertIn("passive: false", script)
+        self.assertIn("event.preventDefault()", script)
 
     def test_rpg_entries_use_relative_launch_routes(self):
         game = "伏魔记"
@@ -162,7 +188,10 @@ class SimulatorMarkupTests(unittest.TestCase):
             self.parser.stylesheets,
             ["../css/portal.css", "app.css?v=2"],
         )
-        self.assertEqual(self.parser.scripts, ["app.js?v=1"])
+        self.assertEqual(
+            self.parser.scripts,
+            ["../js/game-page.js?v=1", "app.js?v=2"],
+        )
         self.assertIn("../index.html", self.parser.links)
 
     def test_ui_assets_cover_responsive_and_accessible_states(self):

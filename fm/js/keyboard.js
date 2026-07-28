@@ -24,33 +24,69 @@ function sendKey(key) {
 }
 
 
-function onKeyDown(key)
-{
-    switch(key){
-    	case 1:
-    		sendKey(KEY_UP);
-    		break;
-    	case 2:
-    		sendKey(KEY_DOWN);
-    		break;
-    	case 3:
-    		sendKey(KEY_LEFT);
-    		break;
-    	case 4:
-    		sendKey(KEY_RIGHT);
-    		break;
-    	case 5:
-    		sendKey(KEY_PAGEUP);
-    		break;
-    	case 6:
-    		sendKey(KEY_PAGEDOWN);
-    		break;
-    	case 7:
-    		sendKey(KEY_ENTER);
-    		break;
-    	case 8:
-    		sendKey(KEY_CANCEL);
-    		break;
+function normalizeKey(input) {
+    if (typeof input === "number" && input >= KEY_UP && input <= KEY_CANCEL) {
+        return input;
+    }
+
+    var key = input && input.key;
+    var keyCode = input && input.keyCode;
+    switch (key) {
+        case "ArrowUp":
+            return KEY_UP;
+        case "ArrowDown":
+            return KEY_DOWN;
+        case "ArrowLeft":
+            return KEY_LEFT;
+        case "ArrowRight":
+            return KEY_RIGHT;
+        case "[":
+        case "PageUp":
+            return KEY_PAGEUP;
+        case "]":
+        case "PageDown":
+            return KEY_PAGEDOWN;
+        case "Enter":
+            return KEY_ENTER;
+        case " ":
+        case "Spacebar":
+        case "Escape":
+            return KEY_CANCEL;
+    }
+
+    switch (keyCode) {
+        case 38:
+            return KEY_UP;
+        case 40:
+            return KEY_DOWN;
+        case 37:
+            return KEY_LEFT;
+        case 39:
+            return KEY_RIGHT;
+        case 219:
+        case 33:
+            return KEY_PAGEUP;
+        case 221:
+        case 34:
+            return KEY_PAGEDOWN;
+        case 13:
+            return KEY_ENTER;
+        case 32:
+        case 27:
+            return KEY_CANCEL;
+        default:
+            return null;
     }
 }
 
+function onKeyDown(input)
+{
+    var key = normalizeKey(input);
+    if (key === null) return;
+
+    sendKey(key);
+    if (input && typeof input.preventDefault === "function") {
+        input.preventDefault();
+    }
+    return false;
+}

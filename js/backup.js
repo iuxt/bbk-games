@@ -127,7 +127,8 @@
         var files = [];
         for (var i = 0; i < keys.length; i++) {
             var value = readKey(keys[i]);
-            if ((!value || !value.length) && legacyKeys && legacyKeys[i] !== keys[i]) {
+            if ((value === null || value === undefined) &&
+                    legacyKeys && legacyKeys[i] !== keys[i]) {
                 // 新存档空间还没有数据时，回退读取旧的共享存档
                 value = readKey(legacyKeys[i]);
             }

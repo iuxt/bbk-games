@@ -16,18 +16,6 @@ function lcdInit()
     var width = 16*10;
     var height = 16*6;
 
-    //分辨率
-    switch (window.localStorage["baye/resolution"]) {
-    case '0':
-        width = 16*10;
-        height = 16*6;
-        break;
-    case '1':
-        width = 16*13;
-        height = 16*8;
-        break;
-    }
-
     bayeResizeScreen(width, height);
 
     if (window.localStorage["baye/debug"] == '1') {
@@ -295,35 +283,68 @@ String.prototype.format = function(args) {
     return result;
 }
 
-function ajaxGet(path, callback) {
+function ajaxGet(path, callback, errorCallback) {
     var xhr = new XMLHttpRequest();
+    var completed = false;
+
+    function fail() {
+        if (completed) return;
+        completed = true;
+        if (typeof errorCallback === "function") errorCallback();
+    }
+
     xhr.open('GET', path, true);
     xhr.responseType = 'blob';
+    xhr.timeout = 30000;
 
     xhr.onload = function(e) {
-      if (this.status == 200) {
-        var blob = this.response;
-        callback(blob);
-      }
+        if (this.status == 200) {
+            completed = true;
+            callback(this.response);
+        } else {
+            fail();
+        }
     };
+    xhr.onerror = fail;
+    xhr.onabort = fail;
+    xhr.ontimeout = fail;
 
     xhr.send();
 }
 
 var dynLib = null;
 
-function loadLibFromUrl(url, then) {
+function loadLibFromUrl(url, then, errorCallback) {
     console.log("loading from " + url);
     ajaxGet(url, function(file){
         console.log("ajax ok");
         var reader = new FileReader();
+        function failRead() {
+            if (typeof errorCallback === "function") errorCallback();
+        }
         reader.onload = function() {
             dynLib = bin2hex(reader.result);
             console.log("read ok");
             then();
+        };
+        reader.onerror = failRead;
+        reader.onabort = failRead;
+        try {
+            reader.readAsBinaryString(file);
+        } catch (error) {
+            failRead();
         }
-        reader.readAsBinaryString(file);
-    });
+    }, errorCallback);
+}
+
+function showGameLoadError(message) {
+    var element = document.getElementById("game-load-error");
+    if (!element) {
+        if (message) alert(message);
+        return;
+    }
+    element.textContent = message || "";
+    element.hidden = !message;
 }
 
 function bayeMain() {
@@ -332,8 +353,11 @@ function bayeMain() {
         window.location.href = "choose.html";
         return;
     }
+    showGameLoadError("");
     loadLibFromUrl(url, function(){
         _main();
+    }, function() {
+        showGameLoadError("游戏数据载入失败，请检查网络后刷新重试。");
     });
 }
 

@@ -23,6 +23,62 @@
         global.localStorage.setItem(key, value);
     }
 
+    function romStorageId(buffer, catalogId) {
+        if (catalogId) {
+            return catalogId;
+        }
+
+        var bytes = new Uint8Array(buffer);
+        var hash = 2166136261;
+        for (var index = 0; index < bytes.length; index += 1) {
+            hash ^= bytes[index];
+            hash = Math.imul(hash, 16777619);
+        }
+        return "local-" + bytes.length + "-" +
+            (hash >>> 0).toString(16).padStart(8, "0");
+    }
+
+    function migrateLegacySaves(storage, storageId, legacyNamespace) {
+        if (!storage || !storageId || !legacyNamespace) {
+            return false;
+        }
+
+        var markerKey = "gameRomSaveMigration:" + legacyNamespace;
+        var migrated = false;
+        var foundLegacy = false;
+
+        try {
+            var owner = storage.getItem(markerKey);
+            if (owner && owner !== storageId) {
+                return false;
+            }
+
+            for (var slot = 0; slot < 3; slot += 1) {
+                var baseKey = "sav/gamesave" + slot;
+                var legacyKey = baseKey + "-" + legacyNamespace;
+                var targetKey = baseKey + "-" + storageId;
+                var value = storage.getItem(legacyKey);
+
+                if (value === null) {
+                    continue;
+                }
+                foundLegacy = true;
+                if (storage.getItem(targetKey) === null) {
+                    storage.setItem(targetKey, value);
+                    migrated = true;
+                }
+            }
+
+            if (foundLegacy && !owner) {
+                // 同长度 ROM 的旧存档无法反推出来源，只迁移给升级时当前打开的游戏。
+                storage.setItem(markerKey, storageId);
+            }
+        } catch (error) {
+            return false;
+        }
+        return migrated;
+    }
+
     function arrayBufferToHex(buffer) {
         var bytes = new Uint8Array(buffer);
         var lookup = [];
@@ -166,6 +222,7 @@
 
     function storeRom(buffer, id, name) {
         writeStorage("gameRom", arrayBufferToHex(buffer));
+        writeStorage("gameRomStorageId", romStorageId(buffer, id));
         if (id) {
             writeStorage("gameRomId", id);
         } else {
@@ -247,9 +304,19 @@
     function loadCore() {
         var status = byId("screen-status");
         var script = global.document.createElement("script");
+        var storedRom = readStorage("gameRom");
+        var storageId = readStorage("gameRomStorageId") || readStorage("gameRomId");
+        var storage = null;
+
+        try {
+            storage = global.localStorage;
+        } catch (error) {
+            storage = null;
+        }
+        migrateLegacySaves(storage, storageId, storedRom.length);
 
         global.renderPeixel = [1, 1, 1];
-        script.src = "core.js";
+        script.src = "core.js?v=2";
         script.addEventListener("load", function () {
             if (global.game && global.game.rom && global.game.rom["GAME.ROM"]) {
                 status.hidden = true;
@@ -307,7 +374,9 @@
     }
 
     global.BBKSimulator = {
-        arrayBufferToHex: arrayBufferToHex
+        arrayBufferToHex: arrayBufferToHex,
+        romStorageId: romStorageId,
+        migrateLegacySaves: migrateLegacySaves
     };
 
     if (global.document) {

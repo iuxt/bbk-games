@@ -80,6 +80,18 @@ test('baye 导出回退：版本空间为空时读取旧共享存档', () => {
     assert.deepEqual(B.buildExportPayload(SGBY, 0, store.get).files, ['LEGACY-A', 'LEGACY-B']);
 });
 
+test('导出不使用旧存档覆盖当前空间中的显式空值', () => {
+    const store = makeStore({
+        'sav/伏魔记/fmjsave0': '',
+        'sav/fmjsave0': 'LEGACY',
+    });
+
+    assert.equal(
+        B.buildExportPayload(SAVE_PROFILES['fmj/伏魔记'], 0, store.get),
+        null
+    );
+});
+
 // ---------- baye 还原（严格版本匹配）----------
 
 test('baye 往返：还原到另一槽，仅写入同一版本空间', () => {

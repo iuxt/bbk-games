@@ -9,6 +9,7 @@
     <title>三国霸业 · BBK 经典游戏</title>
     <link rel="icon" href="favicon.png">
     <link rel="stylesheet" href="css/portal.css">
+    <script src="js/game-page.js?v=1"></script>
     <style>
         /* 虚拟按键 - 与魔塔 mt.html / RPG fm m.html 同款 */
         #touchpad {
@@ -83,6 +84,7 @@
         <section class="lcd-panel lcd-panel-screen" aria-label="三国霸业游戏画面">
             <canvas id="lcd" width="160" height="96">然而你的浏览器并不支持HTML5</canvas>
         </section>
+        <p id="game-load-error" class="game-load-error" role="alert" hidden></p>
 
         <div id="touchpad">
             <div class="kb-row">
@@ -108,9 +110,10 @@
     </main>
     <script src="js/tappy.js"></script>
     <script src="js/bridge.js?ver=201801201234"></script>
-    <script src="js/lcd.js?ver=13"></script>
+    <script src="js/lcd.js?ver=15"></script>
     <script src="js/baye.js?ver=201801201234"></script>
     <script>
+        window.bayeExitToHome = false;
         lcdInit();
 
         var virtualKeys = {

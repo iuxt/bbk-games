@@ -10,9 +10,7 @@
     <link rel="stylesheet" href="css/portal.css">
 
     <script src="js/jquery.min.js"></script>
-    <script src="js/lcd.js?ver=13"></script>
-    <script src="js/base64.js"></script>
-    <script src="js/portal.js"></script>
+    <script src="js/lcd.js?ver=15"></script>
     <script>
         $(function() {
             loadLibLists("#list");
@@ -74,32 +72,9 @@
             </div>
         </section>
 
-        <section class="game-section" aria-labelledby="settings-title">
-            <div class="section-heading">
-                <h2 id="settings-title">游戏设置</h2>
-                <span>SETTINGS</span>
-            </div>
-            <div class="settings-list">
-                <label class="setting-row">
-                    <span><strong>分辨率</strong><small>调整游戏画面尺寸</small></span>
-                    <select data-storage-key="baye/resolution">
-                        <option value="0">4988</option>
-                        <option value="1">加大</option>
-                    </select>
-                </label>
-                <label class="setting-row">
-                    <span><strong>像素锐化</strong><small>切换像素显示效果</small></span>
-                    <select data-storage-key="baye/clearmode">
-                        <option value="0">禁用</option>
-                        <option value="1">启用</option>
-                    </select>
-                </label>
-            </div>
-
-            <nav class="dialog-actions" aria-label="三国霸业辅助功能">
-                <a class="device-button" href="backup.html?game=baye">备份/还原</a>
-            </nav>
-        </section>
+        <nav class="dialog-actions" aria-label="三国霸业辅助功能">
+            <a class="device-button" href="backup.html?game=baye">备份/还原</a>
+        </nav>
 
         <footer class="device-footer utility-footer">
             <span>GAME 01</span>
