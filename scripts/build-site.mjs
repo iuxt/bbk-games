@@ -7,16 +7,9 @@ const dist = path.join(root, "dist");
 const client = path.join(dist, "client");
 const files = [
     "index.html",
-    "choose.html",
-    "backup.html",
-    "m.html",
-    "mt.html",
-    "pc.html",
     "favicon.png",
-    "libs.json",
-    "modlib.txt",
 ];
-const directories = ["css", "js", "libs", "bbk-games"];
+const directories = ["css", "js", "sanguobaye", "mota", "rpg"];
 
 await rm(dist, { recursive: true, force: true });
 await mkdir(client, { recursive: true });

@@ -7,11 +7,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="description" content="三国霸业 · 步步高电子词典经典游戏">
     <title>三国霸业 · BBK 经典游戏</title>
-    <link rel="icon" href="favicon.png">
-    <link rel="stylesheet" href="css/portal.css">
-    <script src="js/game-page.js?v=1"></script>
+    <link rel="icon" href="../favicon.png">
+    <link rel="stylesheet" href="../css/portal.css">
+    <script src="../js/game-page.js?v=1"></script>
     <style>
-        /* 虚拟按键 - 与魔塔 mt.html / RPG fm m.html 同款 */
+        /* 虚拟按键 - 与魔塔 / RPG 页面同款 */
         #touchpad {
             margin-top: 14px;
         }
@@ -41,10 +41,10 @@
             box-shadow: inset 0 -4px 0 #7d3a2f;
         }
     </style>
-    <script src="js/jquery.min.js"></script>
-    <script src="js/encoding-indexes.js"></script>
-    <script src="js/encoding.js"></script>
-    <script src="js/sprintf.js"></script>
+    <script src="../js/jquery.min.js"></script>
+    <script src="../js/encoding-indexes.js"></script>
+    <script src="../js/encoding.js"></script>
+    <script src="../js/sprintf.js"></script>
     <script>
         window.bayeDebugMode = window.location.href.match(/(localhost|debug=1)/);
         // 防止用户长时间后从历史记录直接恢复游戏页；开发环境和带有效时间戳的入口除外
@@ -59,7 +59,7 @@
                         return;
                     }
                 }
-                window.location.href = "index.html";
+                window.location.href = "../index.html";
             }
         })();
     </script>
@@ -67,7 +67,7 @@
 <body>
     <main class="device-shell utility-shell">
         <header class="device-header">
-            <a class="brand" href="index.html" aria-label="返回 BBK 经典游戏首页">
+            <a class="brand" href="../index.html" aria-label="返回 BBK 经典游戏首页">
                 <span class="brand-mark">BBK</span>
                 <span>经典游戏</span>
             </a>
@@ -103,12 +103,12 @@
 
         <footer class="device-footer utility-footer">
             <span>GAME 01 · BAYE</span>
-            <a class="footer-link" href="index.html">‹ 返回游戏中心</a>
+            <a class="footer-link" href="../index.html">‹ 返回游戏中心</a>
         </footer>
     </main>
-    <script src="js/tappy.js"></script>
+    <script src="../js/tappy.js"></script>
     <script src="js/bridge.js?ver=201801201234"></script>
-    <script src="js/lcd.js?ver=16"></script>
+    <script src="../js/lcd.js?ver=16"></script>
     <script src="js/baye.js?ver=201801201234"></script>
     <script>
         window.bayeExitToHome = false;

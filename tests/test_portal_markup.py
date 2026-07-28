@@ -53,9 +53,9 @@ class IndexMarkupTests(unittest.TestCase):
         self.assertEqual(
             self.parser.games,
             {
-                "baye": "choose.html",
-                "bbk": "bbk-games/index.html",
-                "tower": "mt.html",
+                "baye": "sanguobaye/index.html",
+                "bbk": "rpg/index.html",
+                "tower": "mota/index.html",
             },
         )
 
@@ -80,13 +80,13 @@ class IndexMarkupTests(unittest.TestCase):
 class ChooseMarkupTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.parser = parse("choose.html")
+        cls.parser = parse("sanguobaye/index.html")
 
     def test_has_one_primary_heading(self):
         self.assertEqual(self.parser.h1_count, 1)
 
     def test_game_settings_are_removed(self):
-        markup = (ROOT / "choose.html").read_text(encoding="utf-8")
+        markup = (ROOT / "sanguobaye" / "index.html").read_text(encoding="utf-8")
         self.assertEqual(self.parser.storage_keys, set())
         self.assertNotIn("settings-title", self.parser.ids)
         self.assertNotIn("baye/resolution", markup)
@@ -96,8 +96,8 @@ class ChooseMarkupTests(unittest.TestCase):
         self.assertEqual(
             self.parser.scripts,
             [
-                "js/jquery.min.js",
-                "js/lcd.js?ver=16",
+                "../js/jquery.min.js",
+                "../js/lcd.js?ver=16",
             ],
         )
 
@@ -119,28 +119,32 @@ class ChooseMarkupTests(unittest.TestCase):
 
 class MobileGameMarkupTests(unittest.TestCase):
     def test_mobile_pages_keep_scripts_inside_document(self):
-        for page in ("m.html", "mt.html"):
+        for page in ("sanguobaye/m.html", "mota/index.html"):
             with self.subTest(page=page):
                 markup = (ROOT / page).read_text(encoding="utf-8")
                 self.assertTrue(markup.rstrip().endswith("</html>"))
                 self.assertLess(markup.rfind("<script"), markup.rfind("</body>"))
 
     def test_baye_pages_expose_rom_load_errors(self):
-        for page in ("m.html", "pc.html"):
+        for page in ("sanguobaye/m.html", "sanguobaye/pc.html"):
             with self.subTest(page=page):
                 markup = (ROOT / page).read_text(encoding="utf-8")
                 self.assertIn('id="game-load-error"', markup)
-                self.assertIn("js/lcd.js?ver=16", markup)
+                self.assertIn("../js/lcd.js?ver=16", markup)
 
     def test_game_pages_do_not_load_retired_codec_helpers(self):
-        for page in ("m.html", "mt.html", "pc.html"):
+        for page in (
+            "sanguobaye/m.html",
+            "mota/index.html",
+            "sanguobaye/pc.html",
+        ):
             with self.subTest(page=page):
                 markup = (ROOT / page).read_text(encoding="utf-8")
                 self.assertNotIn("base64.js", markup)
                 self.assertNotIn("lzma_worker-min.js", markup)
 
     def test_mobile_pages_do_not_use_eval_or_inline_tap_code(self):
-        for page in ("m.html", "mt.html"):
+        for page in ("sanguobaye/m.html", "mota/index.html"):
             with self.subTest(page=page):
                 markup = (ROOT / page).read_text(encoding="utf-8")
                 self.assertNotIn("eval(", markup)
@@ -148,20 +152,20 @@ class MobileGameMarkupTests(unittest.TestCase):
                 self.assertIn('data-key="enter"', markup)
 
     def test_exit_key_stays_inside_mobile_games(self):
-        for page in ("m.html", "mt.html"):
+        for page in ("sanguobaye/m.html", "mota/index.html"):
             with self.subTest(page=page):
                 markup = (ROOT / page).read_text(encoding="utf-8")
 
                 self.assertIn("window.bayeExitToHome = false", markup)
                 self.assertIn('data-key="exit">返回</button>', markup)
-                self.assertIn('href="index.html">‹ 返回游戏中心</a>', markup)
+                self.assertIn('href="../index.html">‹ 返回游戏中心</a>', markup)
 
     def test_game_pages_load_iphone_safari_pull_refresh_guard(self):
         pages = (
-            ROOT / "m.html",
-            ROOT / "mt.html",
-            ROOT / "pc.html",
-            ROOT / "bbk-games" / "index.html",
+            ROOT / "sanguobaye" / "m.html",
+            ROOT / "mota" / "index.html",
+            ROOT / "sanguobaye" / "pc.html",
+            ROOT / "rpg" / "index.html",
         )
         for page in pages:
             with self.subTest(page=page.relative_to(ROOT)):
@@ -182,7 +186,7 @@ class MobileGameMarkupTests(unittest.TestCase):
 class SimulatorMarkupTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.parser = parse("bbk-games/index.html")
+        cls.parser = parse("rpg/index.html")
 
     def test_uses_shared_game_center_chrome(self):
         self.assertEqual(self.parser.h1_count, 1)
@@ -196,13 +200,13 @@ class SimulatorMarkupTests(unittest.TestCase):
         )
         self.assertIn("../index.html", self.parser.links)
 
-        markup = (ROOT / "bbk-games" / "index.html").read_text(encoding="utf-8")
+        markup = (ROOT / "rpg" / "index.html").read_text(encoding="utf-8")
         self.assertIn('class="gameplay-page"', markup)
 
     def test_ui_assets_cover_responsive_and_accessible_states(self):
-        markup = (ROOT / "bbk-games" / "index.html").read_text(encoding="utf-8")
-        css = (ROOT / "bbk-games" / "app.css").read_text(encoding="utf-8")
-        script = (ROOT / "bbk-games" / "app.js").read_text(encoding="utf-8")
+        markup = (ROOT / "rpg" / "index.html").read_text(encoding="utf-8")
+        css = (ROOT / "rpg" / "app.css").read_text(encoding="utf-8")
+        script = (ROOT / "rpg" / "app.js").read_text(encoding="utf-8")
 
         self.assertIn("#touchpad .kb-row", css)
         self.assertIn(".rom-card.is-selected", css)
@@ -234,14 +238,14 @@ class SimulatorMarkupTests(unittest.TestCase):
 
     def test_catalog_has_one_entry_for_every_bundled_rom(self):
         catalog = json.loads(
-            (ROOT / "bbk-games" / "roms" / "catalog.json").read_text(
+            (ROOT / "rpg" / "roms" / "catalog.json").read_text(
                 encoding="utf-8"
             )
         )
         catalog_ids = [item["id"] for item in catalog]
         rom_ids = sorted(
             path.stem
-            for path in (ROOT / "bbk-games" / "roms").glob("*.lib")
+            for path in (ROOT / "rpg" / "roms").glob("*.lib")
         )
 
         self.assertEqual(len(catalog_ids), len(set(catalog_ids)))

@@ -1,16 +1,24 @@
-步步高电子词典经典游戏 - 三国霸业的H5移植版本
+步步高电子词典经典游戏合集
 
 游玩地址：
 地址一：<https://bbk-games.vercel.app>
 地址二：<https://bbk-games.zahui.fan/>
 
-此仓库为web前端及部署游戏用
+目录结构：
 
-核心作者地址：
+- `sanguobaye/`：三国霸业页面、引擎与游戏资源
+- `mota/`：魔塔页面与引擎
+- `rpg/`：电子词典 RPG 模拟器与 ROM 合集
+- `css/`、`js/`：门户及各游戏共用资源
+
+此仓库用于 Web 前端与游戏部署。
+
+三国霸业引擎源码：
 
 引擎源码地址：http://gitee.com/bgwp/iBaye
 
-另附伏魔记地址:
+伏魔记源码：
+
 http://gitee.com/bgwp/fmj.kt
 
 开发检查：

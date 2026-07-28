@@ -65,7 +65,7 @@ class StaticAssetTests(unittest.TestCase):
         self.assertEqual(failures, [], "\n" + "\n".join(failures))
 
     def test_rpg_fumo_rom_conversion_is_preserved(self):
-        rom = ROOT / "bbk-games" / "roms" / "fmj_rpg.lib"
+        rom = ROOT / "rpg" / "roms" / "fmj_rpg.lib"
 
         self.assertEqual(rom.stat().st_size, 557057)
         self.assertEqual(

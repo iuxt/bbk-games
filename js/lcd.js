@@ -266,7 +266,7 @@ function showGameLoadError(message) {
 function bayeMain() {
     var url = getLibPath();
     if (!url) {
-        window.location.href = "choose.html";
+        window.location.href = "index.html";
         return;
     }
     showGameLoadError("");
@@ -333,7 +333,7 @@ function loadLibLists(container) {
 
 function redirect(page) {
     if (!getLibPath()) {
-        window.location.href = "choose.html";
+        window.location.href = "index.html";
         return;
     }
     var isMobile = false;
@@ -352,7 +352,7 @@ function redirect(page) {
 }
 
 function goHome() {
-    window.location.href = "index.html";
+    window.location.href = "../index.html";
 }
 
 // --------- Engine callbacks ---------

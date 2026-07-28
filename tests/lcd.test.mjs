@@ -51,12 +51,12 @@ function loadLcd(storageValues = {}) {
     return context;
 }
 
-test('redirect sends users without a selected version to choose.html', () => {
+test('redirect sends users without a selected version to the sanguobaye index', () => {
     const context = loadLcd();
 
     context.redirect();
 
-    assert.equal(context.window.location.href, 'choose.html');
+    assert.equal(context.window.location.href, 'index.html');
 });
 
 test('redirect preserves the existing desktop launch when a version is selected', () => {
@@ -79,7 +79,7 @@ test('bayeMain redirects direct visits without loading a version', () => {
 
     context.bayeMain();
 
-    assert.equal(context.window.location.href, 'choose.html');
+    assert.equal(context.window.location.href, 'index.html');
     assert.equal(loaded, false);
 });
 
@@ -227,7 +227,7 @@ test("bayeExit navigates home by default", () => {
 
     context.bayeExit();
 
-    assert.equal(context.window.location.href, "index.html");
+    assert.equal(context.window.location.href, "../index.html");
 });
 
 test("bayeExit can stay inside games that use exit as a cancel key", () => {

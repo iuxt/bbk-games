@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// 以 ES module 方式加载 js/backup.js，对象挂在主 realm 的 globalThis.BBKBackup
-await import('../js/backup.js');
+// 以 ES module 方式加载三国霸业的备份模块，对象挂在主 realm 的 globalThis.BBKBackup
+await import('../sanguobaye/js/backup.js');
 const B = globalThis.BBKBackup;
 const { SAVE_PROFILES } = B;
 

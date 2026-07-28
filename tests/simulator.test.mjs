@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-await import("../bbk-games/app.js");
+await import("../rpg/app.js");
 
 const Simulator = globalThis.BBKSimulator;
 
@@ -87,7 +87,7 @@ test("simulator rejects malformed save files", () => {
 });
 
 test("simulator core namespaces saves by stable ROM identity", () => {
-    const source = readFileSync(new URL("../bbk-games/core.js", import.meta.url), "utf8");
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
 
     assert.match(
         source,
