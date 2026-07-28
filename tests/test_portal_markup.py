@@ -176,6 +176,20 @@ class MobileGameMarkupTests(unittest.TestCase):
         self.assertIn("passive: false", script)
         self.assertIn("event.preventDefault()", script)
 
+    def test_rpg_game_pages_hide_page_scroll_indicator(self):
+        for page in (
+            ROOT / "fm" / "templates" / "m.tpl",
+            ROOT / "fm" / "templates" / "pc.tpl",
+        ):
+            with self.subTest(page=page.relative_to(ROOT)):
+                markup = page.read_text(encoding="utf-8")
+                self.assertIn('class="gameplay-page"', markup)
+                self.assertIn("portal.css?v=2", markup)
+
+        css = (ROOT / "css" / "portal.css").read_text(encoding="utf-8")
+        self.assertIn("html.gameplay-page::-webkit-scrollbar", css)
+        self.assertIn("scrollbar-width: none", css)
+
     def test_rpg_entries_use_relative_launch_routes(self):
         game = "伏魔记"
         markup = (ROOT / "fm" / "games" / game / "index.html").read_text(encoding="utf-8")
@@ -193,13 +207,16 @@ class SimulatorMarkupTests(unittest.TestCase):
         self.assertEqual(self.parser.h1_count, 1)
         self.assertEqual(
             self.parser.stylesheets,
-            ["../css/portal.css", "app.css?v=6"],
+            ["../css/portal.css?v=2", "app.css?v=6"],
         )
         self.assertEqual(
             self.parser.scripts,
             ["../js/game-page.js?v=1", "app.js?v=2"],
         )
         self.assertIn("../index.html", self.parser.links)
+
+        markup = (ROOT / "bbk-games" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('class="gameplay-page"', markup)
 
     def test_ui_assets_cover_responsive_and_accessible_states(self):
         markup = (ROOT / "bbk-games" / "index.html").read_text(encoding="utf-8")
