@@ -56,7 +56,6 @@ class IndexMarkupTests(unittest.TestCase):
                 "baye": "choose.html",
                 "bbk": "bbk-games/index.html",
                 "tower": "mt.html",
-                "rpg": "fm/index.html",
             },
         )
 
@@ -163,8 +162,6 @@ class MobileGameMarkupTests(unittest.TestCase):
             ROOT / "mt.html",
             ROOT / "pc.html",
             ROOT / "bbk-games" / "index.html",
-            ROOT / "fm" / "templates" / "m.tpl",
-            ROOT / "fm" / "templates" / "pc.tpl",
         )
         for page in pages:
             with self.subTest(page=page.relative_to(ROOT)):
@@ -176,26 +173,10 @@ class MobileGameMarkupTests(unittest.TestCase):
         self.assertIn("passive: false", script)
         self.assertIn("event.preventDefault()", script)
 
-    def test_rpg_game_pages_hide_page_scroll_indicator(self):
-        for page in (
-            ROOT / "fm" / "templates" / "m.tpl",
-            ROOT / "fm" / "templates" / "pc.tpl",
-        ):
-            with self.subTest(page=page.relative_to(ROOT)):
-                markup = page.read_text(encoding="utf-8")
-                self.assertIn('class="gameplay-page"', markup)
-                self.assertIn("portal.css?v=2", markup)
-
+    def test_gameplay_pages_hide_page_scroll_indicator(self):
         css = (ROOT / "css" / "portal.css").read_text(encoding="utf-8")
         self.assertIn("html.gameplay-page::-webkit-scrollbar", css)
         self.assertIn("scrollbar-width: none", css)
-
-    def test_rpg_entries_use_relative_launch_routes(self):
-        game = "伏魔记"
-        markup = (ROOT / "fm" / "games" / game / "index.html").read_text(encoding="utf-8")
-        self.assertIn('var page = "pc.html"', markup)
-        self.assertIn('page = "m.html"', markup)
-        self.assertNotIn('"/fm/games/', markup)
 
 
 class SimulatorMarkupTests(unittest.TestCase):
@@ -207,11 +188,11 @@ class SimulatorMarkupTests(unittest.TestCase):
         self.assertEqual(self.parser.h1_count, 1)
         self.assertEqual(
             self.parser.stylesheets,
-            ["../css/portal.css?v=2", "app.css?v=6"],
+            ["../css/portal.css?v=2", "app.css?v=7"],
         )
         self.assertEqual(
             self.parser.scripts,
-            ["../js/game-page.js?v=1", "app.js?v=3"],
+            ["../js/game-page.js?v=1", "app.js?v=4"],
         )
         self.assertIn("../index.html", self.parser.links)
 
@@ -226,6 +207,8 @@ class SimulatorMarkupTests(unittest.TestCase):
         self.assertIn("#touchpad .kb-row", css)
         self.assertIn(".rom-card.is-selected", css)
         self.assertIn(".footer-action", css)
+        self.assertIn(".desktop-controls", css)
+        self.assertIn(".save-slot-card", css)
         self.assertIn("100dvh", css)
         self.assertIn("safe-area-inset-bottom", css)
         self.assertIn("overscroll-behavior-y: none", css)
@@ -238,8 +221,13 @@ class SimulatorMarkupTests(unittest.TestCase):
         self.assertIn('global.fetch("roms/catalog.json")', script)
         self.assertIn("arrayBufferToHex", script)
         self.assertIn("isMappedGameKey", script)
+        self.assertIn("buildSavePayload", script)
+        self.assertIn("parseSavePayload", script)
         self.assertIn('<link rel="icon" href="../favicon.png">', markup)
-        self.assertIn('class="footer-action"', markup)
+        self.assertIn('id="game-picker-open"', markup)
+        self.assertIn('id="save-manager-open"', markup)
+        self.assertIn('id="desktop-controls"', markup)
+        self.assertIn('id="touchpad"', markup)
         self.assertNotIn('class="simulator-tools"', markup)
         self.assertNotIn("static/js", markup)
         self.assertNotIn("src_cross", markup)

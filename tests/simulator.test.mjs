@@ -35,27 +35,55 @@ test("simulator gives same-length local ROMs distinct stable storage IDs", () =>
     assert.notEqual(Simulator.romStorageId(first, ""), Simulator.romStorageId(second, ""));
 });
 
-test("legacy length saves migrate to only one ROM ID", () => {
-    const values = new Map([
-        ["sav/gamesave0-1114112", "OLD-SAVE"],
-    ]);
-    const storage = {
-        getItem(key) { return values.has(key) ? values.get(key) : null; },
-        setItem(key, value) { values.set(key, String(value)); },
-    };
+test("simulator addresses three save slots by current ROM identity", () => {
+    assert.equal(Simulator.saveStorageKey("xkx", 0), "sav/gamesave0-xkx");
+    assert.equal(Simulator.saveStorageKey("xkx", 2), "sav/gamesave2-xkx");
+    assert.throws(() => Simulator.saveStorageKey("", 0));
+    assert.throws(() => Simulator.saveStorageKey("xkx", 3));
+});
 
+test("simulator exports and validates a save for the current game", () => {
+    const payload = Simulator.buildSavePayload(
+        "xkx",
+        "侠客行",
+        1,
+        "00A1FF",
+        "2026-07-28T00:00:00.000Z"
+    );
+
+    assert.deepEqual(payload, {
+        app: "bbk-games",
+        type: "dictionary-save-slot",
+        version: 1,
+        romId: "xkx",
+        romName: "侠客行",
+        slot: 1,
+        data: "00A1FF",
+        exportedAt: "2026-07-28T00:00:00.000Z",
+    });
     assert.equal(
-        Simulator.migrateLegacySaves(storage, "game-a", "1114112"),
+        Simulator.parseSavePayload(JSON.stringify(payload), "xkx").ok,
         true
     );
-    assert.equal(values.get("sav/gamesave0-game-a"), "OLD-SAVE");
-    assert.equal(values.get("gameRomSaveMigration:1114112"), "game-a");
-
     assert.equal(
-        Simulator.migrateLegacySaves(storage, "game-b", "1114112"),
+        Simulator.parseSavePayload(JSON.stringify(payload), "jyqxz").ok,
         false
     );
-    assert.equal(values.has("sav/gamesave0-game-b"), false);
+});
+
+test("simulator rejects malformed save files", () => {
+    assert.equal(Simulator.parseSavePayload("not-json", "xkx").ok, false);
+    assert.equal(
+        Simulator.parseSavePayload({
+            app: "bbk-games",
+            type: "dictionary-save-slot",
+            version: 1,
+            romId: "xkx",
+            slot: 0,
+            data: "not-hex",
+        }, "xkx").ok,
+        false
+    );
 });
 
 test("simulator core namespaces saves by stable ROM identity", () => {

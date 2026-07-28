@@ -404,7 +404,7 @@ button { color: inherit; }
 .restore-btn:active { transform: translateY(2px); }
 .restore-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
 
-/* fm RPG 游戏页：游戏画面内嵌 LCD 屏幕 */
+/* 游戏页：游戏画面内嵌 LCD 屏幕 */
 .game-title { margin-bottom: 10px; }
 .game-title h1 { margin: 0; font-size: 15px; }
 

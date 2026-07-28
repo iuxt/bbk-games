@@ -10,7 +10,7 @@
     <link rel="icon" href="../favicon.png">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="../css/portal.css?v=2">
-    <link rel="stylesheet" href="app.css?v=6">
+    <link rel="stylesheet" href="app.css?v=7">
     <script src="../js/game-page.js?v=1"></script>
 </head>
 <body>
@@ -24,8 +24,8 @@
         </header>
 
         <div class="section-heading game-title">
-            <h1>电子词典游戏</h1>
-            <span>SIMULATOR · 160×96</span>
+            <h1 id="current-game-name">电子词典游戏</h1>
+            <span>RPG · SIMULATOR · 160×96</span>
         </div>
 
         <section class="lcd-panel lcd-panel-screen simulator-screen" aria-label="电子词典游戏画面">
@@ -33,7 +33,32 @@
             <span id="screen-status" class="screen-status" role="status">游戏加载中…</span>
         </section>
 
-        <div id="touchpad" aria-label="游戏按键">
+        <section id="desktop-controls" class="game-section desktop-controls" aria-labelledby="keys-title">
+            <div class="section-heading">
+                <h2 id="keys-title">按键映射</h2>
+                <span>KEYBOARD</span>
+            </div>
+            <div class="key-map">
+                <div class="key-map-item">
+                    <span class="key-chip">↑ ↓ ← →</span>
+                    <span>移动 / 选择</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">Enter</span>
+                    <span>确认 / 输入</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">Space / Esc</span>
+                    <span>取消 / 返回</span>
+                </div>
+                <div class="key-map-item">
+                    <span class="key-chip">[ ]</span>
+                    <span>翻页</span>
+                </div>
+            </div>
+        </section>
+
+        <div id="touchpad" aria-label="游戏触控按键">
             <div class="kb-row">
                 <button id="5" class="btn" type="button" aria-label="向上翻页">PgUp</button>
                 <button id="1" class="btn" type="button" aria-label="方向上">↑</button>
@@ -56,6 +81,11 @@
                 <button id="game-picker-open" class="footer-action" type="button"
                         aria-haspopup="dialog" aria-controls="game-picker" aria-expanded="false">
                     选择游戏
+                </button>
+                <button id="save-manager-open" class="footer-action" type="button"
+                        aria-haspopup="dialog" aria-controls="save-manager" aria-expanded="false"
+                        disabled>
+                    存档管理
                 </button>
                 <a class="footer-link" href="../index.html">‹ 返回游戏中心</a>
             </nav>
@@ -99,10 +129,35 @@
         </section>
     </div>
 
+    <div id="save-manager" class="dialog-overlay save-manager-overlay" hidden>
+        <section class="save-manager-dialog" role="dialog" aria-modal="true"
+                 aria-labelledby="save-manager-title">
+            <header class="lcd-panel game-picker-display">
+                <p class="lcd-kicker">CURRENT GAME / 当前游戏</p>
+                <h2 id="save-manager-title">存档管理<span aria-hidden="true">_</span></h2>
+                <p id="save-game-name" class="lcd-help">尚未选择游戏</p>
+            </header>
+
+            <p class="save-manager-help">选择槽位导出备份，或把备份导入到对应槽位。</p>
+
+            <div id="save-slot-list" class="save-slot-list" aria-live="polite"></div>
+
+            <p id="save-manager-error" class="dialog-error" role="alert" hidden></p>
+            <p id="save-manager-status" class="dialog-status" role="status" hidden></p>
+
+            <footer class="save-manager-actions">
+                <button id="save-manager-close" class="device-button" type="button">完成</button>
+            </footer>
+
+            <input id="save-input" class="sr-only" type="file"
+                   accept=".json,application/json">
+        </section>
+    </div>
+
     <noscript>
         <p class="noscript-note">模拟器需要启用 JavaScript。<a href="../index.html">返回游戏中心</a></p>
     </noscript>
 
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=4"></script>
 </body>
 </html>

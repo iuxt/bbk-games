@@ -4,7 +4,8 @@
     var state = {
         games: [],
         selectedId: "",
-        opener: null
+        opener: null,
+        importSlot: null
     };
 
     function byId(id) {
@@ -51,47 +52,6 @@
             (hash >>> 0).toString(16).padStart(8, "0");
     }
 
-    function migrateLegacySaves(storage, storageId, legacyNamespace) {
-        if (!storage || !storageId || !legacyNamespace) {
-            return false;
-        }
-
-        var markerKey = "gameRomSaveMigration:" + legacyNamespace;
-        var migrated = false;
-        var foundLegacy = false;
-
-        try {
-            var owner = storage.getItem(markerKey);
-            if (owner && owner !== storageId) {
-                return false;
-            }
-
-            for (var slot = 0; slot < 3; slot += 1) {
-                var baseKey = "sav/gamesave" + slot;
-                var legacyKey = baseKey + "-" + legacyNamespace;
-                var targetKey = baseKey + "-" + storageId;
-                var value = storage.getItem(legacyKey);
-
-                if (value === null) {
-                    continue;
-                }
-                foundLegacy = true;
-                if (storage.getItem(targetKey) === null) {
-                    storage.setItem(targetKey, value);
-                    migrated = true;
-                }
-            }
-
-            if (foundLegacy && !owner) {
-                // 同长度 ROM 的旧存档无法反推出来源，只迁移给升级时当前打开的游戏。
-                storage.setItem(markerKey, storageId);
-            }
-        } catch (error) {
-            return false;
-        }
-        return migrated;
-    }
-
     function arrayBufferToHex(buffer) {
         var bytes = new Uint8Array(buffer);
         var lookup = [];
@@ -112,6 +72,87 @@
             result += chunk;
         }
         return result;
+    }
+
+    function saveStorageKey(storageId, slot) {
+        if (!storageId || !Number.isInteger(slot) || slot < 0 || slot > 2) {
+            throw new Error("无效的游戏或存档槽位");
+        }
+        return "sav/gamesave" + slot + "-" + storageId;
+    }
+
+    function isValidSaveData(data) {
+        return typeof data === "string" &&
+            data.length > 0 &&
+            data.length % 2 === 0 &&
+            /^[0-9A-F]+$/i.test(data);
+    }
+
+    function buildSavePayload(storageId, gameName, slot, data, exportedAt) {
+        if (!isValidSaveData(data)) {
+            throw new Error("存档数据为空或格式不正确");
+        }
+        saveStorageKey(storageId, slot);
+        return {
+            app: "bbk-games",
+            type: "dictionary-save-slot",
+            version: 1,
+            romId: storageId,
+            romName: gameName || storageId,
+            slot: slot,
+            data: data,
+            exportedAt: exportedAt || new Date().toISOString()
+        };
+    }
+
+    function parseSavePayload(source, expectedStorageId) {
+        var payload;
+        try {
+            payload = typeof source === "string" ? JSON.parse(source) : source;
+        } catch (error) {
+            return { ok: false, error: "无法读取备份文件。" };
+        }
+
+        if (!payload ||
+                payload.app !== "bbk-games" ||
+                payload.type !== "dictionary-save-slot" ||
+                payload.version !== 1 ||
+                !Number.isInteger(payload.slot) ||
+                payload.slot < 0 ||
+                payload.slot > 2 ||
+                !isValidSaveData(payload.data) ||
+                typeof payload.romId !== "string" ||
+                !payload.romId) {
+            return { ok: false, error: "这不是有效的电子词典游戏存档。" };
+        }
+
+        if (expectedStorageId && payload.romId !== expectedStorageId) {
+            return {
+                ok: false,
+                error: "该存档属于其他游戏，不能导入到当前游戏。"
+            };
+        }
+
+        return { ok: true, payload: payload };
+    }
+
+    function activeStorageId() {
+        return readStorage("gameRomStorageId") || readStorage("gameRomId");
+    }
+
+    function activeGameName() {
+        return readStorage("gameRomName") || "电子词典游戏";
+    }
+
+    function updateActiveGameUI() {
+        var storageId = activeStorageId();
+        var hasGame = !!storageId && !!readStorage("gameRom");
+        var name = hasGame ? activeGameName() : "电子词典游戏";
+        var saveButton = byId("save-manager-open");
+
+        byId("current-game-name").textContent = name;
+        saveButton.disabled = !hasGame;
+        saveButton.title = hasGame ? "导入或导出当前游戏存档" : "请先选择游戏";
     }
 
     function setError(message) {
@@ -233,6 +274,171 @@
         }
     }
 
+    function setSaveMessage(type, message) {
+        var error = byId("save-manager-error");
+        var status = byId("save-manager-status");
+
+        error.textContent = type === "error" ? message : "";
+        error.hidden = type !== "error" || !message;
+        status.textContent = type === "status" ? message : "";
+        status.hidden = type !== "status" || !message;
+    }
+
+    function formatSaveSize(data) {
+        var bytes = Math.ceil(data.length / 2);
+        if (bytes < 1024) {
+            return bytes + " B";
+        }
+        return (bytes / 1024).toFixed(bytes < 10240 ? 1 : 0) + " KB";
+    }
+
+    function makeSaveButton(label, action, slot, disabled) {
+        var button = global.document.createElement("button");
+        button.type = "button";
+        button.className = "slot-action" + (action === "import" ? " slot-action-primary" : "");
+        button.dataset.saveAction = action;
+        button.dataset.slot = String(slot);
+        button.textContent = label;
+        button.disabled = !!disabled;
+        return button;
+    }
+
+    function renderSaveSlots() {
+        var storageId = activeStorageId();
+        var list = byId("save-slot-list");
+        var fragment = global.document.createDocumentFragment();
+
+        list.textContent = "";
+        for (var slot = 0; slot < 3; slot += 1) {
+            var data = storageId ? readStorage(saveStorageKey(storageId, slot)) : "";
+            var card = global.document.createElement("article");
+            var number = global.document.createElement("span");
+            var copy = global.document.createElement("span");
+            var title = global.document.createElement("strong");
+            var detail = global.document.createElement("small");
+            var actions = global.document.createElement("span");
+
+            card.className = "save-slot-card" + (data ? " has-save" : "");
+            number.className = "save-slot-number";
+            number.textContent = String(slot + 1).padStart(2, "0");
+            copy.className = "save-slot-copy";
+            title.textContent = "存档槽 " + (slot + 1);
+            detail.textContent = data ? "已有存档 · " + formatSaveSize(data) : "空档案";
+            actions.className = "save-slot-actions";
+            actions.appendChild(makeSaveButton("导出", "export", slot, !data));
+            actions.appendChild(makeSaveButton("导入", "import", slot, false));
+            copy.appendChild(title);
+            copy.appendChild(detail);
+            card.appendChild(number);
+            card.appendChild(copy);
+            card.appendChild(actions);
+            fragment.appendChild(card);
+        }
+        list.appendChild(fragment);
+    }
+
+    function openSaveManager() {
+        if (!activeStorageId() || !readStorage("gameRom")) {
+            return;
+        }
+        state.opener = global.document.activeElement;
+        byId("save-game-name").textContent = activeGameName();
+        setSaveMessage("", "");
+        renderSaveSlots();
+        byId("save-manager").hidden = false;
+        byId("save-manager-open").setAttribute("aria-expanded", "true");
+        global.document.body.classList.add("dialog-open");
+        byId("save-manager-close").focus();
+    }
+
+    function closeSaveManager() {
+        byId("save-manager").hidden = true;
+        byId("save-manager-open").setAttribute("aria-expanded", "false");
+        global.document.body.classList.remove("dialog-open");
+        state.importSlot = null;
+        if (state.opener && typeof state.opener.focus === "function") {
+            state.opener.focus();
+        }
+    }
+
+    function safeFilePart(value) {
+        return String(value || "game")
+            .replace(/[^0-9A-Za-z\u3400-\u9FFF_-]+/g, "-")
+            .replace(/^-+|-+$/g, "") || "game";
+    }
+
+    function exportSave(slot) {
+        var storageId = activeStorageId();
+        var data = readStorage(saveStorageKey(storageId, slot));
+        var payload;
+        var blob;
+        var url;
+        var link;
+
+        try {
+            payload = buildSavePayload(storageId, activeGameName(), slot, data);
+            blob = new global.Blob(
+                [JSON.stringify(payload, null, 2)],
+                { type: "application/json;charset=utf-8" }
+            );
+            url = global.URL.createObjectURL(blob);
+            link = global.document.createElement("a");
+            link.href = url;
+            link.download = "bbk-" + safeFilePart(activeGameName()) +
+                "-save-" + (slot + 1) + ".json";
+            global.document.body.appendChild(link);
+            link.click();
+            link.remove();
+            global.URL.revokeObjectURL(url);
+            setSaveMessage("status", "存档槽 " + (slot + 1) + " 已导出。");
+        } catch (error) {
+            setSaveMessage("error", "存档导出失败，请稍后重试。");
+        }
+    }
+
+    function chooseSaveImport(slot) {
+        state.importSlot = slot;
+        var input = byId("save-input");
+        setSaveMessage("", "");
+        input.value = "";
+        input.click();
+    }
+
+    function importSave(file) {
+        var targetSlot = state.importSlot;
+        var storageId = activeStorageId();
+
+        if (!file || targetSlot === null || !storageId) {
+            return;
+        }
+
+        file.text()
+            .then(function (source) {
+                var parsed = parseSavePayload(source, storageId);
+                if (!parsed.ok) {
+                    throw new Error(parsed.error);
+                }
+                writeStorage(
+                    saveStorageKey(storageId, targetSlot),
+                    parsed.payload.data.toUpperCase()
+                );
+                renderSaveSlots();
+                setSaveMessage(
+                    "status",
+                    "备份已导入到存档槽 " + (targetSlot + 1) + "。"
+                );
+            })
+            .catch(function (error) {
+                setSaveMessage(
+                    "error",
+                    error && error.message || "存档导入失败，请检查备份文件。"
+                );
+            })
+            .finally(function () {
+                state.importSlot = null;
+            });
+    }
+
     function storeRom(buffer, id, name) {
         writeStorage("gameRom", arrayBufferToHex(buffer));
         writeStorage("gameRomStorageId", romStorageId(buffer, id));
@@ -316,7 +522,9 @@
 
     function bindGameKeyboard() {
         global.document.addEventListener("keydown", function (event) {
-            if (byId("game-picker").hidden && isMappedGameKey(event)) {
+            if (byId("game-picker").hidden &&
+                    byId("save-manager").hidden &&
+                    isMappedGameKey(event)) {
                 // 内核仍会收到按键；这里只阻止方向键和空格等触发页面滚动。
                 event.preventDefault();
             }
@@ -326,16 +534,6 @@
     function loadCore() {
         var status = byId("screen-status");
         var script = global.document.createElement("script");
-        var storedRom = readStorage("gameRom");
-        var storageId = readStorage("gameRomStorageId") || readStorage("gameRomId");
-        var storage = null;
-
-        try {
-            storage = global.localStorage;
-        } catch (error) {
-            storage = null;
-        }
-        migrateLegacySaves(storage, storageId, storedRom.length);
 
         global.renderPeixel = [1, 1, 1];
         script.src = "core.js?v=2";
@@ -355,8 +553,11 @@
     function init() {
         var picker = byId("game-picker");
         var pickerOpen = byId("game-picker-open");
+        var saveManager = byId("save-manager");
 
         pickerOpen.addEventListener("click", openPicker);
+        byId("save-manager-open").addEventListener("click", openSaveManager);
+        byId("save-manager-close").addEventListener("click", closeSaveManager);
         byId("game-picker-close").addEventListener("click", closePicker);
         byId("game-picker-use").addEventListener("click", useSelectedGame);
         byId("game-search").addEventListener("input", function (event) {
@@ -364,6 +565,22 @@
         });
         byId("rom-input").addEventListener("change", function (event) {
             importRom(event.target.files && event.target.files[0]);
+        });
+        byId("save-input").addEventListener("change", function (event) {
+            importSave(event.target.files && event.target.files[0]);
+        });
+        byId("save-slot-list").addEventListener("click", function (event) {
+            var button = event.target.closest("[data-save-action]");
+            var slot;
+            if (!button) {
+                return;
+            }
+            slot = Number(button.dataset.slot);
+            if (button.dataset.saveAction === "export") {
+                exportSave(slot);
+            } else {
+                chooseSaveImport(slot);
+            }
         });
         picker.addEventListener("pointerdown", function (event) {
             event.stopPropagation();
@@ -377,9 +594,26 @@
         pickerOpen.addEventListener("pointerup", function (event) {
             event.stopPropagation();
         });
+        byId("save-manager-open").addEventListener("pointerdown", function (event) {
+            event.stopPropagation();
+        });
+        byId("save-manager-open").addEventListener("pointerup", function (event) {
+            event.stopPropagation();
+        });
+        saveManager.addEventListener("pointerdown", function (event) {
+            event.stopPropagation();
+        });
+        saveManager.addEventListener("pointerup", function (event) {
+            event.stopPropagation();
+        });
         picker.addEventListener("click", function (event) {
             if (event.target === event.currentTarget) {
                 closePicker();
+            }
+        });
+        saveManager.addEventListener("click", function (event) {
+            if (event.target === event.currentTarget) {
+                closeSaveManager();
             }
         });
         picker.addEventListener("keydown", function (event) {
@@ -392,9 +626,19 @@
                 closePicker();
             }
         });
+        saveManager.addEventListener("keydown", function (event) {
+            if (isMappedGameKey(event)) {
+                event.stopPropagation();
+            }
+            if (event.key === "Escape") {
+                event.preventDefault();
+                closeSaveManager();
+            }
+        });
 
         bindControlKeyboard();
         bindGameKeyboard();
+        updateActiveGameUI();
         loadCatalog();
         loadCore();
     }
@@ -402,8 +646,10 @@
     global.BBKSimulator = {
         arrayBufferToHex: arrayBufferToHex,
         romStorageId: romStorageId,
-        migrateLegacySaves: migrateLegacySaves,
-        isMappedGameKey: isMappedGameKey
+        isMappedGameKey: isMappedGameKey,
+        saveStorageKey: saveStorageKey,
+        buildSavePayload: buildSavePayload,
+        parseSavePayload: parseSavePayload
     };
 
     if (global.document) {
