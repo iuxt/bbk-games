@@ -143,5 +143,27 @@ class MobileGameMarkupTests(unittest.TestCase):
         self.assertNotIn('"/fm/games/', markup)
 
 
+class SimulatorMarkupTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.parser = parse("bbk-games/index.html")
+
+    def test_uses_shared_game_center_chrome(self):
+        self.assertEqual(self.parser.h1_count, 1)
+        self.assertIn("/bbk-games/ui.css", self.parser.stylesheets)
+        self.assertIn("/bbk-games/ui.js", self.parser.scripts)
+        self.assertIn("../index.html", self.parser.links)
+
+    def test_ui_assets_cover_responsive_and_accessible_states(self):
+        css = (ROOT / "bbk-games" / "ui.css").read_text(encoding="utf-8")
+        script = (ROOT / "bbk-games" / "ui.js").read_text(encoding="utf-8")
+
+        self.assertIn('[class*="game-center_game__"]', css)
+        self.assertIn("@media (max-width: 520px)", css)
+        self.assertIn("@media (prefers-reduced-motion: reduce)", css)
+        self.assertIn('setAttribute("role", "button")', script)
+        self.assertIn("MutationObserver", script)
+
+
 if __name__ == "__main__":
     unittest.main()
