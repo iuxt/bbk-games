@@ -196,7 +196,7 @@ class SimulatorMarkupTests(unittest.TestCase):
         )
         self.assertEqual(
             self.parser.scripts,
-            ["../js/game-page.js?v=1", "app.js?v=4"],
+            ["../js/game-page.js?v=1", "app.js?v=5"],
         )
         self.assertIn("../index.html", self.parser.links)
 

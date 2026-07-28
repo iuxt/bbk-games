@@ -73,6 +73,19 @@ class StaticAssetTests(unittest.TestCase):
             "a71a98c72af5d1122cc4adbad861c5fa4c2454850cbc6d2b70903b818c0dfd93",
         )
 
+    def test_rpg_catalog_does_not_bundle_duplicate_roms(self):
+        roms_by_hash = {}
+
+        for rom in (ROOT / "rpg" / "roms").glob("*.lib"):
+            digest = hashlib.sha256(rom.read_bytes()).hexdigest()
+            roms_by_hash.setdefault(digest, []).append(rom.name)
+
+        duplicates = [
+            names for names in roms_by_hash.values()
+            if len(names) > 1
+        ]
+        self.assertEqual(duplicates, [])
+
 
 if __name__ == "__main__":
     unittest.main()

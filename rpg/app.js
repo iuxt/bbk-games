@@ -123,7 +123,7 @@
                 !isValidSaveData(payload.data) ||
                 typeof payload.romId !== "string" ||
                 !payload.romId) {
-            return { ok: false, error: "这不是有效的电子词典游戏存档。" };
+            return { ok: false, error: "这不是有效的 RPG 游戏存档。" };
         }
 
         if (expectedStorageId && payload.romId !== expectedStorageId) {
@@ -141,13 +141,13 @@
     }
 
     function activeGameName() {
-        return readStorage("gameRomName") || "电子词典游戏";
+        return readStorage("gameRomName") || "RPG游戏";
     }
 
     function updateActiveGameUI() {
         var storageId = activeStorageId();
         var hasGame = !!storageId && !!readStorage("gameRom");
-        var name = hasGame ? activeGameName() : "电子词典游戏";
+        var name = hasGame ? activeGameName() : "RPG游戏";
         var saveButton = byId("save-manager-open");
 
         byId("current-game-name").textContent = name;
