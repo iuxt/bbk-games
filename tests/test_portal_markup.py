@@ -1,4 +1,5 @@
 from html.parser import HTMLParser
+import json
 from pathlib import Path
 import unittest
 
@@ -135,6 +136,13 @@ class MobileGameMarkupTests(unittest.TestCase):
                 self.assertNotIn("ontap=", markup)
                 self.assertIn('data-key="enter"', markup)
 
+    def test_tower_exit_key_stays_inside_the_game(self):
+        markup = (ROOT / "mt.html").read_text(encoding="utf-8")
+
+        self.assertIn("window.bayeExitToHome = false", markup)
+        self.assertIn('data-key="exit">返回</button>', markup)
+        self.assertIn('href="index.html">‹ 返回游戏中心</a>', markup)
+
     def test_rpg_entries_use_relative_launch_routes(self):
         game = "伏魔记"
         markup = (ROOT / "fm" / "games" / game / "index.html").read_text(encoding="utf-8")
@@ -150,24 +158,44 @@ class SimulatorMarkupTests(unittest.TestCase):
 
     def test_uses_shared_game_center_chrome(self):
         self.assertEqual(self.parser.h1_count, 1)
-        self.assertIn("/bbk-games/ui.css?v=2", self.parser.stylesheets)
-        self.assertIn("/bbk-games/ui.js?v=2", self.parser.scripts)
+        self.assertEqual(
+            self.parser.stylesheets,
+            ["../css/portal.css", "app.css?v=2"],
+        )
+        self.assertEqual(self.parser.scripts, ["app.js?v=1"])
         self.assertIn("../index.html", self.parser.links)
 
     def test_ui_assets_cover_responsive_and_accessible_states(self):
         markup = (ROOT / "bbk-games" / "index.html").read_text(encoding="utf-8")
-        css = (ROOT / "bbk-games" / "ui.css").read_text(encoding="utf-8")
-        script = (ROOT / "bbk-games" / "ui.js").read_text(encoding="utf-8")
+        css = (ROOT / "bbk-games" / "app.css").read_text(encoding="utf-8")
+        script = (ROOT / "bbk-games" / "app.js").read_text(encoding="utf-8")
 
-        self.assertIn('[class*="game-center_game__"]', css)
-        self.assertIn("grid-template-columns: repeat(6", css)
-        self.assertIn('content: "PgUp"', css)
-        self.assertIn('content: "确认"', css)
+        self.assertIn("#touchpad .kb-row", css)
+        self.assertIn(".rom-card.is-selected", css)
+        self.assertIn(".footer-action", css)
         self.assertIn("@media (max-width: 520px)", css)
         self.assertIn("@media (prefers-reduced-motion: reduce)", css)
-        self.assertIn('setAttribute("role", "button")', script)
-        self.assertIn("MutationObserver", script)
-        self.assertNotIn("src_crossUp__", markup)
+        self.assertIn('global.fetch("roms/catalog.json")', script)
+        self.assertIn("arrayBufferToHex", script)
+        self.assertIn('class="footer-action"', markup)
+        self.assertNotIn('class="simulator-tools"', markup)
+        self.assertNotIn("static/js", markup)
+        self.assertNotIn("src_cross", markup)
+
+    def test_catalog_has_one_entry_for_every_bundled_rom(self):
+        catalog = json.loads(
+            (ROOT / "bbk-games" / "roms" / "catalog.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        catalog_ids = [item["id"] for item in catalog]
+        rom_ids = sorted(
+            path.stem
+            for path in (ROOT / "bbk-games" / "roms").glob("*.lib")
+        )
+
+        self.assertEqual(len(catalog_ids), len(set(catalog_ids)))
+        self.assertEqual(sorted(catalog_ids), rom_ids)
 
 
 if __name__ == "__main__":

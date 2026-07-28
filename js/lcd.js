@@ -689,6 +689,9 @@ function bayeStart() {
 }
 
 function bayeExit() {
+    // 某些独立游戏（如魔塔）会把 VK_EXIT 同时用于游戏内取消/返回。
+    // 这些页面关闭自动导航后，按键仍会发送给引擎，但不会被带回门户首页。
+    if (window.bayeExitToHome === false) return;
     goHome();
 }
 

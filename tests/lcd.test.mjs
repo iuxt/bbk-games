@@ -170,3 +170,20 @@ test("load falls back to legacy shared key when versioned slot is empty", () => 
 
     assert.equal(context.bayeLoadFileContent("baye//data//sango0.sav"), "legacy-save");
 });
+
+test("bayeExit navigates home by default", () => {
+    const { context } = loadLcd();
+
+    context.bayeExit();
+
+    assert.equal(context.window.location.href, "index.html");
+});
+
+test("bayeExit can stay inside games that use exit as a cancel key", () => {
+    const { context } = loadLcd();
+    context.window.bayeExitToHome = false;
+
+    context.bayeExit();
+
+    assert.equal(context.window.location.href, "");
+});

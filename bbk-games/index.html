@@ -1,58 +1,107 @@
 <!doctype html>
 <html lang="zh-CN">
-
 <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="/bbk-games/favicon.ico" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#dfe3d1" />
-    <meta name="description" content="步步高电子词典经典游戏模拟器与 ROM 合集" />
-    <link rel="apple-touch-icon" href="/bbk-games/logo192.png" />
-    <link rel="manifest" href="/bbk-games/manifest.json" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+    <meta name="theme-color" content="#dfe3d1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="description" content="步步高电子词典经典游戏模拟器与 ROM 合集">
     <title>电子词典游戏 · BBK 经典游戏</title>
-    <script
-        src="/bbk-games/static/js/react.production.min.js"></script>
-    <script
-        src="/bbk-games/static/js/react-dom.production.min.js"></script>
-
-    <script defer="defer" src="/bbk-games/static/js/main.c882a77f.js"></script>
-    <link href="/bbk-games/static/css/main.49cd0240.css" rel="stylesheet">
-    <link href="/bbk-games/ui.css?v=2" rel="stylesheet">
+    <link rel="icon" href="favicon.ico">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="../css/portal.css">
+    <link rel="stylesheet" href="app.css?v=2">
 </head>
-
 <body>
-    <main class="simulator-shell">
-        <header class="simulator-header">
-            <a class="simulator-brand" href="../index.html" aria-label="返回 BBK 经典游戏首页">
-                <span class="simulator-brand-mark">BBK</span>
+    <main class="device-shell utility-shell">
+        <header class="device-header">
+            <a class="brand" href="../index.html" aria-label="返回 BBK 经典游戏首页">
+                <span class="brand-mark">BBK</span>
                 <span>经典游戏</span>
             </a>
-            <span class="simulator-power">
-                <i aria-hidden="true"></i>
-                SIMULATOR 02
-            </span>
+            <span class="power-light" aria-hidden="true"></span>
         </header>
 
-        <section class="simulator-titlebar" aria-labelledby="simulator-title">
-            <div>
-                <p>GAME 02 / ROM COLLECTION</p>
-                <h1 id="simulator-title">电子词典游戏</h1>
-            </div>
-            <span>160 × 96</span>
+        <div class="section-heading game-title">
+            <h1>电子词典游戏</h1>
+            <span>SIMULATOR · 160×96</span>
+        </div>
+
+        <section class="lcd-panel lcd-panel-screen simulator-screen" aria-label="电子词典游戏画面">
+            <canvas id="canvas" width="160" height="96">你的浏览器不支持 HTML5</canvas>
+            <span id="screen-status" class="screen-status" role="status">游戏加载中…</span>
         </section>
 
-        <div id="root" class="simulator-root"></div>
+        <div id="touchpad" aria-label="游戏按键">
+            <div class="kb-row">
+                <button id="5" class="btn" type="button" aria-label="向上翻页">PgUp</button>
+                <button id="1" class="btn" type="button" aria-label="方向上">↑</button>
+                <button id="6" class="btn" type="button" aria-label="向下翻页">PgDn</button>
+            </div>
+            <div class="kb-row">
+                <button id="3" class="btn" type="button" aria-label="方向左">←</button>
+                <button id="2" class="btn" type="button" aria-label="方向下">↓</button>
+                <button id="4" class="btn" type="button" aria-label="方向右">→</button>
+            </div>
+            <div class="kb-row">
+                <button id="8" class="btn" type="button">取消</button>
+                <button id="7" class="btn enter" type="button">确认</button>
+            </div>
+        </div>
 
-        <footer class="simulator-footer">
-            <span>方向键移动 · 确认 / 取消</span>
-            <a href="../index.html">‹ 返回游戏中心</a>
+        <footer class="device-footer utility-footer">
+            <span>GAME 02 · SIMULATOR</span>
+            <nav class="footer-actions" aria-label="模拟器辅助功能">
+                <button id="game-picker-open" class="footer-action" type="button"
+                        aria-haspopup="dialog" aria-controls="game-picker" aria-expanded="false">
+                    选择游戏
+                </button>
+                <a class="footer-link" href="../index.html">‹ 返回游戏中心</a>
+            </nav>
         </footer>
     </main>
 
-    <noscript>
-        <p class="simulator-noscript">模拟器需要启用 JavaScript。<a href="../index.html">返回游戏中心</a></p>
-    </noscript>
-    <script defer src="/bbk-games/ui.js?v=2"></script>
-</body>
+    <div id="game-picker" class="dialog-overlay game-picker-overlay" hidden>
+        <section class="game-picker-dialog" role="dialog" aria-modal="true"
+                 aria-labelledby="game-picker-title">
+            <header class="lcd-panel game-picker-display">
+                <p class="lcd-kicker">ROM COLLECTION / 游戏合集</p>
+                <h2 id="game-picker-title">选择游戏<span aria-hidden="true">_</span></h2>
+                <p id="game-count" class="lcd-help">正在读取游戏目录…</p>
+            </header>
 
+            <label class="game-search">
+                <span class="sr-only">搜索游戏</span>
+                <input id="game-search" type="search" placeholder="搜索游戏名称" autocomplete="off">
+            </label>
+
+            <div id="game-list" class="rom-list" aria-live="polite">
+                <p class="loading-card">正在读取游戏目录…</p>
+            </div>
+
+            <p id="game-picker-error" class="dialog-error" role="alert" hidden></p>
+
+            <footer class="game-picker-actions">
+                <label class="device-button import-button" for="rom-input">
+                    导入 .lib
+                </label>
+                <input id="rom-input" class="sr-only" type="file" accept=".lib">
+                <button id="game-picker-close" class="device-button" type="button">取消</button>
+                <button id="game-picker-use" class="device-button primary-button" type="button" disabled>
+                    使用
+                </button>
+            </footer>
+
+            <div id="game-picker-busy" class="dialog-busy" role="status" hidden>
+                <span>游戏载入中…</span>
+            </div>
+        </section>
+    </div>
+
+    <noscript>
+        <p class="noscript-note">模拟器需要启用 JavaScript。<a href="../index.html">返回游戏中心</a></p>
+    </noscript>
+
+    <script src="app.js?v=1"></script>
+</body>
 </html>
