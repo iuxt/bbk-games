@@ -1,5 +1,6 @@
 from html.parser import HTMLParser
 import hashlib
+import json
 from pathlib import Path
 from urllib.parse import urlsplit
 import unittest
@@ -50,6 +51,14 @@ class LocalAssetParser(HTMLParser):
 
 
 class StaticAssetTests(unittest.TestCase):
+    def test_vercel_serves_the_static_build_output(self):
+        config = json.loads(
+            (ROOT / "vercel.json").read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(config["buildCommand"], "npm run build")
+        self.assertEqual(config["outputDirectory"], "dist/client")
+
     def test_all_html_local_assets_exist(self):
         failures = []
         for source in ROOT.rglob("*.html"):
