@@ -157,12 +157,11 @@ class MobileGameMarkupTests(unittest.TestCase):
         self.assertNotIn("window.bayeExitToHome = false", markup)
         self.assertIn('data-key="exit">返回</button>', markup)
 
-    def test_tower_exit_key_stays_inside_the_game(self):
+    def test_tower_exit_key_can_leave_after_the_engine_stops(self):
         markup = (ROOT / "mota" / "index.html").read_text(encoding="utf-8")
 
-        self.assertIn("window.bayeExitToHome = false", markup)
+        self.assertNotIn("window.bayeExitToHome = false", markup)
         self.assertIn('data-key="exit">返回</button>', markup)
-        self.assertIn('href="../index.html">‹ 返回游戏中心</a>', markup)
 
     def test_game_pages_load_iphone_safari_pull_refresh_guard(self):
         pages = (
