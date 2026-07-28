@@ -161,8 +161,7 @@ function bayeSaveKey(filename) {
     return filename + "@" + libId;
 }
 
-function clearLibData() {
-    window.localStorage.removeItem('baye//data/dat.lib');
+function clearLibSelection() {
     window.localStorage.removeItem('baye/libname');
     window.localStorage.removeItem('baye/libpath');
 }
@@ -281,7 +280,7 @@ function chooseLib(title, path, self_) {
     var self = $(self_);
     self.attr("disabled", "disabled");
 
-    clearLibData();
+    clearLibSelection();
     if (path && path.length > 0) {
         window.localStorage['baye/libname'] = title;
         window.localStorage['baye/libpath'] = path;
@@ -378,12 +377,7 @@ function bayeLoadFileContent(filename) {
         return dynLib;
     }
     var key = bayeSaveKey(filename);
-    var data = window.localStorage[key];
-    if (data === undefined && key !== filename) {
-        // 兼容旧的跨版本共享存档：版本空间还没有数据时回退到旧 key
-        data = window.localStorage[filename];
-    }
-    return data;
+    return window.localStorage[key];
 }
 
 function bayeSaveFileContent(filename, content) {

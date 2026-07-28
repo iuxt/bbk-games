@@ -147,7 +147,6 @@ test('lcdInit always uses the fixed game resolution', () => {
 
 test("chooseLib stores the new version before launching", () => {
     const { context, storage } = loadLcd({
-        "baye//data/dat.lib": "old cache",
         "baye/libname": "旧版本",
         "baye/libpath": "libs/old.lib",
     });
@@ -158,7 +157,6 @@ test("chooseLib stores the new version before launching", () => {
 
     context.chooseLib("步步高原版", "libs/SGBY.lib", {});
 
-    assert.equal(storage["baye//data/dat.lib"], undefined);
     assert.equal(storage["baye/libname"], "步步高原版");
     assert.equal(storage["baye/libpath"], "libs/SGBY.lib");
     assert.equal(pathAtRedirect, "libs/SGBY.lib");
@@ -211,15 +209,6 @@ test("different lib versions have isolated save slots", () => {
     assert.equal(context.bayeLoadFileContent("baye//data//sango0.sav"), "sgby-save");
     storage["baye/libpath"] = "libs/whxf.lib";
     assert.equal(context.bayeLoadFileContent("baye//data//sango0.sav"), "whxf-save");
-});
-
-test("load falls back to legacy shared key when versioned slot is empty", () => {
-    const context = loadLcd({
-        "baye/libpath": "libs/SGBY.lib",
-        "baye//data//sango0.sav": "legacy-save",
-    });
-
-    assert.equal(context.bayeLoadFileContent("baye//data//sango0.sav"), "legacy-save");
 });
 
 test("bayeExit navigates home by default", () => {

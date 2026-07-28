@@ -97,12 +97,12 @@ class ChooseMarkupTests(unittest.TestCase):
             self.parser.scripts,
             [
                 "../js/jquery.min.js",
-                "../js/lcd.js?ver=16",
+                "../js/lcd.js?ver=17",
             ],
         )
 
     def test_keeps_backup_link(self):
-        self.assertIn("backup.html?game=baye", self.parser.links)
+        self.assertIn("backup.html", self.parser.links)
 
     def test_declared_local_assets_exist(self):
         self.assertTrue((ROOT / "css" / "portal.css").is_file())
@@ -130,7 +130,7 @@ class MobileGameMarkupTests(unittest.TestCase):
             with self.subTest(page=page):
                 markup = (ROOT / page).read_text(encoding="utf-8")
                 self.assertIn('id="game-load-error"', markup)
-                self.assertIn("../js/lcd.js?ver=16", markup)
+                self.assertIn("../js/lcd.js?ver=17", markup)
 
     def test_game_pages_do_not_load_retired_codec_helpers(self):
         for page in (
@@ -151,14 +151,18 @@ class MobileGameMarkupTests(unittest.TestCase):
                 self.assertNotIn("ontap=", markup)
                 self.assertIn('data-key="enter"', markup)
 
-    def test_exit_key_stays_inside_mobile_games(self):
-        for page in ("sanguobaye/m.html", "mota/index.html"):
-            with self.subTest(page=page):
-                markup = (ROOT / page).read_text(encoding="utf-8")
+    def test_baye_exit_key_can_leave_after_the_engine_stops(self):
+        markup = (ROOT / "sanguobaye" / "m.html").read_text(encoding="utf-8")
 
-                self.assertIn("window.bayeExitToHome = false", markup)
-                self.assertIn('data-key="exit">返回</button>', markup)
-                self.assertIn('href="../index.html">‹ 返回游戏中心</a>', markup)
+        self.assertNotIn("window.bayeExitToHome = false", markup)
+        self.assertIn('data-key="exit">返回</button>', markup)
+
+    def test_tower_exit_key_stays_inside_the_game(self):
+        markup = (ROOT / "mota" / "index.html").read_text(encoding="utf-8")
+
+        self.assertIn("window.bayeExitToHome = false", markup)
+        self.assertIn('data-key="exit">返回</button>', markup)
+        self.assertIn('href="../index.html">‹ 返回游戏中心</a>', markup)
 
     def test_game_pages_load_iphone_safari_pull_refresh_guard(self):
         pages = (

@@ -10,34 +10,24 @@
     <link rel="stylesheet" href="../css/portal.css">
 
     <script src="../js/jquery.min.js"></script>
-    <script src="js/backup.js?ver=5"></script>
+    <script src="js/backup.js?ver=6"></script>
     <script>
-        // 通用存档备份 / 还原：按 ?game= 选择 profile 组（baye / fmj），
-        // baye 组显示版本选择器、fmj 组显示游戏选择器，切换即切换存档空间
+        // 三国霸业三个版本各自拥有独立存档空间。
         $(function () {
             var B = window.BBKBackup;
 
-            // baye 默认选中当前游戏启动版本；fmj 默认第一个游戏；其余按字面 id 解析
-            function resolveProfile(p) {
-                if (p === "fmj") return B.getProfile("fmj/" + B.FMJ_GAMES[0]);
-                if (p === "baye") {
-                    var libPath = "";
-                    try {
-                        libPath = window.localStorage.getItem("baye/libpath") || "";
-                    } catch (e) {}
-                    var curLibId = B.libIdFromPath(libPath);
-                    return B.getProfile("baye/" + curLibId) ||
-                           B.getProfile("baye/" + B.BAYE_LIBS[0].id);
-                }
-                return B.getProfile(p);
+            function resolveProfile() {
+                var libPath = "";
+                try {
+                    libPath = window.localStorage.getItem("baye/libpath") || "";
+                } catch (e) {}
+                var currentLibId = B.libIdFromPath(libPath);
+                return B.getProfile("baye/" + currentLibId) ||
+                    B.getProfile("baye/" + B.BAYE_LIBS[0].id);
             }
 
-            var param = new URLSearchParams(location.search).get("game") || "baye";
-            var profile = resolveProfile(param) || B.getProfile("baye/" + B.BAYE_LIBS[0].id);
-
-            // 门户编号（页眉 / 页脚显示用）
-            var PORTAL_NO = { baye: "GAME 01", fmj: "GAME 04" };
-            var portalNo = PORTAL_NO[profile.group] || "GAME";
+            var profile = resolveProfile();
+            var portalNo = "GAME 01";
 
             var storage = null;
             try { storage = window.localStorage; } catch (e) {}
@@ -68,15 +58,8 @@
                 return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
             }
 
-            // 版本/游戏显示名
             function targetLabel() {
-                if (profile.group === "baye") {
-                    return "当前版本：" + profile.name + "（存档按版本独立）";
-                }
-                if (profile.group === "fmj") {
-                    return "当前游戏：" + profile.name + "（存档按游戏独立）";
-                }
-                return null;
+                return "当前版本：" + profile.name + "（存档按版本独立）";
             }
 
             function showResult(title, help, kind) {
@@ -140,8 +123,7 @@
                     }
                     if (!B.canRestore(parsed, profile)) {
                         var src = B.getProfile(parsed.profileId);
-                        var srcName = src ? src.name
-                            : (parsed.profileId === B.LEGACY_BAYE_ID ? "旧版三国霸业" : parsed.profileId);
+                        var srcName = src ? src.name : parsed.profileId;
                         rejectFile(file.name, "存档版本不匹配",
                                    "该备份属于「" + srcName +
                                    "」，与当前「" + profile.name + "」不符。请先切换到对应版本再还原。");
@@ -159,11 +141,6 @@
 
                     var fromSlot = (typeof parsed.slot === "number") ? (parsed.slot + 1) : "?";
                     var help = "来源：存档 " + fromSlot + "。选择目标槽后点「还原存档」。";
-                    if (parsed.profileId === B.LEGACY_BAYE_ID) {
-                        help = "旧版备份未标注版本，将还原到当前「" + profile.name + "」，请确认版本正确。" + help;
-                    } else if (parsed.profileId === B.LEGACY_FMJ_ID) {
-                        help = "旧版备份未标注游戏，请确认当前选择的是正确的游戏。" + help;
-                    }
                     showResult("已读取存档文件", help, "info");
                 };
                 reader.readAsText(file);
@@ -208,12 +185,8 @@
                     return;
                 }
 
-                var note;
-                if (parsed.profileId === B.LEGACY_BAYE_ID) {
-                    note = "旧版备份未标注版本，已写入当前「" + profile.name + "」存档 " + (targetSlot + 1) + "。";
-                } else {
-                    note = "已写入「" + profile.name + "」存档 " + (targetSlot + 1) + "。";
-                }
+                var note = "已写入「" + profile.name + "」存档 " +
+                    (targetSlot + 1) + "。";
                 note += "进入对应版本游戏后载入该存档即可。";
                 showResult("还原成功", note, "ok");
             }
@@ -251,7 +224,7 @@
                 }
             }
 
-            // 切换 profile（baye 版本 / fmj 游戏），即切换存档空间
+            // 切换版本即切换存档空间。
             function pickProfile(id) {
                 var next = B.getProfile(id);
                 if (!next || next.id === profile.id) return;
@@ -263,22 +236,7 @@
                 render();
             }
 
-            function renderGamePicker() {
-                var $picker = $("#game-picker").empty();
-                for (var n = 0; n < B.FMJ_GAMES.length; n++) {
-                    (function (game) {
-                        var id = "fmj/" + game;
-                        $("<button type=\"button\" class=\"slot-chip game-chip\" data-game-id=\"" + id +
-                          "\">" + game + "</button>")
-                            .attr("aria-checked", id === profile.id ? "true" : "false")
-                            .toggleClass("is-active", id === profile.id)
-                            .on("click", function () { pickProfile(id); })
-                            .appendTo($picker);
-                    })(B.FMJ_GAMES[n]);
-                }
-            }
-
-            // baye 组：渲染版本选择器，切换版本即切换存档空间（不改游戏启动版本）
+            // 切换这里只影响备份目标，不改变游戏启动版本。
             function renderVersionPicker() {
                 var $picker = $("#game-picker").empty();
                 for (var n = 0; n < B.BAYE_LIBS.length; n++) {
@@ -297,28 +255,13 @@
             function render() {
                 document.title = "备份 / 还原 · " + profile.name;
                 $("#page-game-name").text(profile.name);
-                var label = targetLabel();
-                if (label) {
-                    $("#lib-name").text(label).show();
-                } else {
-                    $("#lib-name").hide();
-                }
-                if (profile.group === "fmj") {
-                    $("#game-picker-title").text("选择游戏");
-                    $("#game-section .section-heading span").text("GAMES");
-                    $("#game-section").show();
-                    renderGamePicker();
-                } else if (profile.group === "baye") {
-                    $("#game-picker-title").text("选择版本");
-                    $("#game-section .section-heading span").text("VERSIONS");
-                    $("#game-section").show();
-                    renderVersionPicker();
-                } else {
-                    $("#game-section").hide();
-                }
+                $("#lib-name").text(targetLabel()).show();
+                $("#game-picker-title").text("选择版本");
+                $("#game-section .section-heading span").text("VERSIONS");
+                $("#game-section").show();
+                renderVersionPicker();
                 renderExport();
                 renderSlotPicker();
-                window.__profile = profile;
             }
 
             // 初始化页面文案
@@ -326,11 +269,8 @@
             $("#portal-no-footer").text(portalNo);
             render();
 
-            // 暴露给测试与内联事件
-            window.exportSlot = exportSlot;
+            // 文件输入与还原按钮仍使用内联事件。
             window.onFilePicked = onFilePicked;
-            window.pickSlot = pickSlot;
-            window.pickProfile = pickProfile;
             window.doRestore = doRestore;
         });
     </script>
@@ -355,10 +295,10 @@
 
         <section class="game-section" id="game-section" aria-labelledby="game-picker-title" hidden>
             <div class="section-heading">
-                <h2 id="game-picker-title">选择游戏</h2>
-                <span>GAMES</span>
+                <h2 id="game-picker-title">选择版本</h2>
+                <span>VERSIONS</span>
             </div>
-            <div class="slot-picker" id="game-picker" role="radiogroup" aria-label="目标游戏"></div>
+            <div class="slot-picker" id="game-picker" role="radiogroup" aria-label="目标版本"></div>
         </section>
 
         <section class="game-section" aria-labelledby="backup-title">
@@ -382,10 +322,8 @@
                     <small id="restore-file-name">点击选取 .json 备份文件</small>
                 </span>
                 <span class="game-arrow" aria-hidden="true">›</span>
-                <!-- 不设 accept：移动端文件选择器对 accept 过滤严格，且从 PC 传来或历史 .sav
-                     备份的后缀可能在传输中被改动。文件有效性由 onFilePicked 里的 JSON.parse +
-                     parseBackup 校验，无需依赖后缀过滤 -->
                 <input type="file" id="restore-file" hidden
+                       accept=".json,application/json"
                        onclick="this.value=null" onchange="onFilePicked(this)">
             </label>
 
