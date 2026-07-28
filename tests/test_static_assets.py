@@ -1,4 +1,5 @@
 from html.parser import HTMLParser
+import hashlib
 from pathlib import Path
 from urllib.parse import urlsplit
 import unittest
@@ -62,6 +63,15 @@ class StaticAssetTests(unittest.TestCase):
                 )
 
         self.assertEqual(failures, [], "\n" + "\n".join(failures))
+
+    def test_rpg_fumo_rom_conversion_is_preserved(self):
+        rom = ROOT / "bbk-games" / "roms" / "fmj_rpg.lib"
+
+        self.assertEqual(rom.stat().st_size, 557057)
+        self.assertEqual(
+            hashlib.sha256(rom.read_bytes()).hexdigest(),
+            "a71a98c72af5d1122cc4adbad861c5fa4c2454850cbc6d2b70903b818c0dfd93",
+        )
 
 
 if __name__ == "__main__":
