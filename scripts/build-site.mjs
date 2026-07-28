@@ -41,3 +41,9 @@ await writeFile(
 `,
     "utf8"
 );
+
+await mkdir(path.join(dist, ".openai"), { recursive: true });
+await cp(
+    path.join(root, ".openai", "hosting.json"),
+    path.join(dist, ".openai", "hosting.json")
+);
