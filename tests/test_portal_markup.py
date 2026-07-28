@@ -150,19 +150,24 @@ class SimulatorMarkupTests(unittest.TestCase):
 
     def test_uses_shared_game_center_chrome(self):
         self.assertEqual(self.parser.h1_count, 1)
-        self.assertIn("/bbk-games/ui.css", self.parser.stylesheets)
-        self.assertIn("/bbk-games/ui.js", self.parser.scripts)
+        self.assertIn("/bbk-games/ui.css?v=2", self.parser.stylesheets)
+        self.assertIn("/bbk-games/ui.js?v=2", self.parser.scripts)
         self.assertIn("../index.html", self.parser.links)
 
     def test_ui_assets_cover_responsive_and_accessible_states(self):
+        markup = (ROOT / "bbk-games" / "index.html").read_text(encoding="utf-8")
         css = (ROOT / "bbk-games" / "ui.css").read_text(encoding="utf-8")
         script = (ROOT / "bbk-games" / "ui.js").read_text(encoding="utf-8")
 
         self.assertIn('[class*="game-center_game__"]', css)
+        self.assertIn("grid-template-columns: repeat(6", css)
+        self.assertIn('content: "PgUp"', css)
+        self.assertIn('content: "确认"', css)
         self.assertIn("@media (max-width: 520px)", css)
         self.assertIn("@media (prefers-reduced-motion: reduce)", css)
         self.assertIn('setAttribute("role", "button")', script)
         self.assertIn("MutationObserver", script)
+        self.assertNotIn("src_crossUp__", markup)
 
 
 if __name__ == "__main__":
