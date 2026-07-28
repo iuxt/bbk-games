@@ -3,9 +3,9 @@
   "name": "BBK 电子词典经典游戏模拟器",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "../favicon.png",
+      "sizes": "80x80",
+      "type": "image/jpeg"
     }
   ],
   "start_url": ".",

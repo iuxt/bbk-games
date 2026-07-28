@@ -238,6 +238,7 @@ class SimulatorMarkupTests(unittest.TestCase):
         self.assertIn('global.fetch("roms/catalog.json")', script)
         self.assertIn("arrayBufferToHex", script)
         self.assertIn("isMappedGameKey", script)
+        self.assertIn('<link rel="icon" href="../favicon.png">', markup)
         self.assertIn('class="footer-action"', markup)
         self.assertNotIn('class="simulator-tools"', markup)
         self.assertNotIn("static/js", markup)
