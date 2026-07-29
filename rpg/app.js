@@ -479,6 +479,62 @@
             });
     }
 
+    // ---- .gam -> .lib 提取 ----
+    // 步步高原生 .gam 包内部内嵌了完整的 fmj 引擎 .lib 资源库，
+    // 定位并截取它，使 rpg 页面可直接导入 .gam。lib 布局参考 fmj 引擎
+    // DatLib：头部 0x10 字节；索引表 @0x10 每条 3 字节(resType,type,index)遇 0xff 止；
+    // 偏移表 @0x2000 每条 3 字节(block,low,high)；定位 offset=block*0x4000+(high<<8|low)。
+    function validateEmbeddedLib(u, base) {
+        var libLen = u.length - base;
+        if (libLen < 0x4000) {
+            return false;
+        }
+        var i = base + 0x10;
+        var j = base + 0x2000;
+        var count = 0;
+        while (i < u.length && u[i] !== 0xff) {
+            var resType = u[i];
+            if (resType < 1 || resType > 12) {
+                return false;
+            }
+            i += 3;
+            if (j + 3 > u.length) {
+                return false;
+            }
+            var block = u[j];
+            var low = u[j + 1];
+            var high = u[j + 2];
+            j += 3;
+            if (block * 0x4000 + ((high << 8) | low) >= libLen) {
+                return false;
+            }
+            count += 1;
+            if (count > 10000) {
+                return false;
+            }
+        }
+        return count > 0;
+    }
+
+    function extractLibFromGam(buffer) {
+        var u = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+        for (var i = 4; i + 3 <= u.length; i += 1) {
+            if (u[i] === 0x4c && u[i + 1] === 0x49 && u[i + 2] === 0x42 &&
+                    validateEmbeddedLib(u, i)) {
+                return u.slice(i);
+            }
+        }
+        throw new Error("该 .gam 未内嵌有效的 lib，可能不是 fmj 引擎格式，无法转换。");
+    }
+
+    // 若传入的是 .gam（按扩展名或 GAM\0 头识别），提取内嵌 lib；否则原样返回。
+    function normalizeRom(buffer, fileName) {
+        var u = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+        var looksLikeGam = (fileName && /\.gam$/i.test(fileName)) ||
+            (u.length >= 4 && u[0] === 0x47 && u[1] === 0x41 && u[2] === 0x4d && u[3] === 0x00);
+        return looksLikeGam ? extractLibFromGam(u) : buffer;
+    }
+
     function importRom(file) {
         if (!file) {
             return;
@@ -487,11 +543,18 @@
         setBusy(true, "正在导入 ROM…");
         file.arrayBuffer()
             .then(function (buffer) {
-                storeRom(buffer, "", file.name.replace(/\.lib$/i, ""));
+                return normalizeRom(buffer, file.name);
             })
-            .catch(function () {
+            .then(function (buffer) {
+                storeRom(buffer, "", file.name.replace(/\.(lib|gam)$/i, ""));
+            })
+            .catch(function (error) {
                 setBusy(false);
-                setError("ROM 导入失败，请确认文件格式后重试。");
+                setError(
+                    error && error.message
+                        ? error.message
+                        : "ROM 导入失败，请确认文件格式后重试。"
+                );
             });
     }
 
@@ -650,7 +713,8 @@
         isMappedGameKey: isMappedGameKey,
         saveStorageKey: saveStorageKey,
         buildSavePayload: buildSavePayload,
-        parseSavePayload: parseSavePayload
+        parseSavePayload: parseSavePayload,
+        extractLibFromGam: extractLibFromGam
     };
 
     if (global.document) {
