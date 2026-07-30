@@ -6,5 +6,8 @@
     "test:node": "node --test tests/*.test.mjs",
     "test:python": "python3 -m unittest discover -s tests -p 'test_*.py'",
     "test": "npm run test:node && npm run test:python"
+  },
+  "devDependencies": {
+    "terser": "^5.49.0"
   }
 }

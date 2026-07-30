@@ -2,4 +2,5 @@
 .worktrees/
 __pycache__/
 dist/
+node_modules/
 .DS_Store

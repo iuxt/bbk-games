@@ -91,10 +91,10 @@ test("simulator core namespaces saves by stable ROM identity", () => {
 
     assert.match(
         source,
-        /gameRomId=localStorage\.getItem\("gameRomStorageId"\)\|\|localStorage\.getItem\("gameRomId"\)/
+        /gameRomId\s*=\s*localStorage\.getItem\("gameRomStorageId"\)\s*\|\|\s*localStorage\.getItem\("gameRomId"\)/
     );
     assert.match(
         source,
-        /gameRomLength=gameRomId\|\|\(gameRom\?gameRom\.length:1114112\)/
+        /gameRomLength\s*=\s*gameRomId\s*\|\|\s*\(gameRom\s*\?\s*gameRom\.length\s*:\s*1114112\)/
     );
 });
