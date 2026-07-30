@@ -8,6 +8,8 @@ const client = path.join(dist, "client");
 const files = [
     "index.html",
     "favicon.png",
+    "robots.txt",
+    "sitemap.xml",
 ];
 const directories = ["css", "js", "sanguobaye", "mota", "rpg"];
 
