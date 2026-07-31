@@ -14,7 +14,8 @@
 
     function isMappedGameKey(event) {
         var keyCode = event && (event.keyCode || event.which);
-        return keyCode === 13 ||
+        return keyCode === 82 ||
+            keyCode === 13 ||
             keyCode === 27 ||
             keyCode === 32 ||
             keyCode === 37 ||
@@ -600,7 +601,7 @@
         var script = global.document.createElement("script");
 
         global.renderPeixel = [1, 1, 1];
-        script.src = "core.js?v=3";
+        script.src = "core.js?v=4";
         script.addEventListener("load", function () {
             if (global.game && global.game.rom && global.game.rom["GAME.ROM"]) {
                 status.hidden = true;

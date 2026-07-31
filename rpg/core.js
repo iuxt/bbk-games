@@ -38816,6 +38816,9 @@ factory(window.typescript);
      case 221:
       return KEY_PAGEDOWN;
 
+     case 82:
+      return 9;
+
      default:
       return 255;
     }
@@ -42245,6 +42248,7 @@ if (game.rom["GAME.ROM"]) {
       }
     };
     Combat.prototype.onAutoAttack = function() {
+      this.mCombatUI_0.repeatStore_0()[this.mCurSelActionPlayerIndex_0] = { kind: 11, item: null, target: null };
       this.mCombatUI_0.reset();
       this.mActionQueue_0.clear();
       this.mIsAutoAttack_0 = true;
@@ -42263,6 +42267,7 @@ if (game.rom["GAME.ROM"]) {
     };
     Combat.prototype.onFlee = function() {
       var tmp$, tmp$_0;
+      this.mCombatUI_0.repeatStore_0()[this.mCurSelActionPlayerIndex_0] = { kind: 12, item: null, target: null };
       this.mCombatUI_0.reset();
       tmp$ = this.mCurSelActionPlayerIndex_0;
       tmp$_0 = this.mPlayerList_0.size;
@@ -44807,8 +44812,228 @@ if (game.rom["GAME.ROM"]) {
       this.mCurPlayerIndex_0 = i;
     };
     CombatUI.prototype.onActionSelected_0 = function(action) {
+      this.rememberLastAction_0(action);
       var tmp$;
       (tmp$ = this.mCallBack_0) != null ? (tmp$.onActionSelected_wwcj9m$(action), Unit) : null;
+    };
+    // 跨战斗持久的重复记忆表(挂在 game 上)：遇到新敌人也能直接按 R 重复上一次行动。
+    CombatUI.prototype.repeatStore_0 = function() {
+      if (this.game.mRepeatActions == null) {
+        this.game.mRepeatActions = {};
+      }
+      return this.game.mRepeatActions;
+    };
+    // 记录每位玩家(mCurPlayerIndex_0)上一次的可重复行动，供 R 键一键重放。
+    // mem = { kind, item, target }：item 为法术/投掷物/使用品引用；target 为单体目标引用。
+    // kind: 0 普攻 | 2 法攻单 | 3 法攻全 | 4 法辅单 | 5 法辅全
+    //      | 6 投掷单 | 7 投掷全 | 8 使用单 | 9 使用全 | 10 合击 | 11 围攻 | 12 逃跑
+    CombatUI.prototype.rememberLastAction_0 = function(action) {
+      var mem = null;
+      if (Typescript.isType(action, ActionPhysicalAttackOne)) {
+        mem = { kind: 0, item: null, target: action.mTarget };
+      } else if (Typescript.isType(action, ActionPhysicalAttackAll)) {
+        mem = { kind: 0, item: null, target: null };
+      } else if (Typescript.isType(action, ActionMagicAttackOne)) {
+        mem = { kind: 2, item: action.magic_0, target: action.mTarget };
+      } else if (Typescript.isType(action, ActionMagicAttackAll)) {
+        mem = { kind: 3, item: action.magic_0 };
+      } else if (Typescript.isType(action, ActionMagicHelpOne)) {
+        mem = { kind: 4, item: action.magic_8be2vx$, target: action.mTarget };
+      } else if (Typescript.isType(action, ActionMagicHelpAll)) {
+        mem = { kind: 5, item: action.magic_8be2vx$ };
+      } else if (Typescript.isType(action, ActionThrowItemOne)) {
+        mem = { kind: 6, item: action.weapon_8be2vx$, target: action.mTarget };
+      } else if (Typescript.isType(action, ActionThrowItemAll)) {
+        mem = { kind: 7, item: action.weapon_8be2vx$ };
+      } else if (Typescript.isType(action, ActionUseItemOne)) {
+        mem = { kind: 8, item: action.goods_8be2vx$, target: action.mTarget };
+      } else if (Typescript.isType(action, ActionUseItemAll)) {
+        mem = { kind: 9, item: action.goods_8be2vx$ };
+      } else if (Typescript.isType(action, ActionCoopMagic)) {
+        mem = { kind: 10, item: null, target: action.mMonster_0 };
+      }
+      if (mem != null) {
+        this.repeatStore_0()[this.mCurPlayerIndex_0] = mem;
+      }
+    };
+    // R 键(内部码 9)重放当前角色上一次行动；任一前置条件不满足则静默返回 false。
+    CombatUI.prototype.tryRepeat_0 = function() {
+      var mem = this.repeatStore_0()[this.mCurPlayerIndex_0];
+      if (mem == null) {
+        return false;
+      }
+      var p = this.selectedPlayer_0;
+      if (p == null || !p.isAlive) {
+        return false;
+      }
+      var action = null;
+      if (mem.kind === 11) {
+        this.mCallBack_0.onAutoAttack();
+        return true;
+      } else if (mem.kind === 12) {
+        this.mCallBack_0.onFlee();
+        return true;
+      } else if (mem.kind === 10) {
+        var actors = this.buildCoopActors_0();
+        if (actors == null) {
+          return false;
+        }
+        var cm = this.aliveRefIn_0(mem.target, this.mMonsterList_0);
+        if (cm == null) {
+          cm = this.firstAliveIn_0(this.mMonsterList_0);
+        }
+        if (cm != null) {
+          action = ActionCoopMagic_init(actors, cm);
+        }
+      } else if (mem.kind === 0) {
+        if (p.hasAtbuff_za3lpa$(FightingCharacter$Companion_getInstance().BUFF_MASK_ALL)) {
+          action = new ActionPhysicalAttackAll(p, this.mMonsterList_0);
+        } else {
+          var t = this.aliveRefIn_0(mem.target, this.mMonsterList_0);
+          if (t == null) {
+            t = this.firstAliveIn_0(this.mMonsterList_0);
+          }
+          if (t != null) {
+            action = new ActionPhysicalAttackOne(p, t);
+          }
+        }
+      } else if (mem.kind === 6 || mem.kind === 7) {
+        if (!this.consumeGoods_0(mem.item)) {
+          return false;
+        }
+        if (mem.kind === 6) {
+          var tt = this.aliveRefIn_0(mem.target, this.mMonsterList_0);
+          if (tt == null) {
+            tt = this.firstAliveIn_0(this.mMonsterList_0);
+          }
+          if (tt != null) {
+            action = new ActionThrowItemOne(p, tt, mem.item);
+          }
+        } else {
+          action = new ActionThrowItemAll(p, this.mMonsterList_0, mem.item);
+        }
+      } else if (mem.kind === 8 || mem.kind === 9) {
+        if (!this.consumeGoods_0(mem.item)) {
+          return false;
+        }
+        if (mem.kind === 8) {
+          var tu = this.aliveRefIn_0(mem.target, this.mPlayerList_0);
+          if (tu == null) {
+            tu = this.firstAliveIn_0(this.mPlayerList_0);
+          }
+          if (tu != null) {
+            action = new ActionUseItemOne(p, tu, mem.item);
+          }
+        } else {
+          action = new ActionUseItemAll(p, this.mPlayerList_0, mem.item);
+        }
+      } else {
+        if (p.isSealed) {
+          return false;
+        }
+        if (mem.item == null || !this.playerHasMagic_0(p, mem.item)) {
+          return false;
+        }
+        if (p.mp < mem.item.costMp) {
+          return false;
+        }
+        if (mem.kind === 2) {
+          var tm = this.aliveRefIn_0(mem.target, this.mMonsterList_0);
+          if (tm == null) {
+            tm = this.firstAliveIn_0(this.mMonsterList_0);
+          }
+          if (tm != null) {
+            action = new ActionMagicAttackOne(p, tm, mem.item);
+          }
+        } else if (mem.kind === 3) {
+          action = new ActionMagicAttackAll(p, this.mMonsterList_0, mem.item);
+        } else if (mem.kind === 4) {
+          var tp = this.aliveRefIn_0(mem.target, this.mPlayerList_0);
+          if (tp == null) {
+            tp = this.firstAliveIn_0(this.mPlayerList_0);
+          }
+          if (tp != null) {
+            action = new ActionMagicHelpOne(p, tp, mem.item);
+          }
+        } else if (mem.kind === 5) {
+          action = new ActionMagicHelpAll(p, this.mPlayerList_0, mem.item);
+        }
+      }
+      if (action != null) {
+        this.onActionSelected_0(action);
+        return true;
+      }
+      return false;
+    };
+    // 组装合击参战玩家列表；活着且非睡眠玩家 < 2 时返回 null(合击不可用)
+    CombatUI.prototype.buildCoopActors_0 = function() {
+      var first = this.selectedPlayer_0;
+      if (first == null) {
+        return null;
+      }
+      var n = this.mPlayerList_0.size;
+      var awake = 0;
+      for (var i = 0; i < n; i++) {
+        var e = this.mPlayerList_0.get_za3lpa$(i);
+        if (e.isAlive && !e.isSleeping) {
+          awake = awake + 1 | 0;
+        }
+      }
+      if (awake < 2) {
+        return null;
+      }
+      var lst = ArrayList_init();
+      lst.add_11rb$(first);
+      for (var j = 0; j < n; j++) {
+        var e2 = this.mPlayerList_0.get_za3lpa$(j);
+        if (e2.isAlive && e2 !== first) {
+          lst.add_11rb$(e2);
+        }
+      }
+      return lst;
+    };
+    // 消耗 1 个道具(按 type+index 匹配)；数量不足或不存在返回 false(deleteGoods 本身安全不报错)
+    CombatUI.prototype.consumeGoods_0 = function(goods) {
+      if (goods == null) {
+        return false;
+      }
+      return this.game.bag.deleteGoods_6xxg66$(goods);
+    };
+    // 引用是否仍在列表中且存活
+    CombatUI.prototype.aliveRefIn_0 = function(ref, list) {
+      if (ref == null) {
+        return null;
+      }
+      var n = list.size;
+      for (var i = 0; i < n; i++) {
+        var e = list.get_za3lpa$(i);
+        if (e === ref && e.isAlive) {
+          return e;
+        }
+      }
+      return null;
+    };
+    // 列表中第一个存活者
+    CombatUI.prototype.firstAliveIn_0 = function(list) {
+      var n = list.size;
+      for (var i = 0; i < n; i++) {
+        var e = list.get_za3lpa$(i);
+        if (e.isAlive) {
+          return e;
+        }
+      }
+      return null;
+    };
+    // 角色当前是否仍持有该法术(引用相等)
+    CombatUI.prototype.playerHasMagic_0 = function(p, magic) {
+      var magics = p.getAllMagics();
+      var n = magics.size;
+      for (var i = 0; i < n; i++) {
+        if (magics.get_za3lpa$(i) === magic) {
+          return true;
+        }
+      }
+      return false;
     };
     CombatUI.prototype.onCancel_0 = function() {
       var tmp$;
@@ -44992,6 +45217,8 @@ if (game.rom["GAME.ROM"]) {
         }
       } else if (key === Global_getInstance().KEY_CANCEL) {
         this.$outer.onCancel_0();
+      } else if (key === 9) {
+        this.$outer.tryRepeat_0();
       }
     };
     CombatUI$MainMenu.$metadata$ = {

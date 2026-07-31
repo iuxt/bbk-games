@@ -20,7 +20,7 @@ test("simulator handles an empty ROM buffer", () => {
 });
 
 test("simulator recognizes every physical key handled by the game core", () => {
-    for (const keyCode of [13, 27, 32, 37, 38, 39, 40, 219, 221]) {
+    for (const keyCode of [13, 27, 32, 37, 38, 39, 40, 82, 219, 221]) {
         assert.equal(Simulator.isMappedGameKey({ keyCode }), true);
     }
     assert.equal(Simulator.isMappedGameKey({ keyCode: 65 }), false);
