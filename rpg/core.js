@@ -44825,11 +44825,13 @@ if (game.rom["GAME.ROM"]) {
     };
     // 记录每位玩家(mCurPlayerIndex_0)上一次的可重复行动，供 R 键一键重放。
     // mem = { kind, item, target }：item 为法术/投掷物/使用品引用；target 为单体目标引用。
-    // kind: 0 普攻 | 2 法攻单 | 3 法攻全 | 4 法辅单 | 5 法辅全
+    // kind: 0 普攻 | 1 防御 | 2 法攻单 | 3 法攻全 | 4 法辅单 | 5 法辅全
     //      | 6 投掷单 | 7 投掷全 | 8 使用单 | 9 使用全 | 10 合击 | 11 围攻 | 12 逃跑
     CombatUI.prototype.rememberLastAction_0 = function(action) {
       var mem = null;
-      if (Typescript.isType(action, ActionPhysicalAttackOne)) {
+      if (Typescript.isType(action, ActionDefend)) {
+        mem = { kind: 1, item: null, target: null };
+      } else if (Typescript.isType(action, ActionPhysicalAttackOne)) {
         mem = { kind: 0, item: null, target: action.mTarget };
       } else if (Typescript.isType(action, ActionPhysicalAttackAll)) {
         mem = { kind: 0, item: null, target: null };
@@ -44873,6 +44875,9 @@ if (game.rom["GAME.ROM"]) {
       } else if (mem.kind === 12) {
         this.mCallBack_0.onFlee();
         return true;
+      } else if (mem.kind === 1) {
+        ensureNotNull(p.fightingSprite).currentFrame = 9;
+        action = new ActionDefend(p);
       } else if (mem.kind === 10) {
         var actors = this.buildCoopActors_0();
         if (actors == null) {
