@@ -151,6 +151,15 @@ class MobileGameMarkupTests(unittest.TestCase):
                 self.assertNotIn("ontap=", markup)
                 self.assertIn('data-key="enter"', markup)
 
+    def test_mobile_gameplay_shell_prevents_ios_text_selection(self):
+        for page in ("sanguobaye/m.html", "mota/index.html"):
+            with self.subTest(page=page):
+                markup = (ROOT / page).read_text(encoding="utf-8")
+                self.assertIn(".utility-shell {", markup)
+                self.assertIn("-webkit-user-select: none", markup)
+                self.assertIn("-webkit-touch-callout: none", markup)
+                self.assertIn("touch-action: none", markup)
+
     def test_baye_exit_key_can_leave_after_the_engine_stops(self):
         markup = (ROOT / "sanguobaye" / "m.html").read_text(encoding="utf-8")
 
@@ -195,11 +204,11 @@ class SimulatorMarkupTests(unittest.TestCase):
         self.assertEqual(self.parser.h1_count, 1)
         self.assertEqual(
             self.parser.stylesheets,
-            ["../css/portal.css?v=2", "app.css?v=7"],
+            ["../css/portal.css?v=2", "app.css?v=8"],
         )
         self.assertEqual(
             self.parser.scripts,
-            ["../js/game-page.js?v=1", "app.js?v=5"],
+            ["../js/game-page.js?v=1", "app.js?v=6"],
         )
         self.assertIn("../index.html", self.parser.links)
 
@@ -221,6 +230,7 @@ class SimulatorMarkupTests(unittest.TestCase):
         self.assertIn("overscroll-behavior-y: none", css)
         self.assertIn("-webkit-overflow-scrolling: touch", css)
         self.assertIn("touch-action: pan-y", css)
+        self.assertIn("touch-action: none", css)
         self.assertIn("scrollbar-width: none", css)
         self.assertIn(".rom-list::-webkit-scrollbar", css)
         self.assertIn("@media (max-width: 520px)", css)

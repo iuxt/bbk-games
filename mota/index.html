@@ -71,8 +71,16 @@
         }
         /* 窄屏 / 触屏：显示虚拟按键，隐藏键盘说明 */
         @media (max-width: 768px), (hover: none) and (pointer: coarse) {
+            .utility-shell {
+                -webkit-user-select: none;
+                -webkit-touch-callout: none;
+                user-select: none;
+            }
             .mt-keyhelp { display: none; }
-            #touchpad { display: block; }
+            #touchpad {
+                display: block;
+                touch-action: none;
+            }
         }
     </style>
     <script src="../js/jquery.min.js"></script>

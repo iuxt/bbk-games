@@ -477,12 +477,21 @@
 }
 
 @media (max-width: 759px), (pointer: coarse) {
+    /* iOS Safari may start selecting nearby labels when a repeated press
+       drifts outside a key. The gameplay shell contains no editable text. */
+    .utility-shell {
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        user-select: none;
+    }
+
     .desktop-controls {
         display: none;
     }
 
     #touchpad {
         display: block;
+        touch-action: none;
     }
 }
 
