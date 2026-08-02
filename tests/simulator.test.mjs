@@ -1,10 +1,77 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
+await import("../rpg/srs-anchor.js");
 await import("../rpg/app.js");
 
 const Simulator = globalThis.BBKSimulator;
+const SrsAnchor = globalThis.BBKSrsAnchor;
+
+function readLibraryEntries(buffer) {
+    const entries = [];
+    let directoryOffset = 16;
+    let addressOffset = 8192;
+
+    while (directoryOffset + 2 < buffer.length &&
+            buffer[directoryOffset] !== 0xFF) {
+        const resourceType = buffer[directoryOffset];
+        const type = buffer[directoryOffset + 1];
+        const index = buffer[directoryOffset + 2];
+        const block = buffer[addressOffset];
+        const low = buffer[addressOffset + 1];
+        const high = buffer[addressOffset + 2];
+
+        entries.push({
+            resourceType,
+            type,
+            index,
+            offset: block * 16384 + (high << 8) + low,
+        });
+        directoryOffset += 3;
+        addressOffset += 3;
+    }
+
+    return entries;
+}
+
+function readSrsAt(buffer, offset) {
+    const frameCount = buffer[offset + 2];
+    const imageCount = buffer[offset + 3];
+    const frameHeaders = [];
+    let cursor = offset + 6;
+
+    for (let i = 0; i < frameCount; i += 1) {
+        frameHeaders.push(Array.from(buffer.subarray(cursor, cursor + 5)));
+        cursor += 5;
+    }
+
+    const images = [];
+    for (let i = 0; i < imageCount; i += 1) {
+        const width = buffer[cursor + 2];
+        const height = buffer[cursor + 3];
+        const number = buffer[cursor + 4];
+        const mode = buffer[cursor + 5];
+        const rowBytes = Math.ceil(width / 8);
+
+        images.push({ width, height });
+        cursor += 6 + number * rowBytes * height * mode;
+    }
+
+    return { frameHeaders, images };
+}
+
+function readSrs(fileName, type, index) {
+    const buffer = readFileSync(new URL(`../rpg/roms/${fileName}`, import.meta.url));
+    const entry = readLibraryEntries(buffer).find((candidate) =>
+        candidate.resourceType === 5 &&
+        candidate.type === type &&
+        candidate.index === index
+    );
+
+    assert.ok(entry, `missing SRS ${type}:${index} in ${fileName}`);
+    return readSrsAt(buffer, entry.offset);
+}
 
 test("simulator converts ROM bytes to uppercase hexadecimal", () => {
     const bytes = Uint8Array.from([0, 1, 15, 16, 127, 128, 255]);
@@ -111,23 +178,104 @@ test("magic screen shows the MP cost of the selected spell", () => {
         source,
         /"耗真气:"\s*\+\s*toString\(hlMagic\.costMp\)/
     );
-    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=7"/);
+    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=9"/);
 });
 
-test("single-target effects align their impact frame with the target", () => {
+test("healing coerces HP operands before adding them", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
 
     assert.match(
         source,
-        /ResSrs\.prototype\.updateImpactAnchor_0\s*=\s*function\(\)/
+        /var currentHp\s*=\s*dst\.hp\s*\|\s*0;[\s\S]*?var restoredHp\s*=\s*this\.mHp_0\s*\|\s*0;[\s\S]*?dst\.hp\s*=\s*currentHp\s*\+\s*restoredHp\s*\|\s*0;/
+    );
+    assert.equal(("84" | 0) + ("4" | 0), 88);
+});
+
+test("single-target effects use the shared safe SRS anchor", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+
+    assert.match(
+        source,
+        /BBKSrsAnchor\.compute\(this\.mFrameHeader_0, this\.mImage_0\)/
     );
     assert.match(
         source,
-        /this\.mImpactAnchorX_0\s*=\s*frameHeader\[0\]\s*\+\s*\(image\.width\s*\/\s*2\s*\|\s*0\)/
+        /BBKSrsAnchor\.imageFor\(this\.mFrameHeader_0\[index\], this\.mImage_0\)/
     );
     assert.match(
         source,
         /ActionMagicAttackOne[\s\S]*?drawAtTarget_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/
     );
     assert.match(source, /this\.mAniY_0\s*=\s*target\.combatY/);
+    assert.match(
+        source,
+        /else\s*\{\s*this\.mAni_0\.drawAbsolutely_2g4tob\$\(canvas, 0, 0\)/
+    );
+});
+
+test("SRS anchor chooses the latest endpoint when simple frames tie", () => {
+    const headers = [
+        [10, 20, 2, 2, 0],
+        [30, 40, 2, 2, 0],
+        [50, 60, 2, 2, 0],
+    ];
+    const images = [{ width: 10, height: 6 }];
+
+    assert.deepEqual(SrsAnchor.compute(headers, images), { x: 55, y: 63 });
+});
+
+test("SRS anchor centers the peak group and ignores invalid image records", () => {
+    const headers = [
+        [0, 0, 10, 2, 0],
+        [20, 10, 4, 1, 0],
+        [200, 200, 4, 1, 9],
+        [40, 20, 4, 1, 0],
+    ];
+    const images = [{ width: 10, height: 10 }];
+
+    assert.equal(SrsAnchor.imageFor(headers[2], images), null);
+    assert.deepEqual(SrsAnchor.compute(headers, images), { x: 25, y: 15 });
+});
+
+test("FML flying-sword anchor uses its visual climax instead of the last particle", () => {
+    const animation = readSrs("fml.lib", 2, 2);
+
+    assert.deepEqual(
+        SrsAnchor.compute(animation.frameHeaders, animation.images),
+        { x: 78, y: 52 }
+    );
+});
+
+test("every bundled SRS can calculate a safe finite anchor", () => {
+    const romsUrl = new URL("../rpg/roms/", import.meta.url);
+    const files = readdirSync(romsUrl).filter((file) => file.endsWith(".lib"));
+    let animationCount = 0;
+    let invalidImageRecordCount = 0;
+
+    for (const file of files) {
+        const buffer = readFileSync(new URL(file, romsUrl));
+        const entries = readLibraryEntries(buffer);
+
+        for (const entry of entries) {
+            if (entry.resourceType !== 5) {
+                continue;
+            }
+
+            const animation = readSrsAt(buffer, entry.offset);
+            invalidImageRecordCount += animation.frameHeaders.filter(
+                (header) => header[4] >= animation.images.length
+            ).length;
+
+            const anchor = SrsAnchor.compute(
+                animation.frameHeaders,
+                animation.images
+            );
+            assert.equal(Number.isFinite(anchor.x), true, `${file} SRS ${entry.index} x`);
+            assert.equal(Number.isFinite(anchor.y), true, `${file} SRS ${entry.index} y`);
+            animationCount += 1;
+        }
+    }
+
+    assert.ok(animationCount > 6000);
+    assert.ok(invalidImageRecordCount > 0);
 });

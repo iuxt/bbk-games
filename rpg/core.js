@@ -42840,7 +42840,7 @@ if (game.rom["GAME.ROM"]) {
         if (this.isSingleTarget) {
           this.mAni_0.drawAtTarget_2g4tob$(canvas, this.mAniX_0, this.mAniY_0);
         } else {
-          this.mAni_0.draw_2g4tob$(canvas, 0, 0);
+          this.mAni_0.drawAbsolutely_2g4tob$(canvas, 0, 0);
         }
         break;
 
@@ -48854,15 +48854,13 @@ if (game.rom["GAME.ROM"]) {
       this.updateImpactAnchor_0();
     };
     ResSrs.prototype.updateImpactAnchor_0 = function() {
-      var frameHeader, image;
-      for (var i = this.mFrameNum_0 - 1 | 0; i >= 0; i--) {
-        frameHeader = ensureNotNull(this.mFrameHeader_0)[i];
-        if (frameHeader[2] <= 0) continue;
-        image = ensureNotNull(this.mImage_0)[frameHeader[4]];
-        this.mImpactAnchorX_0 = frameHeader[0] + (image.width / 2 | 0) | 0;
-        this.mImpactAnchorY_0 = frameHeader[1] + (image.height / 2 | 0) | 0;
-        return;
-      }
+      var anchor = window.BBKSrsAnchor.compute(this.mFrameHeader_0, this.mImage_0);
+      this.mImpactAnchorX_0 = anchor.x;
+      this.mImpactAnchorY_0 = anchor.y;
+    };
+    ResSrs.prototype.getFrameImage_0 = function(index) {
+      if (this.mFrameHeader_0 == null || index < 0 || index >= this.mFrameHeader_0.length) return null;
+      return window.BBKSrsAnchor.imageFor(this.mFrameHeader_0[index], this.mImage_0);
     };
     function ResSrs$Key($outer, index) {
       this.$outer = $outer;
@@ -48908,27 +48906,33 @@ if (game.rom["GAME.ROM"]) {
       return true;
     };
     ResSrs.prototype.draw_2g4tob$ = function(canvas, dx, dy) {
-      var tmp$;
+      var tmp$, image;
       tmp$ = this.mShowList_0.iterator();
       while (tmp$.hasNext()) {
         var i = tmp$.next();
-        ensureNotNull(this.mImage_0)[ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][4]].draw_tj1hu5$(canvas, 1, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][0] + dx | 0, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][1] + dy | 0);
+        image = this.getFrameImage_0(i.index_8be2vx$);
+        if (image == null) continue;
+        image.draw_tj1hu5$(canvas, 1, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][0] + dx | 0, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][1] + dy | 0);
       }
     };
     ResSrs.prototype.drawAbsolutely_2g4tob$ = function(canvas, x, y) {
-      var tmp$;
+      var tmp$, image;
       tmp$ = this.mShowList_0.iterator();
       while (tmp$.hasNext()) {
         var i = tmp$.next();
-        ensureNotNull(this.mImage_0)[ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][4]].draw_tj1hu5$(canvas, 1, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][0] - ensureNotNull(this.mFrameHeader_0)[0][0] + x | 0, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][1] - ensureNotNull(this.mFrameHeader_0)[0][1] + y | 0);
+        image = this.getFrameImage_0(i.index_8be2vx$);
+        if (image == null) continue;
+        image.draw_tj1hu5$(canvas, 1, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][0] - ensureNotNull(this.mFrameHeader_0)[0][0] + x | 0, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][1] - ensureNotNull(this.mFrameHeader_0)[0][1] + y | 0);
       }
     };
     ResSrs.prototype.drawAtTarget_2g4tob$ = function(canvas, x, y) {
-      var tmp$;
+      var tmp$, image;
       tmp$ = this.mShowList_0.iterator();
       while (tmp$.hasNext()) {
         var i = tmp$.next();
-        ensureNotNull(this.mImage_0)[ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][4]].draw_tj1hu5$(canvas, 1, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][0] - this.mImpactAnchorX_0 + x | 0, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][1] - this.mImpactAnchorY_0 + y | 0);
+        image = this.getFrameImage_0(i.index_8be2vx$);
+        if (image == null) continue;
+        image.draw_tj1hu5$(canvas, 1, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][0] - this.mImpactAnchorX_0 + x | 0, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][1] - this.mImpactAnchorY_0 + y | 0);
       }
     };
     ResSrs.prototype.setIteratorNum_za3lpa$ = function(n) {
@@ -49157,7 +49161,12 @@ if (game.rom["GAME.ROM"]) {
     MagicRestore.prototype.use_qwqr58$ = function(src, dst) {
       if (src.mp < this.costMp) return;
       src.mp = src.mp - this.costMp | 0;
-      dst.hp = dst.hp + this.mHp_0 | 0;
+      // Coerce both operands before addition. Some imported save/ROM values can
+      // arrive as numeric strings; coercing only after `+` turns 84 + "4" into
+      // 844 instead of 88.
+      var currentHp = dst.hp | 0;
+      var restoredHp = this.mHp_0 | 0;
+      dst.hp = currentHp + restoredHp | 0;
       if (dst.hp > dst.maxHP) {
         dst.hp = dst.maxHP;
       }
