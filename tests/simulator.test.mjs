@@ -111,5 +111,23 @@ test("magic screen shows the MP cost of the selected spell", () => {
         source,
         /"耗真气:"\s*\+\s*toString\(hlMagic\.costMp\)/
     );
-    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=6"/);
+    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=7"/);
+});
+
+test("single-target effects align their impact frame with the target", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+
+    assert.match(
+        source,
+        /ResSrs\.prototype\.updateImpactAnchor_0\s*=\s*function\(\)/
+    );
+    assert.match(
+        source,
+        /this\.mImpactAnchorX_0\s*=\s*frameHeader\[0\]\s*\+\s*\(image\.width\s*\/\s*2\s*\|\s*0\)/
+    );
+    assert.match(
+        source,
+        /ActionMagicAttackOne[\s\S]*?drawAtTarget_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/
+    );
+    assert.match(source, /this\.mAniY_0\s*=\s*target\.combatY/);
 });

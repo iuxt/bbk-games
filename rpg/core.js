@@ -42740,7 +42740,7 @@ if (game.rom["GAME.ROM"]) {
       }
       if (this.isSingleTarget) {
         this.mAniX_0 = this.mMonster_0.combatX;
-        this.mAniY_0 = this.mMonster_0.combatY - (ensureNotNull(this.mMonster_0.fightingSprite).height / 2 | 0) | 0;
+        this.mAniY_0 = this.mMonster_0.combatY;
       } else {
         this.mAniY_0 = 0;
         this.mAniX_0 = this.mAniY_0;
@@ -42837,7 +42837,11 @@ if (game.rom["GAME.ROM"]) {
     ActionCoopMagic.prototype.draw_9in0vv$ = function(canvas) {
       switch (this.mState_0) {
        case 2:
-        this.mAni_0.drawAbsolutely_2g4tob$(canvas, this.mAniX_0, this.mAniY_0);
+        if (this.isSingleTarget) {
+          this.mAni_0.drawAtTarget_2g4tob$(canvas, this.mAniX_0, this.mAniY_0);
+        } else {
+          this.mAni_0.draw_2g4tob$(canvas, 0, 0);
+        }
         break;
 
        case 3:
@@ -43208,7 +43212,7 @@ if (game.rom["GAME.ROM"]) {
         this.magic_0.use_qwqr58$(attacker, target);
       }
       this.mAniX_0 = target.combatX;
-      this.mAniY_0 = target.combatY - (ensureNotNull(target.fightingSprite).height / 2 | 0) | 0;
+      this.mAniY_0 = target.combatY;
       this.mRaiseAnimations.add_11rb$(target.diffToAnimation_6taknv$());
       this.mRaiseAnimations.add_11rb$(attacker.diffToAnimation_6taknv$());
       if (Typescript.isType(this.magic_0, MagicSpecial)) {
@@ -43273,7 +43277,7 @@ if (game.rom["GAME.ROM"]) {
       var tmp$, tmp$_0;
       switch (this.mState_0) {
        case 2:
-        (tmp$ = this.mAni_0) != null ? (tmp$.drawAbsolutely_2g4tob$(canvas, this.mAniX_0, this.mAniY_0), 
+        (tmp$ = this.mAni_0) != null ? (tmp$.drawAtTarget_2g4tob$(canvas, this.mAniX_0, this.mAniY_0),
         Unit) : null;
         break;
 
@@ -43493,7 +43497,7 @@ if (game.rom["GAME.ROM"]) {
     };
     ActionMagicHelpOne.prototype.draw_9in0vv$ = function(canvas) {
       if (this.mState_0 === ActionMagicHelpOne$Companion_getInstance().STATE_ANI_0) {
-        this.mAni_8be2vx$.drawAbsolutely_2g4tob$(canvas, this.mAnix_8be2vx$, this.mAniy_8be2vx$);
+        this.mAni_8be2vx$.drawAtTarget_2g4tob$(canvas, this.mAnix_8be2vx$, this.mAniy_8be2vx$);
       } else if (this.mState_0 === ActionMagicHelpOne$Companion_getInstance().STATE_AFT_0) {
         this.drawRaiseAnimation_9in0vv$(canvas);
       }
@@ -44070,7 +44074,7 @@ if (game.rom["GAME.ROM"]) {
     };
     ActionThrowItemOne.prototype.draw_9in0vv$ = function(canvas) {
       if (this.mState_0 === ActionThrowItemOne$Companion_getInstance().STATE_ANI_0) {
-        this.mAni_0.drawAbsolutely_2g4tob$(canvas, this.mAniX_0, this.mAniY_0);
+        this.mAni_0.drawAtTarget_2g4tob$(canvas, this.mAniX_0, this.mAniY_0);
       } else if (this.mState_0 === ActionThrowItemOne$Companion_getInstance().STATE_AFT_0) {
         this.drawRaiseAnimation_9in0vv$(canvas);
       }
@@ -44277,7 +44281,7 @@ if (game.rom["GAME.ROM"]) {
     };
     ActionUseItemOne.prototype.draw_9in0vv$ = function(canvas) {
       if (this.mState_0 === ActionUseItemOne$Companion_getInstance().STATE_ANI_0) {
-        this.mAni_8be2vx$.drawAbsolutely_2g4tob$(canvas, this.mAnix_8be2vx$, this.mAniy_8be2vx$);
+        this.mAni_8be2vx$.drawAtTarget_2g4tob$(canvas, this.mAnix_8be2vx$, this.mAniy_8be2vx$);
       } else if (this.mState_0 === ActionUseItemOne$Companion_getInstance().STATE_AFT_0) {
         this.drawRaiseAnimation_9in0vv$(canvas);
       }
@@ -48801,6 +48805,8 @@ if (game.rom["GAME.ROM"]) {
       this.mEndFrame_0 = 0;
       this.mFrameHeader_0 = null;
       this.mImage_0 = null;
+      this.mImpactAnchorX_0 = 0;
+      this.mImpactAnchorY_0 = 0;
       this.ITERATOR_0 = 1;
       this.mShowList_0 = ArrayList_init();
     }
@@ -48845,6 +48851,18 @@ if (game.rom["GAME.ROM"]) {
         array_0[i_1] = img;
       }
       this.mImage_0 = array_0;
+      this.updateImpactAnchor_0();
+    };
+    ResSrs.prototype.updateImpactAnchor_0 = function() {
+      var frameHeader, image;
+      for (var i = this.mFrameNum_0 - 1 | 0; i >= 0; i--) {
+        frameHeader = ensureNotNull(this.mFrameHeader_0)[i];
+        if (frameHeader[2] <= 0) continue;
+        image = ensureNotNull(this.mImage_0)[frameHeader[4]];
+        this.mImpactAnchorX_0 = frameHeader[0] + (image.width / 2 | 0) | 0;
+        this.mImpactAnchorY_0 = frameHeader[1] + (image.height / 2 | 0) | 0;
+        return;
+      }
     };
     function ResSrs$Key($outer, index) {
       this.$outer = $outer;
@@ -48903,6 +48921,14 @@ if (game.rom["GAME.ROM"]) {
       while (tmp$.hasNext()) {
         var i = tmp$.next();
         ensureNotNull(this.mImage_0)[ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][4]].draw_tj1hu5$(canvas, 1, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][0] - ensureNotNull(this.mFrameHeader_0)[0][0] + x | 0, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][1] - ensureNotNull(this.mFrameHeader_0)[0][1] + y | 0);
+      }
+    };
+    ResSrs.prototype.drawAtTarget_2g4tob$ = function(canvas, x, y) {
+      var tmp$;
+      tmp$ = this.mShowList_0.iterator();
+      while (tmp$.hasNext()) {
+        var i = tmp$.next();
+        ensureNotNull(this.mImage_0)[ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][4]].draw_tj1hu5$(canvas, 1, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][0] - this.mImpactAnchorX_0 + x | 0, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][1] - this.mImpactAnchorY_0 + y | 0);
       }
     };
     ResSrs.prototype.setIteratorNum_za3lpa$ = function(n) {
