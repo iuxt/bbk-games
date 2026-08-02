@@ -178,17 +178,38 @@ test("magic screen shows the MP cost of the selected spell", () => {
         source,
         /"耗真气:"\s*\+\s*toString\(hlMagic\.costMp\)/
     );
-    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=9"/);
+    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=10"/);
 });
 
-test("healing coerces HP operands before adding them", () => {
+test("healing applies coerced HP values through a reusable target effect", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
 
     assert.match(
         source,
-        /var currentHp\s*=\s*dst\.hp\s*\|\s*0;[\s\S]*?var restoredHp\s*=\s*this\.mHp_0\s*\|\s*0;[\s\S]*?dst\.hp\s*=\s*currentHp\s*\+\s*restoredHp\s*\|\s*0;/
+        /MagicRestore\.prototype\.applyToTarget_qpjxya\$\s*=\s*function\(dst\)[\s\S]*?var currentHp\s*=\s*dst\.hp\s*\|\s*0;[\s\S]*?var restoredHp\s*=\s*this\.mHp_0\s*\|\s*0;[\s\S]*?dst\.hp\s*=\s*currentHp\s*\+\s*restoredHp\s*\|\s*0;/
     );
     assert.equal(("84" | 0) + ("4" | 0), 88);
+});
+
+test("all-target healing pays once and applies healing to every target", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+    const action = source.slice(
+        source.indexOf("ActionMagicHelpAll.prototype.preproccess"),
+        source.indexOf("ActionMagicHelpAll.prototype.update_s8cxhz$")
+    );
+
+    assert.match(
+        action,
+        /attacker\.mp\s*=\s*attacker\.mp\s*-\s*this\.magic_8be2vx\$\.costMp\s*\|\s*0;/
+    );
+    assert.match(
+        action,
+        /while\s*\(tmp\$_1\.hasNext\(\)\)[\s\S]*?applyToTarget_qpjxya\$\(restoreTarget\)/
+    );
+    assert.equal(
+        (action.match(/attacker\.mp\s*=\s*attacker\.mp\s*-/g) || []).length,
+        1
+    );
 });
 
 test("single-target effects use the shared safe SRS anchor", () => {
@@ -243,6 +264,25 @@ test("FML flying-sword anchor uses its visual climax instead of the last particl
     assert.deepEqual(
         SrsAnchor.compute(animation.frameHeaders, animation.images),
         { x: 78, y: 52 }
+    );
+});
+
+test("佛光普照 aligns its authored group with the current player formation", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+    const animation = readSrs("fmj_zsb.lib", 2, 11);
+    const targetCenter = {
+        x: (76 + 108 + 140) / 3 | 0,
+        y: (70 + 66 + 58) / 3 | 0,
+    };
+
+    assert.deepEqual(
+        SrsAnchor.compute(animation.frameHeaders, animation.images),
+        { x: 77, y: 65 }
+    );
+    assert.deepEqual(targetCenter, { x: 108, y: 64 });
+    assert.match(
+        source,
+        /ActionMagicHelpAll[\s\S]*?drawAtTarget_2g4tob\$\(canvas, this\.animationX_0, this\.animationY_0\)/
     );
 });
 

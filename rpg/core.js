@@ -43326,6 +43326,8 @@ if (game.rom["GAME.ROM"]) {
       this.animation_0 = ensureNotNull(this.magic_8be2vx$.magicAni);
       this.ox_8be2vx$ = 0;
       this.oy_8be2vx$ = 0;
+      this.animationX_0 = 0;
+      this.animationY_0 = 0;
       this.isMagic_r9fu64$_0 = true;
     }
     Object.defineProperty(ActionMagicHelpAll.prototype, "isMagic", {
@@ -43340,21 +43342,42 @@ if (game.rom["GAME.ROM"]) {
         return;
       }
       var attacker = tmp$;
+      var targetX = 0;
+      var targetY = 0;
+      var targetCount = 0;
       var tmp$_0;
       tmp$_0 = this.mTargets.iterator();
       while (tmp$_0.hasNext()) {
         var element = tmp$_0.next();
         element.backupStatus();
+        targetX = targetX + element.combatX | 0;
+        targetY = targetY + element.combatY | 0;
+        targetCount = targetCount + 1 | 0;
+      }
+      if (targetCount > 0) {
+        this.animationX_0 = targetX / targetCount | 0;
+        this.animationY_0 = targetY / targetCount | 0;
       }
       this.ox_8be2vx$ = attacker.combatX;
       this.oy_8be2vx$ = attacker.combatY;
       this.animation_0.start();
       this.animation_0.setIteratorNum_za3lpa$(2);
       var tmp$_1;
-      tmp$_1 = this.mTargets.iterator();
-      while (tmp$_1.hasNext()) {
-        var element_0 = tmp$_1.next();
-        this.magic_8be2vx$.use_qwqr58$(ensureNotNull(this.mAttacker), element_0);
+      if (Typescript.isType(this.magic_8be2vx$, MagicRestore)) {
+        if (attacker.mp >= this.magic_8be2vx$.costMp) {
+          attacker.mp = attacker.mp - this.magic_8be2vx$.costMp | 0;
+          tmp$_1 = this.mTargets.iterator();
+          while (tmp$_1.hasNext()) {
+            var restoreTarget = tmp$_1.next();
+            this.magic_8be2vx$.applyToTarget_qpjxya$(restoreTarget);
+          }
+        }
+      } else {
+        tmp$_1 = this.mTargets.iterator();
+        while (tmp$_1.hasNext()) {
+          var element_0 = tmp$_1.next();
+          this.magic_8be2vx$.use_qwqr58$(attacker, element_0);
+        }
       }
       var tmp$_2 = this.mRaiseAnimations;
       var $receiver = this.mTargets;
@@ -43401,7 +43424,10 @@ if (game.rom["GAME.ROM"]) {
     };
     ActionMagicHelpAll.prototype.draw_9in0vv$ = function(canvas) {
       if (this.state_0 === ActionMagicHelpAll$Companion_getInstance().STATE_ANI_0) {
-        this.animation_0.draw_2g4tob$(canvas, 0, 0);
+        // Multi-target SRS files contain an authored group layout. Align the
+        // layout's visual center with the current targets instead of assuming
+        // the ROM's original hard-coded combat positions.
+        this.animation_0.drawAtTarget_2g4tob$(canvas, this.animationX_0, this.animationY_0);
       } else if (this.state_0 === ActionMagicHelpAll$Companion_getInstance().STATE_AFT_0) {
         this.drawRaiseAnimation_9in0vv$(canvas);
       }
@@ -49158,9 +49184,7 @@ if (game.rom["GAME.ROM"]) {
       this.mHp_0 = ResBase$Companion_getInstance().get2BytesInt_ir89t6$(buf, offset + 18 | 0);
       this.mBuff_0 = buf[offset + 24 | 0];
     };
-    MagicRestore.prototype.use_qwqr58$ = function(src, dst) {
-      if (src.mp < this.costMp) return;
-      src.mp = src.mp - this.costMp | 0;
+    MagicRestore.prototype.applyToTarget_qpjxya$ = function(dst) {
       // Coerce both operands before addition. Some imported save/ROM values can
       // arrive as numeric strings; coercing only after `+` turns 84 + "4" into
       // 844 instead of 88.
@@ -49171,6 +49195,11 @@ if (game.rom["GAME.ROM"]) {
         dst.hp = dst.maxHP;
       }
       health(this.mBuff_0, dst.debuff);
+    };
+    MagicRestore.prototype.use_qwqr58$ = function(src, dst) {
+      if (src.mp < this.costMp) return;
+      src.mp = src.mp - this.costMp | 0;
+      this.applyToTarget_qpjxya$(dst);
     };
     MagicRestore.$metadata$ = {
       kind: Kind_CLASS,
