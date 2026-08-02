@@ -49283,7 +49283,7 @@ if (game.rom["GAME.ROM"]) {
         TextRender_getInstance().drawText_kkuqvh$(canvas, this.magics_0[this.mFirstItemIndex_0 + 1 | 0].magicName, this.mRectTop_0.left + 1 | 0, this.mRectTop_0.top + 1 + 16 | 0);
       }
       this.description_0.draw_9in0vv$(canvas);
-      TextRender_getInstance().drawText_kkuqvh$(canvas, "耗真气:" + toString(hlMagic.costMp), this.mTextPos_0.x, this.mTextPos_0.y);
+      TextRender_getInstance().drawText_kkuqvh$(canvas, "耗真气:" + toString(this.magics_0[this.mCurItemIndex_0].costMp), this.mTextPos_0.x, this.mTextPos_0.y);
       canvas.drawBitmap_t8cslu$(this.mBmpCursor_0, 100, this.mFirstItemIndex_0 === this.mCurItemIndex_0 ? 10 : 26);
       canvas.drawBitmap_t8cslu$(this.mFirstItemIndex_0 === 0 ? this.mBmpMarker_0 : this.mBmpMarker2_0, 135, 6);
       canvas.drawBitmap_t8cslu$(this.mBmpMarker_0, 135, 14);
