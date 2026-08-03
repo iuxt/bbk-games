@@ -296,35 +296,52 @@ test("single-target help, throw and use-item effects render at the target anchor
     // The climax-anchor heuristic (drawAtTarget via BBKSrsAnchor.compute) placed
     // spell/item particle bursts off the target. Single-target help magic,
     // thrown weapons and used items revert to the device-accurate behaviour:
-    // anchor the authored frame 0 at the target coordinate via drawAbsolutely.
+    // anchor the authored frame 0 at the target's top-centre
+    // (combatX, combatY - height/2) via drawAbsolutely, matching
+    // ActionMagicAttackOne and ActionCoopMagic.
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+
+    // All single-target effects must anchor frame 0 at the target top-centre,
+    // not at the target centre, so the effect settles at the character's feet
+    // instead of floating above their head.
+    const yAnchor = /combatY\s*-\s*\(ensureNotNull\(.*?fightingSprite\)\.height\s*\/\s*2\s*\|\s*0\)\s*\|\s*0/;
 
     const cases = [
         {
             name: "ActionMagicHelpOne",
-            start: "ActionMagicHelpOne.prototype.draw_9in0vv$",
-            end: "ActionMagicHelpOne.prototype.rollbackToPhysical",
-            call: /drawAbsolutely_2g4tob\$\(canvas, this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$\)/,
+            preproccessStart: "ActionMagicHelpOne.prototype.preproccess",
+            preproccessEnd: "ActionMagicHelpOne.prototype.update_s8cxhz$",
+            drawStart: "ActionMagicHelpOne.prototype.draw_9in0vv$",
+            drawEnd: "ActionMagicHelpOne.prototype.rollbackToPhysical",
+            drawCall: /drawAbsolutely_2g4tob\$\(canvas, this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$\)/,
         },
         {
             name: "ActionThrowItemOne",
-            start: "ActionThrowItemOne.prototype.draw_9in0vv$",
-            end: "ActionThrowItemOne.prototype.cancel",
-            call: /drawAbsolutely_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/,
+            preproccessStart: "ActionThrowItemOne.prototype.preproccess",
+            preproccessEnd: "ActionThrowItemOne.prototype.update_s8cxhz$",
+            drawStart: "ActionThrowItemOne.prototype.draw_9in0vv$",
+            drawEnd: "ActionThrowItemOne.prototype.cancel",
+            drawCall: /drawAbsolutely_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/,
         },
         {
             name: "ActionUseItemOne",
-            start: "ActionUseItemOne.prototype.draw_9in0vv$",
-            end: "ActionUseItemOne.prototype.cancel",
-            call: /drawAbsolutely_2g4tob\$\(canvas, this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$\)/,
+            preproccessStart: "ActionUseItemOne.prototype.preproccess",
+            preproccessEnd: "ActionUseItemOne.prototype.update_s8cxhz$",
+            drawStart: "ActionUseItemOne.prototype.draw_9in0vv$",
+            drawEnd: "ActionUseItemOne.prototype.cancel",
+            drawCall: /drawAbsolutely_2g4tob\$\(canvas, this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$\)/,
         },
     ];
 
-    for (const { name, start, end, call } of cases) {
-        const body = source.slice(source.indexOf(start), source.indexOf(end));
-        assert.ok(body, `${name} draw method not found`);
-        assert.match(body, call, `${name} should anchor at the target via drawAbsolutely`);
-        assert.doesNotMatch(body, /drawAtTarget_2g4tob/, `${name} must not use the climax anchor`);
+    for (const { name, preproccessStart, preproccessEnd, drawStart, drawEnd, drawCall } of cases) {
+        const preproccess = source.slice(source.indexOf(preproccessStart), source.indexOf(preproccessEnd));
+        assert.ok(preproccess, `${name} preproccess not found`);
+        assert.match(preproccess, yAnchor, `${name} Y must anchor at target top-centre (combatY - height/2)`);
+
+        const draw = source.slice(source.indexOf(drawStart), source.indexOf(drawEnd));
+        assert.ok(draw, `${name} draw method not found`);
+        assert.match(draw, drawCall, `${name} should anchor at the target via drawAbsolutely`);
+        assert.doesNotMatch(draw, /drawAtTarget_2g4tob/, `${name} must not use the climax anchor`);
     }
 });
 

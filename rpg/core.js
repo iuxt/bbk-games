@@ -43525,7 +43525,7 @@ if (game.rom["GAME.ROM"]) {
       this.mAni_8be2vx$.start();
       this.mAni_8be2vx$.setIteratorNum_za3lpa$(2);
       this.mAnix_8be2vx$ = this.mTarget.combatX;
-      this.mAniy_8be2vx$ = this.mTarget.combatY;
+      this.mAniy_8be2vx$ = this.mTarget.combatY - (ensureNotNull(this.mTarget.fightingSprite).height / 2 | 0) | 0;
       var ohp = this.mTarget.hp;
       this.magic_8be2vx$.use_qwqr58$(ensureNotNull(this.mAttacker), this.mTarget);
       var diff = this.mTarget.hp - ohp | 0;
@@ -44091,7 +44091,7 @@ if (game.rom["GAME.ROM"]) {
       this.mAni_0.start();
       this.mAni_0.setIteratorNum_za3lpa$(2);
       this.mAniX_0 = this.mTarget.combatX;
-      this.mAniY_0 = this.mTarget.combatY;
+      this.mAniY_0 = this.mTarget.combatY - (ensureNotNull(this.mTarget.fightingSprite).height / 2 | 0) | 0;
       this.weapon_8be2vx$.attack_qpjxya$(target);
       this.mRaiseAnimations.add_11rb$(target.diffToAnimation_6taknv$());
     };
@@ -44312,7 +44312,7 @@ if (game.rom["GAME.ROM"]) {
       this.mAni_8be2vx$.start();
       this.mAni_8be2vx$.setIteratorNum_za3lpa$(2);
       this.mAnix_8be2vx$ = this.mTarget.combatX;
-      this.mAniy_8be2vx$ = this.mTarget.combatY;
+      this.mAniy_8be2vx$ = this.mTarget.combatY - (ensureNotNull(this.mTarget.fightingSprite).height / 2 | 0) | 0;
       this.mRaiseAnimations.add_11rb$(this.mTarget.diffToAnimation_6taknv$());
     };
     ActionUseItemOne.prototype.update_s8cxhz$ = function(delta) {
