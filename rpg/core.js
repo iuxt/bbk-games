@@ -43523,7 +43523,7 @@ if (game.rom["GAME.ROM"]) {
     };
     ActionMagicHelpOne.prototype.draw_9in0vv$ = function(canvas) {
       if (this.mState_0 === ActionMagicHelpOne$Companion_getInstance().STATE_ANI_0) {
-        this.mAni_8be2vx$.drawAtTarget_2g4tob$(canvas, this.mAnix_8be2vx$, this.mAniy_8be2vx$);
+        this.mAni_8be2vx$.drawAbsolutely_2g4tob$(canvas, this.mAnix_8be2vx$, this.mAniy_8be2vx$);
       } else if (this.mState_0 === ActionMagicHelpOne$Companion_getInstance().STATE_AFT_0) {
         this.drawRaiseAnimation_9in0vv$(canvas);
       }
@@ -44100,7 +44100,7 @@ if (game.rom["GAME.ROM"]) {
     };
     ActionThrowItemOne.prototype.draw_9in0vv$ = function(canvas) {
       if (this.mState_0 === ActionThrowItemOne$Companion_getInstance().STATE_ANI_0) {
-        this.mAni_0.drawAtTarget_2g4tob$(canvas, this.mAniX_0, this.mAniY_0);
+        this.mAni_0.drawAbsolutely_2g4tob$(canvas, this.mAniX_0, this.mAniY_0);
       } else if (this.mState_0 === ActionThrowItemOne$Companion_getInstance().STATE_AFT_0) {
         this.drawRaiseAnimation_9in0vv$(canvas);
       }
@@ -44307,7 +44307,7 @@ if (game.rom["GAME.ROM"]) {
     };
     ActionUseItemOne.prototype.draw_9in0vv$ = function(canvas) {
       if (this.mState_0 === ActionUseItemOne$Companion_getInstance().STATE_ANI_0) {
-        this.mAni_8be2vx$.drawAtTarget_2g4tob$(canvas, this.mAnix_8be2vx$, this.mAniy_8be2vx$);
+        this.mAni_8be2vx$.drawAbsolutely_2g4tob$(canvas, this.mAnix_8be2vx$, this.mAniy_8be2vx$);
       } else if (this.mState_0 === ActionUseItemOne$Companion_getInstance().STATE_AFT_0) {
         this.drawRaiseAnimation_9in0vv$(canvas);
       }

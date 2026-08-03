@@ -178,7 +178,7 @@ test("magic screen shows the MP cost of the selected spell", () => {
         source,
         /"耗真气:"\s*\+\s*toString\(hlMagic\.costMp\)/
     );
-    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=10"/);
+    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=11"/);
 });
 
 test("healing applies coerced HP values through a reusable target effect", () => {
@@ -235,6 +235,42 @@ test("single-target attack magic renders at the hardware-accurate target anchor"
     );
     assert.match(attackDraw, /drawAbsolutely_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/);
     assert.doesNotMatch(attackDraw, /drawAtTarget_2g4tob/);
+});
+
+test("single-target help, throw and use-item effects render at the target anchor", () => {
+    // The climax-anchor heuristic (drawAtTarget via BBKSrsAnchor.compute) placed
+    // spell/item particle bursts off the target. Single-target help magic,
+    // thrown weapons and used items revert to the device-accurate behaviour:
+    // anchor the authored frame 0 at the target coordinate via drawAbsolutely.
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+
+    const cases = [
+        {
+            name: "ActionMagicHelpOne",
+            start: "ActionMagicHelpOne.prototype.draw_9in0vv$",
+            end: "ActionMagicHelpOne.prototype.rollbackToPhysical",
+            call: /drawAbsolutely_2g4tob\$\(canvas, this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$\)/,
+        },
+        {
+            name: "ActionThrowItemOne",
+            start: "ActionThrowItemOne.prototype.draw_9in0vv$",
+            end: "ActionThrowItemOne.prototype.cancel",
+            call: /drawAbsolutely_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/,
+        },
+        {
+            name: "ActionUseItemOne",
+            start: "ActionUseItemOne.prototype.draw_9in0vv$",
+            end: "ActionUseItemOne.prototype.cancel",
+            call: /drawAbsolutely_2g4tob\$\(canvas, this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$\)/,
+        },
+    ];
+
+    for (const { name, start, end, call } of cases) {
+        const body = source.slice(source.indexOf(start), source.indexOf(end));
+        assert.ok(body, `${name} draw method not found`);
+        assert.match(body, call, `${name} should anchor at the target via drawAbsolutely`);
+        assert.doesNotMatch(body, /drawAtTarget_2g4tob/, `${name} must not use the climax anchor`);
+    }
 });
 
 test("multi-target healing still aligns via the shared SRS anchor", () => {
