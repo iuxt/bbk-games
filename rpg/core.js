@@ -40005,6 +40005,7 @@ if (game.rom["GAME.ROM"]) {
       this.debuff = new BuffMan;
       this.atbuff = new BuffMan;
       this.backup_2mheeg$_0 = new FightingCharacter$Diff;
+      this.deltaSinceBackup_12x06j$_0 = 0;
     }
     function FightingCharacter$Diff() {
       this.debuff = new BuffMan;
@@ -40092,9 +40093,12 @@ if (game.rom["GAME.ROM"]) {
       },
       set: function(hp) {
         var a = this.maxHP;
-        // Clamp HP to [0, maxHP]. Death is hp <= 0; allowing negative values
-        // from overkill damage makes drawSmallNum (which renders abs) display
-        // a larger number than maxHP and can prevent revive magic from working.
+        // Track the unclamped HP delta for accurate damage/healing display.
+        // The hp setter clamps to [0, maxHP] for correctness (death, revive),
+        // but the combat number should show the real damage dealt, not the
+        // clamped remainder.
+        var delta = hp - this.hp_oo4bdu$_0 | 0;
+        this.deltaSinceBackup_12x06j$_0 = this.deltaSinceBackup_12x06j$_0 + delta | 0;
         this.hp_oo4bdu$_0 = Math_0.max(0, Math_0.min(a, hp));
       }
     });
@@ -40242,11 +40246,14 @@ if (game.rom["GAME.ROM"]) {
       this.backup_2mheeg$_0.mp = this.mp;
       this.debuff.fill_pd3tci$(this.backup_2mheeg$_0.debuff);
       this.missed = false;
+      this.deltaSinceBackup_12x06j$_0 = 0;
     };
     FightingCharacter.prototype.diff_6taknv$ = function(withBuff) {
       var diff = new FightingCharacter$Diff;
       diff.mp = this.mp - this.backup_2mheeg$_0.mp | 0;
-      diff.hp = this.hp - this.backup_2mheeg$_0.hp | 0;
+      // Use the accumulated unclamped delta so the combat number reflects the
+      // real damage/healing, not the HP setter's clamped remainder.
+      diff.hp = this.deltaSinceBackup_12x06j$_0;
       if (withBuff) diff.debuff = this.debuff.diffFrom_pd3tci$(this.backup_2mheeg$_0.debuff);
       return diff;
     };
