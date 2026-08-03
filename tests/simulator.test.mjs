@@ -178,7 +178,7 @@ test("magic screen shows the MP cost of the selected spell", () => {
         source,
         /"耗真气:"\s*\+\s*toString\(hlMagic\.costMp\)/
     );
-    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=15"/);
+    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=16"/);
 });
 
 test("thrown/used goods are refunded when their target dies before the action runs", () => {
@@ -423,6 +423,58 @@ test("lowering maxHP re-clamps current HP so it can never exceed the cap", () =>
     assert.match(
         maxHpSetter,
         /set: function\(maxHP\) \{\s*this\.maxHP_aqimg2\$_0 = Math_0\.min\(999, maxHP\);\s*\/\/ HP can never exceed maxHP[\s\S]*?if \(this\.hp_oo4bdu\$_0 > this\.maxHP_aqimg2\$_0\) \{\s*this\.hp_oo4bdu\$_0 = this\.maxHP_aqimg2\$_0;\s*\}/
+    );
+});
+
+test("hp setter clamps to zero so dead characters never display a false-positive bar", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+
+    // The hp setter must clamp HP to [0, maxHP]. Without the lower clamp,
+    // overkill damage produces negative HP; drawSmallNum renders the absolute
+    // value, so a character at -300/200 HP displays "300 / 200" — HP > maxHP.
+    const hpSetter = source.slice(
+        source.indexOf('Object.defineProperty(FightingCharacter.prototype, "hp"'),
+        source.indexOf('Object.defineProperty(FightingCharacter.prototype, "isAlive"')
+    );
+    assert.match(
+        hpSetter,
+        /this\.hp_oo4bdu\$_0\s*=\s*Math_0\.max\(0,\s*Math_0\.min\(a,\s*hp\)\)/
+    );
+});
+
+test("resurrection magic is not retargeted when its target is dead", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+
+    // prepareAction_0 redirects single-target actions away from dead targets
+    // to a random alive one when the original target died mid-round.  But
+    // resurrection magic (ActionMagicHelpOne + MagicAuxiliary) intentionally
+    // targets the dead — the dead target is the whole point.  The executor
+    // must NOT retarget a revive spell.
+    const prepare = source.slice(
+        source.indexOf("ActionExecutor.prototype.prepareAction_0"),
+        source.indexOf("ActionExecutor.prototype.draw_9in0vv$")
+    );
+    assert.match(
+        prepare,
+        /var isRevive = Typescript\.isType\(this\.mCurrentAction_0, ActionMagicHelpOne\) && Typescript\.isType\(this\.mCurrentAction_0\.magic_8be2vx\$, MagicAuxiliary\);/
+    );
+    assert.match(prepare, /if \(!isRevive\) \{/);
+});
+
+test("revive magic uses max(0, hp) so overkill damage cannot prevent revival", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+
+    // MagicAuxiliary.use_qwqr58$ adds a percentage-based heal to the current
+    // HP. If the character died from overkill (HP deeply negative), adding the
+    // heal to the negative value can still leave them at or below zero — dead.
+    // Using max(0, hp) as the base prevents this.
+    const auxiliary = source.slice(
+        source.indexOf("MagicAuxiliary.prototype.use_qwqr58$"),
+        source.indexOf("MagicAuxiliary.$metadata$")
+    );
+    assert.match(
+        auxiliary,
+        /var b = Math_0\.max\(0, dst\.hp\)/
     );
 });
 

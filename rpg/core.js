@@ -40092,7 +40092,10 @@ if (game.rom["GAME.ROM"]) {
       },
       set: function(hp) {
         var a = this.maxHP;
-        this.hp_oo4bdu$_0 = Math_0.min(a, hp);
+        // Clamp HP to [0, maxHP]. Death is hp <= 0; allowing negative values
+        // from overkill damage makes drawSmallNum (which renders abs) display
+        // a larger number than maxHP and can prevent revive magic from working.
+        this.hp_oo4bdu$_0 = Math_0.max(0, Math_0.min(a, hp));
       }
     });
     Object.defineProperty(FightingCharacter.prototype, "isAlive", {
@@ -41523,22 +41526,26 @@ if (game.rom["GAME.ROM"]) {
         // 投掷武器/使用道具的数量在选择时已通过 deleteGoods 扣减，这里若直接
         // 丢弃行动而不 cancel()，已扣减的数量不会退还。对无存活目标可转移的
         // 情况调用 cancel() 退还道具（普通攻击/法术的 cancel() 为空操作，安全）。
-        if (!ensureNotNull(this.mCurrentAction_0).isSingleTarget) {
-          ensureNotNull(this.mCurrentAction_0).cancel();
-          this.mCurrentAction_0 = null;
-        } else {
-          if (ensureNotNull(this.mCurrentAction_0).targetIsMonster()) {
-            tmp$ = this.mCombat_0.firstAliveMonster;
-          } else {
-            tmp$ = this.mCombat_0.randomAlivePlayer;
-          }
-          var newTarget = tmp$;
-          if (newTarget == null) {
+        // 复活魔法（MagicAuxiliary）的目标死亡是预期行为，不应转移目标。
+        var isRevive = Typescript.isType(this.mCurrentAction_0, ActionMagicHelpOne) && Typescript.isType(this.mCurrentAction_0.magic_8be2vx$, MagicAuxiliary);
+        if (!isRevive) {
+          if (!ensureNotNull(this.mCurrentAction_0).isSingleTarget) {
             ensureNotNull(this.mCurrentAction_0).cancel();
-            this.postAction_1();
-            return;
-          } else if (!Typescript.isType(this.mCurrentAction_0, ActionFlee)) {
-            (Typescript.isType(tmp$_0 = this.mCurrentAction_0, ActionSingleTarget) ? tmp$_0 : throwCCE()).setTarget_qpjxya$(newTarget);
+            this.mCurrentAction_0 = null;
+          } else {
+            if (ensureNotNull(this.mCurrentAction_0).targetIsMonster()) {
+              tmp$ = this.mCombat_0.firstAliveMonster;
+            } else {
+              tmp$ = this.mCombat_0.randomAlivePlayer;
+            }
+            var newTarget = tmp$;
+            if (newTarget == null) {
+              ensureNotNull(this.mCurrentAction_0).cancel();
+              this.postAction_1();
+              return;
+            } else if (!Typescript.isType(this.mCurrentAction_0, ActionFlee)) {
+              (Typescript.isType(tmp$_0 = this.mCurrentAction_0, ActionSingleTarget) ? tmp$_0 : throwCCE()).setTarget_qpjxya$(newTarget);
+            }
           }
         }
       }
@@ -49186,7 +49193,8 @@ if (game.rom["GAME.ROM"]) {
       // of life and is meant to bring KO'd allies back, so it must NOT skip the
       // dead the way ordinary restore magic does. See MagicRestore.applyToTarget.
       var a = dst.maxHP;
-      var b = dst.hp + (Typescript.imul(dst.maxMP, this.mHp_0) / 100 | 0) | 0;
+      // Use max(0, hp) as the base so overkill damage cannot prevent revival.
+      var b = Math_0.max(0, dst.hp) + (Typescript.imul(dst.maxMP, this.mHp_0) / 100 | 0) | 0;
       dst.hp = Math_0.min(a, b);
     };
     MagicAuxiliary.$metadata$ = {
