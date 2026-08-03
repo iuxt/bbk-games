@@ -40069,6 +40069,13 @@ if (game.rom["GAME.ROM"]) {
       },
       set: function(maxHP) {
         this.maxHP_aqimg2$_0 = Math_0.min(999, maxHP);
+        // HP can never exceed maxHP. The hp setter enforces this on every hp
+        // write, but a maxHP decrease (unequipping gear, a debuff, a stat
+        // recalculation) can otherwise leave an already-stored HP floating
+        // above the new ceiling, so current HP reads higher than max HP.
+        if (this.hp_oo4bdu$_0 > this.maxHP_aqimg2$_0) {
+          this.hp_oo4bdu$_0 = this.maxHP_aqimg2$_0;
+        }
       }
     });
     Object.defineProperty(FightingCharacter.prototype, "maxMP", {
@@ -41512,7 +41519,12 @@ if (game.rom["GAME.ROM"]) {
         this.mCurrentAction_0 = ensureNotNull(this.mCurrentAction_0).rollbackToPhysical();
       }
       if (!ensureNotNull(this.mCurrentAction_0).isTargetAlive) {
+        // 目标在中途死亡（被同回合更快的行动击杀）导致本次行动无法命中。
+        // 投掷武器/使用道具的数量在选择时已通过 deleteGoods 扣减，这里若直接
+        // 丢弃行动而不 cancel()，已扣减的数量不会退还。对无存活目标可转移的
+        // 情况调用 cancel() 退还道具（普通攻击/法术的 cancel() 为空操作，安全）。
         if (!ensureNotNull(this.mCurrentAction_0).isSingleTarget) {
+          ensureNotNull(this.mCurrentAction_0).cancel();
           this.mCurrentAction_0 = null;
         } else {
           if (ensureNotNull(this.mCurrentAction_0).targetIsMonster()) {
@@ -41522,6 +41534,7 @@ if (game.rom["GAME.ROM"]) {
           }
           var newTarget = tmp$;
           if (newTarget == null) {
+            ensureNotNull(this.mCurrentAction_0).cancel();
             this.postAction_1();
             return;
           } else if (!Typescript.isType(this.mCurrentAction_0, ActionFlee)) {
@@ -43072,7 +43085,9 @@ if (game.rom["GAME.ROM"]) {
       tmp$_2 = $receiver.iterator();
       while (tmp$_2.hasNext()) {
         var item = tmp$_2.next();
-        destination.add_11rb$(item.diffToAnimation_6taknv$());
+        if (item.isAlive) {
+          destination.add_11rb$(item.diffToAnimation_6taknv$());
+        }
       }
       tmp$_1.addAll_brywnq$(destination);
     };
@@ -43292,7 +43307,7 @@ if (game.rom["GAME.ROM"]) {
       var tmp$, tmp$_0;
       switch (this.mState_0) {
        case 2:
-        (tmp$ = this.mAni_0) != null ? (tmp$.drawAtTarget_2g4tob$(canvas, this.mAniX_0, this.mAniY_0),
+        (tmp$ = this.mAni_0) != null ? (tmp$.drawAbsolutely_2g4tob$(canvas, this.mAniX_0, this.mAniY_0),
         Unit) : null;
         break;
 
@@ -43401,7 +43416,12 @@ if (game.rom["GAME.ROM"]) {
       tmp$_3 = $receiver.iterator();
       while (tmp$_3.hasNext()) {
         var item = tmp$_3.next();
-        destination.add_11rb$(item.diffToAnimation_6taknv$(false));
+        // The revive line is single-target, so an all-target help spell is
+        // healing/buffing: raise a number only for living targets, never a KO'd
+        // ally (which restore magic deliberately leaves untouched).
+        if (item.isAlive) {
+          destination.add_11rb$(item.diffToAnimation_6taknv$(false));
+        }
       }
       tmp$_2.addAll_brywnq$(destination);
     };
@@ -45204,7 +45224,10 @@ if (game.rom["GAME.ROM"]) {
         if (magic.isForAll) {
           this.this$CombatUI.onActionSelected_0(new ActionMagicHelpAll(this.this$CombatUI.selectedPlayer_0, this.this$CombatUI.mPlayerList_0, magic));
         } else {
-          this.this$.pushScreen_2o7n0o$(new CombatUI$MenuCharacterSelect(this.this$CombatUI, this.this$MainMenu, this.this$CombatUI.mTargetIndicator_0, CombatUI$Companion_getInstance().sPlayerIndicatorPos_0, this.this$CombatUI.mPlayerList_0, new CombatUI$MainMenu$onKeyUp$lambda$ObjectLiteral$onItemSelected$ObjectLiteral_0(this.this$CombatUI, magic), false));
+          // Only the revive line (Auxiliary magic) can target a KO'd ally, so the
+          // cursor skips the dead for ordinary single-target help/buffing.
+          var ignoreDead = !Typescript.isType(magic, MagicAuxiliary);
+          this.this$.pushScreen_2o7n0o$(new CombatUI$MenuCharacterSelect(this.this$CombatUI, this.this$MainMenu, this.this$CombatUI.mTargetIndicator_0, CombatUI$Companion_getInstance().sPlayerIndicatorPos_0, this.this$CombatUI.mPlayerList_0, new CombatUI$MainMenu$onKeyUp$lambda$ObjectLiteral$onItemSelected$ObjectLiteral_0(this.this$CombatUI, magic), ignoreDead));
         }
       }
     };
@@ -49131,6 +49154,11 @@ if (game.rom["GAME.ROM"]) {
       tmp$ = dst.iterator();
       while (tmp$.hasNext()) {
         var fc = tmp$.next();
+        // Dead combatants are out of the fight: skip them so an all-target
+        // spell neither damages a corpse nor pops a damage number over it.
+        if (!fc.isAlive) {
+          continue;
+        }
         if (SaveLoadGame_getInstance().allowMiss) {
           if (CalcDamage_getInstance().randomMiss_qwqr58$(src, fc)) {
             fc.missed = true;
@@ -49154,6 +49182,9 @@ if (game.rom["GAME.ROM"]) {
       this.mHp_0 = ResBase$Companion_getInstance().get2BytesInt_ir89t6$(buf, offset + 18 | 0);
     };
     MagicAuxiliary.prototype.use_qwqr58$ = function(src, dst) {
+      // Auxiliary magic is the revive line (起死回生): it restores a percentage
+      // of life and is meant to bring KO'd allies back, so it must NOT skip the
+      // dead the way ordinary restore magic does. See MagicRestore.applyToTarget.
       var a = dst.maxHP;
       var b = dst.hp + (Typescript.imul(dst.maxMP, this.mHp_0) / 100 | 0) | 0;
       dst.hp = Math_0.min(a, b);
@@ -49200,6 +49231,13 @@ if (game.rom["GAME.ROM"]) {
       this.mBuff_0 = buf[offset + 24 | 0];
     };
     MagicRestore.prototype.applyToTarget_qpjxya$ = function(dst) {
+      // Restore magic is ordinary healing / cure-all. It must NOT raise the
+      // dead — only Auxiliary magic (the 招魂咒/唤灵术/赦魂术 "起死回生" revive
+      // line) brings KO'd allies back. Skip a target at or below 0 HP instead
+      // of pushing it positive and silently reviving it.
+      if (!dst.isAlive) {
+        return;
+      }
       // Coerce both operands before addition. Some imported save/ROM values can
       // arrive as numeric strings; coercing only after `+` turns 84 + "4" into
       // 844 instead of 88.

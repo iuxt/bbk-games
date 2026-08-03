@@ -178,7 +178,32 @@ test("magic screen shows the MP cost of the selected spell", () => {
         source,
         /"耗真气:"\s*\+\s*toString\(hlMagic\.costMp\)/
     );
-    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=12"/);
+    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=15"/);
+});
+
+test("thrown/used goods are refunded when their target dies before the action runs", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+
+    // Item count is deducted at selection time (deleteGoods) and the throw/use
+    // action is queued. If the target dies before the action executes, the
+    // action is dropped in prepareAction_0; it must call cancel() (which
+    // addGoods the item back) instead of silently losing the goods.
+
+    // Multi-target drop (no surviving target): cancel() before nulling the action.
+    assert.match(
+        source,
+        /isTargetAlive[\s\S]*?isSingleTarget[\s\S]*?ensureNotNull\(this\.mCurrentAction_0\)\.cancel\(\);\s*this\.mCurrentAction_0 = null;/
+    );
+    // Single-target drop (no alive target to retarget): cancel() before postAction_1().
+    assert.match(
+        source,
+        /newTarget == null\) \{\s*ensureNotNull\(this\.mCurrentAction_0\)\.cancel\(\);\s*this\.postAction_1\(\);/
+    );
+    // The refund is what cancel() does for throw/use-item actions.
+    assert.match(
+        source,
+        /ActionThrowItemOne\.prototype\.cancel = function\(\) \{[\s\S]*?addGoods_6xxg66\$/
+    );
 });
 
 test("healing applies coerced HP values through a reusable target effect", () => {
@@ -212,13 +237,15 @@ test("all-target healing pays once and applies healing to every target", () => {
     );
 });
 
-test("single-target attack magic renders at the target impact anchor", () => {
+test("single-target attack magic renders at the device-accurate target anchor", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
 
-    // Single-target attack magic draws its SRS effect through drawAtTarget so
-    // the animation's visual centre (computed by BBKSrsAnchor.compute) lands on
-    // the target's top-centre (combatX, combatY - height/2) instead of placing
-    // frame 0 there and letting projectiles/bursts drift off the enemy.
+    // Single-target attack magic anchors the authored frame 0 at the target's
+    // top-centre (combatX, combatY - height/2) via drawAbsolutely, reproducing
+    // the original device behaviour (the authored layout settles the effect at
+    // the target's feet) and matching ActionCoopMagic. Anchoring the area-
+    // weighted visual centre there instead (drawAtTarget) centred the burst on
+    // the top-centre and floated it over the target's head.
     assert.match(
         source,
         /this\.mAniY_0\s*=\s*target\.combatY\s*-\s*\(ensureNotNull\(target\.fightingSprite\)\.height\s*\/\s*2\s*\|\s*0\)\s*\|\s*0/
@@ -232,8 +259,8 @@ test("single-target attack magic renders at the target impact anchor", () => {
         source.indexOf("ActionMagicAttackOne.prototype.draw_9in0vv$"),
         source.indexOf("ActionMagicAttackOne.prototype.rollbackToPhysical")
     );
-    assert.match(attackDraw, /drawAtTarget_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/);
-    assert.doesNotMatch(attackDraw, /drawAbsolutely_2g4tob/);
+    assert.match(attackDraw, /drawAbsolutely_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/);
+    assert.doesNotMatch(attackDraw, /drawAtTarget_2g4tob/);
 });
 
 test("all-target attack magic anchors its effect on the target formation", () => {
@@ -317,6 +344,85 @@ test("multi-target healing still aligns via the shared SRS anchor", () => {
     assert.match(
         source,
         /ActionMagicHelpAll[\s\S]*?drawAtTarget_2g4tob\$\(canvas, this\.animationX_0, this\.animationY_0\)/
+    );
+});
+
+test("all-target attack magic skips dead enemies", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+
+    // Dead combatants are out of the fight: an all-target spell must neither
+    // damage a corpse nor pop a damage number over it. MagicAttack.use_h32lzv$
+    // (used by ActionMagicAttackAll and multi-target ActionCoopMagic) skips
+    // every target whose HP is at or below zero.
+    const multiAttack = source.slice(
+        source.indexOf("MagicAttack.prototype.use_h32lzv$"),
+        source.indexOf("MagicAttack.$metadata$")
+    );
+    assert.match(multiAttack, /var fc = tmp\$\.next\(\);\s*\/\/ Dead combatants[\s\S]*?if \(!fc\.isAlive\) \{\s*continue;\s*\}/);
+
+    // ActionMagicAttackAll also only raises a number animation for living
+    // targets, so a dead enemy shows no popup.
+    const attackAction = source.slice(
+        source.indexOf("ActionMagicAttackAll.prototype.preproccess"),
+        source.indexOf("ActionMagicAttackAll.prototype.update_s8cxhz$")
+    );
+    assert.match(attackAction, /while \(tmp\$_2\.hasNext\(\)\) \{\s*var item = tmp\$_2\.next\(\);\s*if \(item\.isAlive\) \{\s*destination\.add_11rb/);
+});
+
+test("ordinary healing skips the dead but revive magic raises them", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+
+    // Death is HP <= 0 and there is no revive flag: revival is just pushing HP
+    // positive again. The intended split is by magic subclass — Restore (flat
+    // heal / cure-all, e.g. 培元术, 佛光普照) must leave the dead alone, while
+    // Auxiliary (the 招魂咒/唤灵术/赦魂术 "起死回生" line) is the revive and
+    // must keep affecting KO'd allies.
+    const restore = source.slice(
+        source.indexOf("MagicRestore.prototype.applyToTarget"),
+        source.indexOf("MagicRestore.prototype.use_qwqr58$")
+    );
+    assert.match(restore, /if \(!dst\.isAlive\) \{\s*return;\s*\}/);
+
+    const auxiliary = source.slice(
+        source.indexOf("MagicAuxiliary.prototype.use_qwqr58$"),
+        source.indexOf("MagicAuxiliary.$metadata$")
+    );
+    // The revive line heals directly with no isAlive guard.
+    assert.match(auxiliary, /function\(src, dst\) \{\s*\/\/ Auxiliary magic is the revive line[\s\S]*?var a = dst\.maxHP;/);
+    assert.doesNotMatch(auxiliary, /if \(!dst\.isAlive\)/);
+
+    // All-target help is healing/buffing (the revive line is single-target),
+    // so it raises a number only for living targets — a dead ally gets no popup.
+    const helpAction = source.slice(
+        source.indexOf("ActionMagicHelpAll.prototype.preproccess"),
+        source.indexOf("ActionMagicHelpAll.prototype.update_s8cxhz$")
+    );
+    assert.match(helpAction, /while \(tmp\$_3\.hasNext\(\)\) \{\s*var item = tmp\$_3\.next\(\);[\s\S]*?if \(item\.isAlive\) \{\s*destination\.add_11rb/);
+
+    // Targeting matches: only the revive line (Auxiliary) can select a KO'd
+    // ally; ordinary single-target help/buffing skips the dead with the cursor.
+    const helpTargeting = source.slice(
+        source.indexOf("MagicAttack.prototype.use_h32lzv$") >= 0
+            ? source.lastIndexOf("CombatUI$MainMenu$onKeyUp$lambda$ObjectLiteral.prototype.onItemSelected_3fncnk$")
+            : 0,
+        source.indexOf("CombatUI$MainMenu$onKeyUp$lambda$ObjectLiteral.$metadata$")
+    );
+    assert.match(helpTargeting, /var ignoreDead = !Typescript\.isType\(magic, MagicAuxiliary\);/);
+});
+
+test("lowering maxHP re-clamps current HP so it can never exceed the cap", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+
+    // The hp setter clamps HP to maxHP on every write, but a maxHP decrease
+    // must also pull an already-stored HP back down, otherwise current HP can
+    // read higher than max HP after unequipping gear or a stat recalculation.
+    const maxHpSetter = source.slice(
+        source.indexOf('Object.defineProperty(FightingCharacter.prototype, "maxHP"'),
+        source.indexOf('Object.defineProperty(FightingCharacter.prototype, "maxMP"')
+    );
+    assert.match(
+        maxHpSetter,
+        /set: function\(maxHP\) \{\s*this\.maxHP_aqimg2\$_0 = Math_0\.min\(999, maxHP\);\s*\/\/ HP can never exceed maxHP[\s\S]*?if \(this\.hp_oo4bdu\$_0 > this\.maxHP_aqimg2\$_0\) \{\s*this\.hp_oo4bdu\$_0 = this\.maxHP_aqimg2\$_0;\s*\}/
     );
 });
 
