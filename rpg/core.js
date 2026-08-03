@@ -43025,6 +43025,8 @@ if (game.rom["GAME.ROM"]) {
       this.mAni_0 = null;
       this.ox_0 = 0;
       this.oy_0 = 0;
+      this.animationX_0 = 0;
+      this.animationY_0 = 0;
       this.isMagic_rc6ojh$_0 = true;
     }
     Object.defineProperty(ActionMagicAttackAll.prototype, "isMagic", {
@@ -43040,11 +43042,21 @@ if (game.rom["GAME.ROM"]) {
       }
       var attacker = tmp$;
       attacker.backupStatus();
+      var targetX = 0;
+      var targetY = 0;
+      var targetCount = 0;
       var tmp$_0;
       tmp$_0 = this.mTargets.iterator();
       while (tmp$_0.hasNext()) {
         var element = tmp$_0.next();
         element.backupStatus();
+        targetX = targetX + element.combatX | 0;
+        targetY = targetY + element.combatY | 0;
+        targetCount = targetCount + 1 | 0;
+      }
+      if (targetCount > 0) {
+        this.animationX_0 = targetX / targetCount | 0;
+        this.animationY_0 = targetY / targetCount | 0;
       }
       this.ox_0 = attacker.combatX;
       this.oy_0 = attacker.combatY;
@@ -43128,7 +43140,10 @@ if (game.rom["GAME.ROM"]) {
     ActionMagicAttackAll.prototype.draw_9in0vv$ = function(canvas) {
       ActionMultiTarget.prototype.draw_9in0vv$.call(this, canvas);
       if (this.mState_0 === ActionMagicAttackAll$Companion_getInstance().STATE_ANI_0) {
-        ensureNotNull(this.mAni_0).draw_2g4tob$(canvas, 0, 0);
+        // Multi-target attack SRS files carry an authored group layout whose raw
+        // coordinates sit over the player party. Anchor the effect's visual
+        // centre on the current target formation instead.
+        ensureNotNull(this.mAni_0).drawAtTarget_2g4tob$(canvas, this.animationX_0, this.animationY_0);
       } else if (this.mState_0 === ActionMagicAttackAll$Companion_getInstance().STATE_AFT_0) {
         this.drawRaiseAnimation_9in0vv$(canvas);
       }
@@ -43277,7 +43292,7 @@ if (game.rom["GAME.ROM"]) {
       var tmp$, tmp$_0;
       switch (this.mState_0) {
        case 2:
-        (tmp$ = this.mAni_0) != null ? (tmp$.drawAbsolutely_2g4tob$(canvas, this.mAniX_0, this.mAniY_0),
+        (tmp$ = this.mAni_0) != null ? (tmp$.drawAtTarget_2g4tob$(canvas, this.mAniX_0, this.mAniY_0),
         Unit) : null;
         break;
 

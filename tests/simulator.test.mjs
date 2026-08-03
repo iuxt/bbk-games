@@ -178,7 +178,7 @@ test("magic screen shows the MP cost of the selected spell", () => {
         source,
         /"耗真气:"\s*\+\s*toString\(hlMagic\.costMp\)/
     );
-    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=11"/);
+    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=12"/);
 });
 
 test("healing applies coerced HP values through a reusable target effect", () => {
@@ -212,13 +212,13 @@ test("all-target healing pays once and applies healing to every target", () => {
     );
 });
 
-test("single-target attack magic renders at the hardware-accurate target anchor", () => {
+test("single-target attack magic renders at the target impact anchor", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
 
-    // The climax-anchor heuristic placed full-screen particle bursts off the
-    // monster. Single-target attack/coop magic revert to the device-accurate
-    // behaviour: anchor the authored frame 0 at the target's top-centre
-    // (combatX, combatY - height/2) via drawAbsolutely.
+    // Single-target attack magic draws its SRS effect through drawAtTarget so
+    // the animation's visual centre (computed by BBKSrsAnchor.compute) lands on
+    // the target's top-centre (combatX, combatY - height/2) instead of placing
+    // frame 0 there and letting projectiles/bursts drift off the enemy.
     assert.match(
         source,
         /this\.mAniY_0\s*=\s*target\.combatY\s*-\s*\(ensureNotNull\(target\.fightingSprite\)\.height\s*\/\s*2\s*\|\s*0\)\s*\|\s*0/
@@ -227,14 +227,42 @@ test("single-target attack magic renders at the hardware-accurate target anchor"
         source,
         /this\.mMonster_0\.combatY\s*-\s*\(ensureNotNull\(this\.mMonster_0\.fightingSprite\)\.height\s*\/\s*2\s*\|\s*0\)\s*\|\s*0/
     );
-    assert.match(source, /else\s*\{\s*this\.mAni_0\.drawAbsolutely_2g4tob\$\(canvas, 0, 0\)/);
 
     const attackDraw = source.slice(
         source.indexOf("ActionMagicAttackOne.prototype.draw_9in0vv$"),
         source.indexOf("ActionMagicAttackOne.prototype.rollbackToPhysical")
     );
-    assert.match(attackDraw, /drawAbsolutely_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/);
-    assert.doesNotMatch(attackDraw, /drawAtTarget_2g4tob/);
+    assert.match(attackDraw, /drawAtTarget_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/);
+    assert.doesNotMatch(attackDraw, /drawAbsolutely_2g4tob/);
+});
+
+test("all-target attack magic anchors its effect on the target formation", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+    const action = source.slice(
+        source.indexOf("ActionMagicAttackAll.prototype.preproccess"),
+        source.indexOf("ActionMagicAttackAll.prototype.update_s8cxhz$")
+    );
+    const draw = source.slice(
+        source.indexOf("ActionMagicAttackAll.prototype.draw_9in0vv$"),
+        source.indexOf("ActionMagicAttackAll.prototype.rollbackToPhysical")
+    );
+
+    // The group effect must be centred on the current enemy formation (mean
+    // combat position of the targets), not drawn at the ROM's raw coordinates
+    // which sit over the player party.
+    assert.match(
+        action,
+        /targetX\s*=\s*targetX\s*\+\s*element\.combatX\s*\|\s*0;/
+    );
+    assert.match(
+        action,
+        /this\.animationX_0\s*=\s*targetX\s*\/\s*targetCount\s*\|\s*0;/
+    );
+    assert.match(
+        draw,
+        /drawAtTarget_2g4tob\$\(canvas, this\.animationX_0, this\.animationY_0\)/
+    );
+    assert.doesNotMatch(draw, /draw_2g4tob\$\(canvas, 0, 0\)/);
 });
 
 test("single-target help, throw and use-item effects render at the target anchor", () => {
@@ -292,7 +320,7 @@ test("multi-target healing still aligns via the shared SRS anchor", () => {
     );
 });
 
-test("SRS anchor chooses the latest endpoint when simple frames tie", () => {
+test("SRS anchor takes the area-weighted visual centre of simple frames", () => {
     const headers = [
         [10, 20, 2, 2, 0],
         [30, 40, 2, 2, 0],
@@ -300,7 +328,9 @@ test("SRS anchor chooses the latest endpoint when simple frames tie", () => {
     ];
     const images = [{ width: 10, height: 6 }];
 
-    assert.deepEqual(SrsAnchor.compute(headers, images), { x: 55, y: 63 });
+    // Each frame is 10x6 at centres (15,23), (35,43), (55,63): the shared
+    // anchor is the area-weighted mean (35,43), not the last frame.
+    assert.deepEqual(SrsAnchor.compute(headers, images), { x: 35, y: 43 });
 });
 
 test("SRS anchor centers the peak group and ignores invalid image records", () => {
@@ -316,12 +346,12 @@ test("SRS anchor centers the peak group and ignores invalid image records", () =
     assert.deepEqual(SrsAnchor.compute(headers, images), { x: 25, y: 15 });
 });
 
-test("FML flying-sword anchor uses its visual climax instead of the last particle", () => {
+test("FML flying-sword anchor uses the shared visual centre", () => {
     const animation = readSrs("fml.lib", 2, 2);
 
     assert.deepEqual(
         SrsAnchor.compute(animation.frameHeaders, animation.images),
-        { x: 78, y: 52 }
+        { x: 81, y: 51 }
     );
 });
 
@@ -335,7 +365,7 @@ test("佛光普照 aligns its authored group with the current player formation",
 
     assert.deepEqual(
         SrsAnchor.compute(animation.frameHeaders, animation.images),
-        { x: 77, y: 65 }
+        { x: 76, y: 65 }
     );
     assert.deepEqual(targetCenter, { x: 108, y: 64 });
     assert.match(

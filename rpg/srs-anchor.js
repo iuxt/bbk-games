@@ -79,52 +79,32 @@
             return { x: 0, y: 0 };
         }
 
-        var best = null;
+        // The impact point is the area-weighted visual centre of every visible
+        // frame: each frame contributes its own bounding-box centre, scaled by
+        // how much screen area it occupies. Localised bursts stay put, while
+        // projectiles and travelling waves settle on the middle of their
+        // dominant body so drawAtTarget lands the effect on the target instead
+        // of the raw ROM position (which sits over the player party).
+        var sumX = 0;
+        var sumY = 0;
+        var totalArea = 0;
 
-        // The impact point is the visual climax: the moment with the largest
-        // combined drawable area. This preserves projectile movement, chooses
-        // the endpoint when frames tie, and centers composite bursts as a group.
-        for (var eventIndex = 0; eventIndex < records.length; eventIndex += 1) {
-            var time = records[eventIndex].start;
-            var score = 0;
-            var left = Infinity;
-            var top = Infinity;
-            var right = -Infinity;
-            var bottom = -Infinity;
+        for (var recordIndex = 0;
+            recordIndex < records.length;
+            recordIndex += 1) {
+            var record = records[recordIndex];
+            var width = record.image.width;
+            var height = record.image.height;
+            var area = width * height;
 
-            for (var recordIndex = 0;
-                recordIndex < records.length;
-                recordIndex += 1) {
-                var record = records[recordIndex];
-                if (record.start > time || record.end <= time) {
-                    continue;
-                }
-
-                var x = record.frameHeader[0];
-                var y = record.frameHeader[1];
-                var width = record.image.width;
-                var height = record.image.height;
-
-                score += width * height;
-                left = Math.min(left, x);
-                top = Math.min(top, y);
-                right = Math.max(right, x + width);
-                bottom = Math.max(bottom, y + height);
-            }
-
-            if (score > 0 &&
-                    (!best || score > best.score ||
-                    (score === best.score && time >= best.time))) {
-                best = {
-                    score: score,
-                    time: time,
-                    x: (left + right) / 2 | 0,
-                    y: (top + bottom) / 2 | 0,
-                };
-            }
+            sumX += (record.frameHeader[0] + (width / 2 | 0)) * area;
+            sumY += (record.frameHeader[1] + (height / 2 | 0)) * area;
+            totalArea += area;
         }
 
-        return best ? { x: best.x, y: best.y } : { x: 0, y: 0 };
+        return totalArea > 0
+            ? { x: sumX / totalArea | 0, y: sumY / totalArea | 0 }
+            : { x: 0, y: 0 };
     }
 
     global.BBKSrsAnchor = {
