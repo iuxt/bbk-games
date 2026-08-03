@@ -178,7 +178,7 @@ test("magic screen shows the MP cost of the selected spell", () => {
         source,
         /"耗真气:"\s*\+\s*toString\(hlMagic\.costMp\)/
     );
-    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=16"/);
+    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=17"/);
 });
 
 test("thrown/used goods are refunded when their target dies before the action runs", () => {

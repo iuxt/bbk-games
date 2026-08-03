@@ -45321,7 +45321,8 @@ if (game.rom["GAME.ROM"]) {
       this.mOnCharacterSelectedListener_0 = mOnCharacterSelectedListener;
       this.mIgnoreDead_0 = mIgnoreDead;
       this.mCurSel_0 = 0;
-      var tmp$;
+      var tmp$, tmp$_bg;
+      this.mPlayerInfoBg_0 = Typescript.isType(tmp$_bg = DatLib$Companion_getInstance().getRes_2et8c9$(DatLib$ResType$PIC_getInstance(), 2, 2), ResImage) ? tmp$_bg : throwCCE();
       tmp$ = this.mList_0.size;
       for (var i = 0; i < tmp$; i++) {
         if (this.mList_0.get_za3lpa$(i).isAlive) {
@@ -45342,6 +45343,7 @@ if (game.rom["GAME.ROM"]) {
       this.mIndicator_0.draw_2g4tob$(canvas, this.mIndicatorPos_0[this.mCurSel_0].x, this.mIndicatorPos_0[this.mCurSel_0].y);
       if (equals(this.mIndicator_0, this.$outer.mTargetIndicator_0)) {
         var p = this.$outer.mPlayerList_0.get_za3lpa$(this.mCurSel_0);
+        this.mPlayerInfoBg_0.draw_tj1hu5$(canvas, 1, 49, 66);
         this.$outer.mHeadsImg_0[p.index - 1 | 0].draw_tj1hu5$(canvas, 1, 50, 63);
         Util_getInstance().drawSmallNum_tj1hu5$(canvas, p.hp, 79, 72);
         Util_getInstance().drawSmallNum_tj1hu5$(canvas, p.maxHP, 104, 72);
