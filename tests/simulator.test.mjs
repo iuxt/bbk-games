@@ -212,9 +212,36 @@ test("all-target healing pays once and applies healing to every target", () => {
     );
 });
 
-test("single-target effects use the shared safe SRS anchor", () => {
+test("single-target attack magic renders at the hardware-accurate target anchor", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
 
+    // The climax-anchor heuristic placed full-screen particle bursts off the
+    // monster. Single-target attack/coop magic revert to the device-accurate
+    // behaviour: anchor the authored frame 0 at the target's top-centre
+    // (combatX, combatY - height/2) via drawAbsolutely.
+    assert.match(
+        source,
+        /this\.mAniY_0\s*=\s*target\.combatY\s*-\s*\(ensureNotNull\(target\.fightingSprite\)\.height\s*\/\s*2\s*\|\s*0\)\s*\|\s*0/
+    );
+    assert.match(
+        source,
+        /this\.mMonster_0\.combatY\s*-\s*\(ensureNotNull\(this\.mMonster_0\.fightingSprite\)\.height\s*\/\s*2\s*\|\s*0\)\s*\|\s*0/
+    );
+    assert.match(source, /else\s*\{\s*this\.mAni_0\.drawAbsolutely_2g4tob\$\(canvas, 0, 0\)/);
+
+    const attackDraw = source.slice(
+        source.indexOf("ActionMagicAttackOne.prototype.draw_9in0vv$"),
+        source.indexOf("ActionMagicAttackOne.prototype.rollbackToPhysical")
+    );
+    assert.match(attackDraw, /drawAbsolutely_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/);
+    assert.doesNotMatch(attackDraw, /drawAtTarget_2g4tob/);
+});
+
+test("multi-target healing still aligns via the shared SRS anchor", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+
+    // The SRS anchor module stays wired for the all-target heal effect, which
+    // centres its authored group on the current party formation.
     assert.match(
         source,
         /BBKSrsAnchor\.compute\(this\.mFrameHeader_0, this\.mImage_0\)/
@@ -225,12 +252,7 @@ test("single-target effects use the shared safe SRS anchor", () => {
     );
     assert.match(
         source,
-        /ActionMagicAttackOne[\s\S]*?drawAtTarget_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/
-    );
-    assert.match(source, /this\.mAniY_0\s*=\s*target\.combatY/);
-    assert.match(
-        source,
-        /else\s*\{\s*this\.mAni_0\.drawAbsolutely_2g4tob\$\(canvas, 0, 0\)/
+        /ActionMagicHelpAll[\s\S]*?drawAtTarget_2g4tob\$\(canvas, this\.animationX_0, this\.animationY_0\)/
     );
 });
 

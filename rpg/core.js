@@ -42740,7 +42740,7 @@ if (game.rom["GAME.ROM"]) {
       }
       if (this.isSingleTarget) {
         this.mAniX_0 = this.mMonster_0.combatX;
-        this.mAniY_0 = this.mMonster_0.combatY;
+        this.mAniY_0 = this.mMonster_0.combatY - (ensureNotNull(this.mMonster_0.fightingSprite).height / 2 | 0) | 0;
       } else {
         this.mAniY_0 = 0;
         this.mAniX_0 = this.mAniY_0;
@@ -42838,7 +42838,7 @@ if (game.rom["GAME.ROM"]) {
       switch (this.mState_0) {
        case 2:
         if (this.isSingleTarget) {
-          this.mAni_0.drawAtTarget_2g4tob$(canvas, this.mAniX_0, this.mAniY_0);
+          this.mAni_0.drawAbsolutely_2g4tob$(canvas, this.mAniX_0, this.mAniY_0);
         } else {
           this.mAni_0.drawAbsolutely_2g4tob$(canvas, 0, 0);
         }
@@ -43212,7 +43212,7 @@ if (game.rom["GAME.ROM"]) {
         this.magic_0.use_qwqr58$(attacker, target);
       }
       this.mAniX_0 = target.combatX;
-      this.mAniY_0 = target.combatY;
+      this.mAniY_0 = target.combatY - (ensureNotNull(target.fightingSprite).height / 2 | 0) | 0;
       this.mRaiseAnimations.add_11rb$(target.diffToAnimation_6taknv$());
       this.mRaiseAnimations.add_11rb$(attacker.diffToAnimation_6taknv$());
       if (Typescript.isType(this.magic_0, MagicSpecial)) {
@@ -43277,7 +43277,7 @@ if (game.rom["GAME.ROM"]) {
       var tmp$, tmp$_0;
       switch (this.mState_0) {
        case 2:
-        (tmp$ = this.mAni_0) != null ? (tmp$.drawAtTarget_2g4tob$(canvas, this.mAniX_0, this.mAniY_0),
+        (tmp$ = this.mAni_0) != null ? (tmp$.drawAbsolutely_2g4tob$(canvas, this.mAniX_0, this.mAniY_0),
         Unit) : null;
         break;
 
