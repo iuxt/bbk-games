@@ -40069,7 +40069,7 @@ if (game.rom["GAME.ROM"]) {
         return this.maxHP_aqimg2$_0;
       },
       set: function(maxHP) {
-        this.maxHP_aqimg2$_0 = Math_0.min(999, maxHP);
+        this.maxHP_aqimg2$_0 = maxHP;
         // HP can never exceed maxHP. The hp setter enforces this on every hp
         // write, but a maxHP decrease (unequipping gear, a debuff, a stat
         // recalculation) can otherwise leave an already-stored HP floating

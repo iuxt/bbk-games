@@ -178,7 +178,7 @@ test("magic screen shows the MP cost of the selected spell", () => {
         source,
         /"耗真气:"\s*\+\s*toString\(hlMagic\.costMp\)/
     );
-    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=18"/);
+    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=19"/);
 });
 
 test("thrown/used goods are refunded when their target dies before the action runs", () => {
@@ -439,7 +439,7 @@ test("lowering maxHP re-clamps current HP so it can never exceed the cap", () =>
     );
     assert.match(
         maxHpSetter,
-        /set: function\(maxHP\) \{\s*this\.maxHP_aqimg2\$_0 = Math_0\.min\(999, maxHP\);\s*\/\/ HP can never exceed maxHP[\s\S]*?if \(this\.hp_oo4bdu\$_0 > this\.maxHP_aqimg2\$_0\) \{\s*this\.hp_oo4bdu\$_0 = this\.maxHP_aqimg2\$_0;\s*\}/
+        /set: function\(maxHP\) \{\s*this\.maxHP_aqimg2\$_0 = maxHP;\s*\/\/ HP can never exceed maxHP[\s\S]*?if \(this\.hp_oo4bdu\$_0 > this\.maxHP_aqimg2\$_0\) \{\s*this\.hp_oo4bdu\$_0 = this\.maxHP_aqimg2\$_0;\s*\}/
     );
 });
 
