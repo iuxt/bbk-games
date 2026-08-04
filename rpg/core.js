@@ -47638,10 +47638,7 @@ if (game.rom["GAME.ROM"]) {
     });
     Object.defineProperty(GoodsWeapon.prototype, "affectHp", {
       get: function() {
-        // 投掷(GoodsWeapon)伤害还原原版伏魔记实测值：低字节为武器攻击力 mat，
-        // 高字节为 round(mat*2/5)。弯月刀(mat=49)→5169、砍刀(mat=10)→1034，
-        // 与原版攻略实测一致；原 mat*50 仅得其半(弯月刀2450)。
-        return ((((this.mat * 2 + 2) / 5) | 0) << 8) + this.mat | 0;
+        return this.mat * 50 | 0;
       }
     });
     Object.defineProperty(GoodsWeapon.prototype, "buff", {
