@@ -73,20 +73,25 @@ fetch 路径约定：`roms/<id>.gam`（即 `roms/fmj-1.0.gam`）。
 
 ## 5. 样式层
 
-### 5.1 抽取共享 picker 样式
+### 5.1 eebbk 自带对话框样式（不改动 rpg）
 
-新建 `css/picker.css`，把 `rpg/app.css` 中**对话框专属**样式迁移过去（基础类 `.dialog-overlay` / `.device-button` / `.dialog-open` 已在共享的 `css/portal.css`，不动）：
+新建 `eebbk/dialog.css`，从 `rpg/app.css` **复制** game-picker / save-manager 对话框样式，并按 eebbk 差异微调（基础类 `.dialog-overlay` / `.device-button` / `.dialog-open` 已在共享的 `css/portal.css`，直接复用）。`eebbk/index.html` 在 `style.css` 之外新增引用：
 
-- game-picker：`.game-picker-overlay` `.game-picker-dialog` `.game-picker-display` `.game-search` `.rom-list` `.rom-card`（含 `.is-selected` / `.rom-number` / `.rom-name`）`.game-picker-actions` `.primary-button` `.import-button` `.empty-result` `.dialog-error` `.dialog-busy`
-- save-manager：`.save-manager-overlay` `.save-manager-dialog` `.save-manager-help` `.save-slot-list` `.save-slot-card`（含 `.has-save` / `.save-slot-number` / `.save-slot-copy` / `.save-slot-actions`）`.slot-action`（含 `.slot-action-primary`）`.save-manager-actions` `.dialog-status`
-- 相关响应式（`@media max-width:520px` 中 picker / save-manager 的分支）
+```html
+<link rel="stylesheet" href="dialog.css?v=1">
+```
 
-### 5.2 引用
+复制范围：`.game-picker-overlay` `.game-picker-dialog` `.game-picker-display` `.rom-list` `.rom-card`（含 `.is-selected` / `.rom-number` / `.rom-name`）`.game-picker-actions` `.primary-button` `.import-button` `.empty-result` `.dialog-error` `.dialog-busy` `.save-manager-overlay` `.save-manager-dialog` `.save-manager-help` `.save-slot-list` `.save-slot-card`（含 `.has-save` / `.save-slot-number` / `.save-slot-copy` / `.save-slot-actions`）`.slot-action` `.save-manager-actions` `.dialog-status` 及相关响应式分支。
 
-- `rpg/index.html`：在 `app.css` 之外新增 `<link rel="stylesheet" href="../css/picker.css?v=1">`；从 `rpg/app.css` 删除已迁移的段落（保留 `#canvas` / `.simulator-screen` / `.screen-status` / `#touchpad` / `.footer-actions` / `.game-title` / `.desktop-controls` 等 rpg 专属样式）。
-- `eebbk/index.html`：新增 `<link rel="stylesheet" href="../css/picker.css?v=1">`。
+eebbk 差异微调：picker 不渲染搜索框（无 `.game-search` 依赖）；save-manager 每槽 4 按钮（保存/读取/导出/导入），`.save-slot-actions` 用 2×2 网格而非 rpg 的 2 列。
 
-迁移是纯挪位置 + 加 link，样式内容不变，rpg 视觉零变化。
+### 5.2 footer-action 样式补全
+
+eebbk 现有 footer 的 `class="footer-action"` 按钮**没有样式定义**（`.footer-action` 仅存在于 `rpg/app.css`，eebbk 未引用；portal.css 仅有 `.device-footer` / `.utility-footer`，style.css 仅在窄屏 media 里有 `.footer-actions` 网格）。在 `eebbk/style.css` 补充桌面态 `.footer-action` / `.footer-actions` 样式（从 `rpg/app.css` 复制），让「选择游戏」「存档管理」按钮具备 rpg 一致的按键外观。
+
+### 5.3 为什么不抽取共享
+
+`tests/test_portal_markup.py::SimulatorMarkupTests.test_ui_assets_cover_responsive_and_accessible_states` 直接断言 `rpg/app.css` 文本包含 `.rom-card.is-selected` / `.save-slot-card` / `.rom-list::-webkit-scrollbar` / `100dvh` 等字符串。抽取到共享文件会破坏该测试，且需同步改测试——风险高于收益。此外两边对话框本就有差异（eebbk picker 无搜索框、save-manager 每槽 4 按钮 vs rpg 2 按钮），独立维护更清晰。**rpg 保持零改动。**
 
 ## 6. UI 层（`eebbk/index.html`）
 
@@ -262,12 +267,10 @@ else if localStorage['sav/autosave-'+currentRomId] 存在:  // 上次离开的�
 | `eebbk/roms/fmj-1.0.gam` ~ `fmj-1.3.gam` | 由原嵌套目录扁平化而来 |
 | `eebbk/roms/1.0伏魔记完整版/` 等 4 目录 | 删除（迁移后） |
 | `scripts/build-site.mjs` | emuRuntime 段新增复制 `roms/` 到产物 |
-| `css/picker.css` | 新建（从 `rpg/app.css` 迁移对话框样式） |
-| `rpg/app.css` | 删除已迁移段落 |
-| `rpg/index.html` | 新增 `picker.css` link |
-| `eebbk/index.html` | 新增 `picker.css` link；footer 改造；新增 game-picker / save-manager 对话框；标题加 id |
-| `eebbk/glue.js` | 新增 picker / save-manager / 热切换 / 存档编解码 / 自动续玩 / bootstrap 恢复 |
-| `eebbk/style.css` | 移除已迁出的 `.dialog-*` 相关（若有）；保留画面层/触控样式 |
+| `eebbk/dialog.css` | 新建（复制 `rpg/app.css` 对话框样式并适配 eebbk 差异） |
+| `eebbk/index.html` | 新增 `dialog.css` link；footer 改造；新增 game-picker / save-manager 对话框；标题加 id |
+| `eebbk/glue.js` | 新增 picker / save-manager / 热切换 / 存档编解码 / 自动续玩 / bootstrap 恢复；导出纯函数供测试 |
+| `eebbk/style.css` | 补充桌面态 `.footer-action` 样式（当前缺失）；保留画面层 / 触控样式 |
 
 ## 10. 测试要点
 
