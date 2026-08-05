@@ -91,6 +91,58 @@
     return { ok: true, payload: payload };
   }
 
+  /* ---------- 电子词典（home）作为可启动条目的纯逻辑 ---------- */
+  const HOME_ROM_ID = '__home__';
+  const HOME_ROM_NAME = '电子词典系统';
+  const HOME_ROM = {
+    id: HOME_ROM_ID,
+    name: HOME_ROM_NAME,
+    py: 'dianzicidianxitong',
+    initial: 'dzcdxt',
+    isSystem: true
+  };
+
+  function buildPickerGames(catalogGames) {
+    const list = Array.isArray(catalogGames) ? catalogGames : [];
+    return [HOME_ROM].concat(list);
+  }
+
+  /* 启动决策：pending（关机态热切换指令）优先；否则按记住的 currentRomId。
+     本地导入 rom（local-*）无法跨 reload 恢复，回落到占位画面。 */
+  function decideLaunch(opts) {
+    const pendingId = opts && opts.pendingId ? opts.pendingId : '';
+    const currentRomId = opts && opts.currentRomId ? opts.currentRomId : '';
+    const hasAutosave = !!(opts && opts.hasAutosave);
+    if (pendingId) {
+      if (pendingId === HOME_ROM_ID) return { action: 'home' };
+      return { action: 'rom', id: pendingId, applyAutosave: false };
+    }
+    if (currentRomId === HOME_ROM_ID) return { action: 'home' };
+    if (!currentRomId) return { action: 'placeholder' };
+    if (currentRomId.indexOf('local-') === 0) return { action: 'placeholder' };
+    return { action: 'rom', id: currentRomId, applyAutosave: hasAutosave };
+  }
+
+  /* 在 picker 里选中「电子词典系统」时，按当前设备状态决定如何进入。 */
+  function decideHomeLaunch(opts) {
+    const exited = !!(opts && opts.exited);
+    const started = !!(opts && opts.started);
+    if (exited) return 'pending-reload';   // 内核已销毁：写 pending + reload
+    if (!started) return 'start';           // 占位画面：直接开机进主屏
+    return 'autosave-reload';               // 运行游戏中切换：先 autosave 再 reload
+  }
+
+  function saveManagerEnabledFor(id) {
+    return !!id && id !== HOME_ROM_ID;
+  }
+
+  function shouldAutosave(id) {
+    if (!id) return false;
+    if (id === HOME_ROM_ID) return false;
+    if (id.indexOf('local-') === 0) return false;
+    return true;
+  }
+
   global.BBK4980Glue = {
     bytesToBase64: bytesToBase64,
     base64ToBytes: base64ToBytes,
@@ -99,7 +151,14 @@
     slotKey: slotKey,
     autosaveKey: autosaveKey,
     buildSavePayload: buildSavePayload,
-    parseSavePayload: parseSavePayload
+    parseSavePayload: parseSavePayload,
+    HOME_ROM_ID: HOME_ROM_ID,
+    HOME_ROM: HOME_ROM,
+    buildPickerGames: buildPickerGames,
+    decideLaunch: decideLaunch,
+    decideHomeLaunch: decideHomeLaunch,
+    saveManagerEnabledFor: saveManagerEnabledFor,
+    shouldAutosave: shouldAutosave
   };
 
   /* ---------- 以下依赖 DOM / wasm，仅在浏览器执行 ---------- */

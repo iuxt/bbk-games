@@ -105,3 +105,64 @@ test("buildSavePayload output round-trips through parseSavePayload", () => {
 test("parseSavePayload rejects malformed JSON", () => {
     assert.equal(G.parseSavePayload("{not json", "fmj-1.0").ok, false);
 });
+
+test("HOME_ROM 与 buildPickerGames：词典条目恒居首位", () => {
+    assert.equal(G.HOME_ROM_ID, "__home__");
+    assert.equal(G.HOME_ROM.id, "__home__");
+    assert.equal(G.HOME_ROM.name, "电子词典系统");
+    assert.equal(G.HOME_ROM.isSystem, true);
+
+    const catalog = [{ id: "魔塔", name: "魔塔" }, { id: "伏魔记", name: "伏魔记" }];
+    const list = G.buildPickerGames(catalog);
+    assert.equal(list.length, 3);
+    assert.equal(list[0].id, "__home__", "home 必须第一");
+    assert.equal(list[1].id, "魔塔");
+
+    // 空目录也要有词典条目
+    assert.equal(G.buildPickerGames([]).length, 1);
+    assert.equal(G.buildPickerGames().length, 1);
+});
+
+test("decideLaunch：pending 优先", () => {
+    assert.deepEqual(G.decideLaunch({ pendingId: "__home__", currentRomId: "魔塔", hasAutosave: true }),
+                     { action: "home" });
+    assert.deepEqual(G.decideLaunch({ pendingId: "魔塔", currentRomId: "", hasAutosave: false }),
+                     { action: "rom", id: "魔塔", applyAutosave: false });
+});
+
+test("decideLaunch：无 pending 时按 currentRomId", () => {
+    assert.deepEqual(G.decideLaunch({ pendingId: "", currentRomId: "__home__", hasAutosave: false }),
+                     { action: "home" });
+    assert.deepEqual(G.decideLaunch({ pendingId: "", currentRomId: "", hasAutosave: false }),
+                     { action: "placeholder" });
+    assert.deepEqual(G.decideLaunch({ pendingId: "", currentRomId: "魔塔", hasAutosave: true }),
+                     { action: "rom", id: "魔塔", applyAutosave: true });
+    assert.deepEqual(G.decideLaunch({ pendingId: "", currentRomId: "魔塔", hasAutosave: false }),
+                     { action: "rom", id: "魔塔", applyAutosave: false });
+});
+
+test("decideLaunch：本地导入 rom 无法跨 reload 恢复 → placeholder", () => {
+    assert.deepEqual(G.decideLaunch({ pendingId: "", currentRomId: "local-123-abc", hasAutosave: false }),
+                     { action: "placeholder" });
+});
+
+test("decideHomeLaunch：按设备状态分三种路径", () => {
+    assert.equal(G.decideHomeLaunch({ exited: true, started: false }), "pending-reload");
+    assert.equal(G.decideHomeLaunch({ exited: true, started: true }), "pending-reload");
+    assert.equal(G.decideHomeLaunch({ exited: false, started: false }), "start");
+    assert.equal(G.decideHomeLaunch({ exited: false, started: true }), "autosave-reload");
+});
+
+test("saveManagerEnabledFor：home 与空 id 禁用", () => {
+    assert.equal(G.saveManagerEnabledFor("魔塔"), true);
+    assert.equal(G.saveManagerEnabledFor("local-1-2"), true);
+    assert.equal(G.saveManagerEnabledFor("__home__"), false);
+    assert.equal(G.saveManagerEnabledFor(""), false);
+});
+
+test("shouldAutosave：home / local / 空 都跳过", () => {
+    assert.equal(G.shouldAutosave("魔塔"), true);
+    assert.equal(G.shouldAutosave("__home__"), false);
+    assert.equal(G.shouldAutosave("local-1-2"), false);
+    assert.equal(G.shouldAutosave(""), false);
+});
