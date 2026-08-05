@@ -110,14 +110,28 @@
   const ctx       = canvas.getContext('2d');
   const wrapper   = document.getElementById('screen-wrapper');
   const placeholder = document.getElementById('placeholder');
-  const fileInput = document.getElementById('file-input');
-  const loadBtn   = document.getElementById('load-btn');
-  const saveBtn   = document.getElementById('save-btn');
-  const loadStateBtn = document.getElementById('load-btn-state');
   const errorOverlay = document.getElementById('error-overlay');
   const errorTitle   = document.getElementById('error-title');
   const errorDetail  = document.getElementById('error-detail');
   const restartBtn   = document.getElementById('restart-btn');
+  const gamePicker       = document.getElementById('game-picker');
+  const gamePickerOpen   = document.getElementById('game-picker-open');
+  const gamePickerClose  = document.getElementById('game-picker-close');
+  const gamePickerUse    = document.getElementById('game-picker-use');
+  const gameList         = document.getElementById('game-list');
+  const gameCount        = document.getElementById('game-count');
+  const gamePickerError  = document.getElementById('game-picker-error');
+  const gamePickerBusy   = document.getElementById('game-picker-busy');
+  const fileInput        = document.getElementById('file-input');
+  const saveManager      = document.getElementById('save-manager');
+  const saveManagerOpen  = document.getElementById('save-manager-open');
+  const saveManagerClose = document.getElementById('save-manager-close');
+  const saveGameName     = document.getElementById('save-game-name');
+  const saveSlotList     = document.getElementById('save-slot-list');
+  const saveManagerErr   = document.getElementById('save-manager-error');
+  const saveManagerStat  = document.getElementById('save-manager-status');
+  const saveInput        = document.getElementById('save-input');
+  const currentGameName  = document.getElementById('current-game-name');
   const stateFileInput = document.createElement('input');
 
   stateFileInput.type = 'file';
@@ -132,6 +146,162 @@
   let gameLoaded = false;
   let exited = false;    /* runtime has exited (power-off / fatal error) */
   let animId = 0;
+
+  const BBK = global.BBK4980Glue;   // 复用已导出的纯函数
+
+  const picker = {
+    games: [],
+    selectedId: '',
+    opener: null
+  };
+  let currentRom = { id: '', name: '' };
+
+  /* ---------- LocalStorage helpers ---------- */
+  function readLS(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
+  function writeLS(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
+  function removeLS(key) { try { localStorage.removeItem(key); } catch (e) {} }
+
+  function setCurrentRom(id, name) {
+    currentRom = { id: id || '', name: name || 'EEBBK模拟器' };
+    writeLS('currentRomId', currentRom.id);
+    writeLS('currentRomName', currentRom.name);
+    currentGameName.textContent = currentRom.name;
+    saveManagerOpen.disabled = !currentRom.id;
+  }
+
+  function restoreCurrentRomFromStorage() {
+    const id = readLS('currentRomId');
+    const name = readLS('currentRomName');
+    if (id) setCurrentRom(id, name || id);
+  }
+
+  /* ---------- Picker error / busy ---------- */
+  function setPickerError(msg) {
+    gamePickerError.textContent = msg || '';
+    gamePickerError.hidden = !msg;
+  }
+  function setPickerBusy(busy, msg) {
+    gamePickerBusy.querySelector('span').textContent = msg || '游戏载入中…';
+    gamePickerBusy.hidden = !busy;
+  }
+
+  /* ---------- Catalog rendering ---------- */
+  function updateSelection() {
+    const cards = gameList.querySelectorAll('.rom-card');
+    Array.prototype.forEach.call(cards, function (card) {
+      const sel = card.dataset.romId === picker.selectedId;
+      card.classList.toggle('is-selected', sel);
+      card.setAttribute('aria-pressed', sel ? 'true' : 'false');
+    });
+    gamePickerUse.disabled = !picker.selectedId;
+  }
+
+  function renderGames(games) {
+    const frag = document.createDocumentFragment();
+    gameList.textContent = '';
+    games.forEach(function (game, index) {
+      const card = document.createElement('button');
+      const num = document.createElement('span');
+      const name = document.createElement('strong');
+      card.type = 'button';
+      card.className = 'rom-card';
+      card.dataset.romId = game.id;
+      card.setAttribute('aria-pressed', 'false');
+      card.addEventListener('click', function () {
+        picker.selectedId = game.id;
+        setPickerError('');
+        updateSelection();
+      });
+      num.className = 'rom-number';
+      num.setAttribute('aria-hidden', 'true');
+      num.textContent = String(index + 1).padStart(2, '0');
+      name.className = 'rom-name';
+      name.textContent = game.name;
+      card.appendChild(num);
+      card.appendChild(name);
+      frag.appendChild(card);
+    });
+    gameList.appendChild(frag);
+    updateSelection();
+  }
+
+  function loadCatalog() {
+    fetch('roms/catalog.json')
+      .then(function (r) { if (!r.ok) throw new Error('目录读取失败'); return r.json(); })
+      .then(function (games) {
+        picker.games = games;
+        picker.selectedId = currentRom.id && games.some(function (g) { return g.id === currentRom.id; })
+          ? currentRom.id : '';
+        gameCount.textContent = games.length + ' GAMES / 点击卡片后选择使用';
+        renderGames(games);
+      })
+      .catch(function () {
+        gameList.innerHTML = '<p class="loading-card">游戏目录读取失败，请刷新后重试</p>';
+        gameCount.textContent = '目录载入失败';
+      });
+  }
+
+  /* ---------- Hot-switch + power-off fallback ---------- */
+  function autosaveCurrent() {
+    // Task 8 实现；此处先放空壳。
+  }
+
+  function useSelectedGame() {
+    if (!picker.selectedId) return;
+    const game = picker.games.find(function (g) { return g.id === picker.selectedId; });
+    const name = game ? game.name : picker.selectedId;
+    setPickerError('');
+    setPickerBusy(true, '游戏载入中…');
+    gamePickerUse.disabled = true;
+
+    fetch('roms/' + encodeURIComponent(picker.selectedId) + '.gam')
+      .then(function (r) { if (!r.ok) throw new Error('ROM 下载失败'); return r.arrayBuffer(); })
+      .then(function (buf) {
+        if (exited) {
+          writeLS('pendingRomId', picker.selectedId);
+          writeLS('pendingRomName', name);
+          location.reload();
+          return;
+        }
+        autosaveCurrent();
+        loadGame(buf, name);
+        setCurrentRom(picker.selectedId, name);
+        setPickerBusy(false);
+        closePicker();
+      })
+      .catch(function () {
+        setPickerBusy(false);
+        updateSelection();
+        setPickerError('游戏载入失败，请检查网络后重试。');
+      });
+  }
+
+  /* ---------- Dialog open/close + focus ---------- */
+  function openPicker() {
+    setPickerBusy(false);
+    setPickerError('');
+    if (picker.games.length) {
+      picker.selectedId = picker.games.some(function (g) { return g.id === currentRom.id; })
+        ? currentRom.id : '';
+      updateSelection();
+    }
+    picker.opener = document.activeElement;
+    gamePicker.hidden = false;
+    gamePickerOpen.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('dialog-open');
+    gamePicker.querySelector('.game-picker-dialog').focus();
+  }
+  function closePicker() {
+    gamePicker.hidden = true;
+    gamePickerOpen.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('dialog-open');
+    if (picker.opener && picker.opener.focus) picker.opener.focus();
+  }
+
+  function isMappedGameKey(event) {
+    const k = event && (event.keyCode || event.which);
+    return k === 13 || k === 27 || k === 32 || k === 37 || k === 38 || k === 39 || k === 40;
+  }
 
   /* ---------- PC key → emulator key mapping ---------- */
   const KEY_ENTER  = 0x2f;
@@ -322,21 +492,38 @@
   }
 
   /* ---------- Event bindings ---------- */
-  loadBtn.addEventListener('click', function() { fileInput.click(); });
+  gamePickerOpen.addEventListener('click', openPicker);
+  gamePickerClose.addEventListener('click', closePicker);
+  gamePickerUse.addEventListener('click', useSelectedGame);
 
-  fileInput.addEventListener('change', function() {
+  gamePicker.addEventListener('click', function (e) {
+    if (e.target === e.currentTarget) closePicker();
+  });
+  gamePicker.addEventListener('keydown', function (e) {
+    if (isMappedGameKey(e)) e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); closePicker(); }
+  });
+  [gamePickerOpen, gamePicker].forEach(function (el) {
+    el.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    el.addEventListener('pointerup', function (e) { e.stopPropagation(); });
+  });
+
+  fileInput.addEventListener('change', function () {
     if (!fileInput.files.length) return;
+    if (exited) { setPickerError('设备已关机，请重新开机后再导入。'); return; }
     const f = fileInput.files[0];
     const reader = new FileReader();
-    reader.onload = function() { loadGame(reader.result, f.name); };
+    reader.onload = function () {
+      const bytes = new Uint8Array(reader.result);
+      const id = BBK.romStorageId(bytes, '');
+      loadGame(reader.result, f.name);
+      setCurrentRom(id, f.name.replace(/\.gam$/i, ''));
+      closePicker();
+    };
     reader.readAsArrayBuffer(f);
   });
 
-  saveBtn.addEventListener('click', doSave);
-
   restartBtn.addEventListener('click', function() { location.reload(); });
-
-  loadStateBtn.addEventListener('click', function() { stateFileInput.click(); });
 
   stateFileInput.addEventListener('change', function() {
     if (stateFileInput.files.length) doLoadState(stateFileInput.files[0]);
@@ -358,7 +545,12 @@
     const f = e.dataTransfer.files[0];
     if (!f) return;
     const reader = new FileReader();
-    reader.onload = function() { loadGame(reader.result, f.name); };
+    reader.onload = function () {
+      const bytes = new Uint8Array(reader.result);
+      const id = BBK.romStorageId(bytes, '');
+      loadGame(reader.result, f.name);
+      setCurrentRom(id, f.name.replace(/\.gam$/i, ''));
+    };
     reader.readAsArrayBuffer(f);
   });
 
@@ -419,6 +611,8 @@
       return;
     }
     startEmulator();   /* power on → go straight to the device home screen */
+    restoreCurrentRomFromStorage();
+    loadCatalog();
   }).catch(function(err) {
     fatalError('初始化失败', (err && err.message) ? err.message : String(err));
   });
