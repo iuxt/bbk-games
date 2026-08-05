@@ -237,7 +237,12 @@
 
   /* ---------- Hot-switch + power-off fallback ---------- */
   function autosaveCurrent() {
-    // Task 8 实现；此处先放空壳。
+    if (!currentRom.id) return;
+    if (currentRom.id.indexOf('local-') === 0) return;  // 本地导入 rom 不持久化，reload 后无法恢复
+    const cap = captureState();
+    if (!cap) return;
+    writeLS(BBK.autosaveKey(currentRom.id), cap.b64);
+    writeLS(BBK.autosaveKey(currentRom.id) + '.ts', String(Date.now()));
   }
 
   function useSelectedGame() {
@@ -694,6 +699,15 @@
 
   restartBtn.addEventListener('click', function() { location.reload(); });
 
+  function handleAutoSave() {
+    if (!gameLoaded || exited) return;
+    autosaveCurrent();
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) handleAutoSave();
+  });
+  global.addEventListener('pagehide', handleAutoSave);
+
   /* ---------- Drag & drop ---------- */
   wrapper.addEventListener('dragover', function(e) {
     e.preventDefault();
@@ -778,6 +792,46 @@
     startEmulator();   /* power on → go straight to the device home screen */
     restoreCurrentRomFromStorage();
     loadCatalog();
+
+    const pendingId = readLS('pendingRomId');
+    const pendingName = readLS('pendingRomName');
+    if (pendingId) {
+      removeLS('pendingRomId');
+      removeLS('pendingRomName');
+      fetch('roms/' + encodeURIComponent(pendingId) + '.gam')
+        .then(function (r) { if (!r.ok) throw new Error('ROM 下载失败'); return r.arrayBuffer(); })
+        .then(function (buf) {
+          loadGame(buf, pendingName || pendingId);
+          setCurrentRom(pendingId, pendingName || pendingId);
+        })
+        .catch(function (e) { console.warn('pending rom load failed:', e); });
+    } else if (currentRom.id) {
+      const auto = readLS(BBK.autosaveKey(currentRom.id));
+      if (auto) {
+        // sys_state 不含 flash：刷新后 sys_init 已把 flash 擦空，必须先重新加载 ROM 填充 flash，
+        // 再 _web_load 叠加保存的 ram/cpu/bk_tab，才能真正恢复现场。
+        fetch('roms/' + encodeURIComponent(currentRom.id) + '.gam')
+          .then(function (r) { if (!r.ok) throw new Error('ROM 下载失败'); return r.arrayBuffer(); })
+          .then(function (buf) {
+            const rp = Module._malloc(buf.byteLength);
+            Module.HEAPU8.set(new Uint8Array(buf), rp);
+            Module._web_load_game(rp, buf.byteLength);
+            Module._free(rp);
+            const bytes = BBK.base64ToBytes(auto);
+            const ptr = Module._malloc(bytes.byteLength);
+            Module.HEAPU8.set(bytes, ptr);
+            Module._web_load(ptr, bytes.byteLength);
+            Module._free(ptr);
+            gameLoaded = true;
+            startEmulator();
+          })
+          .catch(function (e) {
+            console.warn('autosave resume failed:', e);
+            removeLS(BBK.autosaveKey(currentRom.id));
+            removeLS(BBK.autosaveKey(currentRom.id) + '.ts');
+          });
+      }
+    }
   }).catch(function(err) {
     fatalError('初始化失败', (err && err.message) ? err.message : String(err));
   });
