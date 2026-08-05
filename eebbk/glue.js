@@ -132,12 +132,6 @@
   const saveManagerStat  = document.getElementById('save-manager-status');
   const saveInput        = document.getElementById('save-input');
   const currentGameName  = document.getElementById('current-game-name');
-  const stateFileInput = document.createElement('input');
-
-  stateFileInput.type = 'file';
-  stateFileInput.accept = '.sav';
-  stateFileInput.style.display = 'none';
-  document.body.appendChild(stateFileInput);
 
   /* ---------- state ---------- */
   let Module = null;
@@ -303,6 +297,151 @@
     return k === 13 || k === 27 || k === 32 || k === 37 || k === 38 || k === 39 || k === 40;
   }
 
+  /* ---------- Save manager: status messages ---------- */
+  function setSaveMsg(type, msg) {
+    saveManagerErr.textContent = type === 'error' ? msg : '';
+    saveManagerErr.hidden = type !== 'error' || !msg;
+    saveManagerStat.textContent = type === 'status' ? msg : '';
+    saveManagerStat.hidden = type !== 'status' || !msg;
+  }
+
+  /* ---------- Save manager: slot rendering ---------- */
+  function makeSlotBtn(label, action, slot, disabled) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'slot-action' + ((action === 'save' || action === 'load') ? ' slot-action-primary' : '');
+    b.dataset.saveAction = action;
+    b.dataset.slot = String(slot);
+    b.textContent = label;
+    b.disabled = !!disabled;
+    return b;
+  }
+
+  function fmtSize(b64) {
+    const bytes = Math.floor(b64.length * 3 / 4);
+    return (bytes / 1024).toFixed(0) + ' KB';
+  }
+
+  function renderSaveSlots() {
+    saveGameName.textContent = currentRom.name || '尚未选择游戏';
+    const frag = document.createDocumentFragment();
+    saveSlotList.textContent = '';
+    for (let slot = 0; slot < 3; slot += 1) {
+      const data = readSlot(slot);
+      const ts = readSlotTs(slot);
+      const card = document.createElement('article');
+      const num = document.createElement('span');
+      const copy = document.createElement('span');
+      const title = document.createElement('strong');
+      const detail = document.createElement('small');
+      const actions = document.createElement('span');
+      card.className = 'save-slot-card' + (data ? ' has-save' : '');
+      num.className = 'save-slot-number';
+      num.textContent = String(slot + 1).padStart(2, '0');
+      copy.className = 'save-slot-copy';
+      title.textContent = '存档槽 ' + (slot + 1);
+      detail.textContent = data
+        ? '已有存档 · ' + fmtSize(data) + (ts ? ' · ' + new Date(Number(ts)).toLocaleString('zh-CN', {hour12:false}) : '')
+        : '空档案';
+      actions.className = 'save-slot-actions';
+      actions.appendChild(makeSlotBtn('保存', 'save', slot, false));
+      actions.appendChild(makeSlotBtn('读取', 'load', slot, !data));
+      actions.appendChild(makeSlotBtn('导出', 'export', slot, !data));
+      actions.appendChild(makeSlotBtn('导入', 'import', slot, false));
+      copy.appendChild(title);
+      copy.appendChild(detail);
+      card.appendChild(num);
+      card.appendChild(copy);
+      card.appendChild(actions);
+      frag.appendChild(card);
+    }
+    saveSlotList.appendChild(frag);
+  }
+
+  /* ---------- Save manager: slot actions ---------- */
+  function saveToSlot(slot) {
+    const cap = captureState();
+    if (!cap) { setSaveMsg('error', '没有可保存的游戏进度。'); return; }
+    if (readSlot(slot) && !confirm('覆盖存档槽 ' + (slot + 1) + ' 的现有存档？')) return;
+    writeSlot(slot, cap.b64, String(Date.now()));
+    renderSaveSlots();
+    setSaveMsg('status', '当前进度已保存到槽位 ' + (slot + 1) + '。');
+  }
+
+  function loadFromSlot(slot) {
+    const b64 = readSlot(slot);
+    if (!b64) return;
+    if (restoreState(b64)) {
+      setSaveMsg('status', '已读取槽位 ' + (slot + 1) + ' 的存档。');
+    } else {
+      setSaveMsg('error', '读取失败：设备未运行。');
+    }
+  }
+
+  function safeFilePart(value) {
+    return String(value || 'game').replace(/[^0-9A-Za-z㐀-鿿_-]+/g, '-').replace(/^-+|-+$/g, '') || 'game';
+  }
+
+  function exportSlot(slot) {
+    const b64 = readSlot(slot);
+    if (!b64) return;
+    try {
+      const payload = BBK.buildSavePayload(currentRom.id, currentRom.name, slot, b64);
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'bbk-' + safeFilePart(currentRom.name) + '-save-' + (slot + 1) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setSaveMsg('status', '槽位 ' + (slot + 1) + ' 已导出。');
+    } catch (e) {
+      setSaveMsg('error', e && e.message ? e.message : '导出失败。');
+    }
+  }
+
+  let importSlotTarget = null;
+  function chooseImport(slot) {
+    importSlotTarget = slot;
+    setSaveMsg('', '');
+    saveInput.value = '';
+    saveInput.click();
+  }
+
+  function importSaveFile(file) {
+    if (!file || importSlotTarget === null) return;
+    file.text().then(function (src) {
+      const parsed = BBK.parseSavePayload(src, currentRom.id);
+      if (!parsed.ok) throw new Error(parsed.error);
+      writeSlot(importSlotTarget, parsed.payload.data, String(Date.now()));
+      renderSaveSlots();
+      setSaveMsg('status', '备份已导入到槽位 ' + (importSlotTarget + 1) + '。');
+    }).catch(function (e) {
+      setSaveMsg('error', e && e.message ? e.message : '导入失败。');
+    }).finally(function () { importSlotTarget = null; });
+  }
+
+  /* ---------- Save manager: dialog open/close ---------- */
+  function openSaveManager() {
+    if (!currentRom.id) return;
+    picker.opener = document.activeElement;
+    setSaveMsg('', '');
+    renderSaveSlots();
+    saveManager.hidden = false;
+    saveManagerOpen.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('dialog-open');
+    saveManagerClose.focus();
+  }
+  function closeSaveManager() {
+    saveManager.hidden = true;
+    saveManagerOpen.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('dialog-open');
+    importSlotTarget = null;
+    if (picker.opener && picker.opener.focus) picker.opener.focus();
+  }
+
   /* ---------- PC key → emulator key mapping ---------- */
   const KEY_ENTER  = 0x2f;
   const KEY_EXIT   = 0x2e;
@@ -459,36 +598,36 @@
     console.log('Loaded game:', name, '(' + (size / 1024).toFixed(1) + ' KB)');
   }
 
-  /* ---------- Save/Load state ---------- */
-  function doSave() {
-    if (exited || !gameLoaded) return;
+  /* ---------- Save/Load state (via wasm _web_save / _web_load) ---------- */
+  function captureState() {
+    if (exited || !gameLoaded || !Module) return null;
     const size = Module._web_save_size();
-    const ptr  = Module._malloc(size);
+    const ptr = Module._malloc(size);
     Module._web_save(ptr);
-    const buf = new Uint8Array(Module.HEAPU8.buffer, ptr, size).slice();
+    const bytes = new Uint8Array(Module.HEAPU8.buffer, ptr, size).slice();
     Module._free(ptr);
-
-    const blob = new Blob([buf], { type: 'application/octet-stream' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = 'gam4980.sav';
-    a.click();
-    URL.revokeObjectURL(url);
+    return { b64: BBK.bytesToBase64(bytes), size: size };
   }
 
-  function doLoadState(file) {
-    if (exited) return;
-    const reader = new FileReader();
-    reader.onload = function() {
-      const data = new Uint8Array(reader.result);
-      const ptr  = Module._malloc(data.byteLength);
-      Module.HEAPU8.set(data, ptr);
-      Module._web_load(ptr, data.byteLength);
-      Module._free(ptr);
-      console.log('State loaded');
-    };
-    reader.readAsArrayBuffer(file);
+  function restoreState(b64) {
+    if (exited || !Module) return false;
+    const bytes = BBK.base64ToBytes(b64);
+    const ptr = Module._malloc(bytes.byteLength);
+    Module.HEAPU8.set(bytes, ptr);
+    Module._web_load(ptr, bytes.byteLength);
+    Module._free(ptr);
+    return true;
+  }
+
+  function readSlot(slot) {
+    return currentRom.id ? readLS(BBK.slotKey(currentRom.id, slot)) : '';
+  }
+  function writeSlot(slot, b64, ts) {
+    writeLS(BBK.slotKey(currentRom.id, slot), b64);
+    writeLS(BBK.slotKey(currentRom.id, slot) + '.ts', ts);
+  }
+  function readSlotTs(slot) {
+    return readLS(BBK.slotKey(currentRom.id, slot) + '.ts');
   }
 
   /* ---------- Event bindings ---------- */
@@ -508,6 +647,36 @@
     el.addEventListener('pointerup', function (e) { e.stopPropagation(); });
   });
 
+  saveManagerOpen.addEventListener('click', openSaveManager);
+  saveManagerClose.addEventListener('click', closeSaveManager);
+  saveManager.addEventListener('click', function (e) {
+    if (e.target === e.currentTarget) closeSaveManager();
+  });
+  saveManager.addEventListener('keydown', function (e) {
+    if (isMappedGameKey(e)) e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); closeSaveManager(); }
+  });
+  [saveManagerOpen, saveManager].forEach(function (el) {
+    el.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    el.addEventListener('pointerup', function (e) { e.stopPropagation(); });
+  });
+
+  saveSlotList.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-save-action]');
+    if (!btn) return;
+    const slot = Number(btn.dataset.slot);
+    switch (btn.dataset.saveAction) {
+      case 'save':   saveToSlot(slot); break;
+      case 'load':   loadFromSlot(slot); break;
+      case 'export': exportSlot(slot); break;
+      case 'import': chooseImport(slot); break;
+    }
+  });
+
+  saveInput.addEventListener('change', function () {
+    if (saveInput.files.length) importSaveFile(saveInput.files[0]);
+  });
+
   fileInput.addEventListener('change', function () {
     if (!fileInput.files.length) return;
     if (exited) { setPickerError('设备已关机，请重新开机后再导入。'); return; }
@@ -524,10 +693,6 @@
   });
 
   restartBtn.addEventListener('click', function() { location.reload(); });
-
-  stateFileInput.addEventListener('change', function() {
-    if (stateFileInput.files.length) doLoadState(stateFileInput.files[0]);
-  });
 
   /* ---------- Drag & drop ---------- */
   wrapper.addEventListener('dragover', function(e) {
