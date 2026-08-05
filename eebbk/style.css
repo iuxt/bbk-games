@@ -94,6 +94,57 @@
     box-shadow: inset 0 0 0 3px var(--accent);
 }
 
+/* footer 操作按钮（桌面态）。窄屏布局见下方 media query。
+   规则与 rpg/app.css 的 .footer-action 一致，eebbk 此前缺失。 */
+.footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.footer-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    margin: 0;
+    padding: 0 14px 3px;
+    border: 1px solid var(--key-edge);
+    border-radius: 8px;
+    color: #eef0e7;
+    background: var(--key);
+    box-shadow: inset 0 -3px 0 var(--key-edge), 0 2px 5px rgba(37, 45, 35, .18);
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    -webkit-appearance: none;
+    touch-action: manipulation;
+}
+
+.footer-action:hover,
+.footer-action:focus-visible {
+    background: #596257;
+}
+
+.footer-action:active {
+    padding-top: 2px;
+    padding-bottom: 1px;
+    box-shadow: inset 0 -1px 0 var(--key-edge);
+    transform: translateY(2px);
+}
+
+.footer-action:disabled {
+    cursor: not-allowed;
+    opacity: .46;
+    transform: none;
+}
+
+.footer-link {
+    font-size: 11px;
+    font-weight: 800;
+    text-decoration: none;
+}
+
 /* 桌面显示键盘映射；触屏 / 窄屏显示虚拟按键（与 RPG 行为一致） */
 @media (max-width: 759px), (pointer: coarse) {
     .utility-shell {

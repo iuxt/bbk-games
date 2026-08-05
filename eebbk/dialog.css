@@ -1,0 +1,455 @@
+/* eebbk 对话框（game-picker / save-manager）样式。
+   复制自 rpg/app.css 的对应选择器并按 eebbk 差异微调；
+   基础类 .dialog-overlay / .device-button / .dialog-open 见 ../css/portal.css。 */
+
+.game-picker-overlay {
+    background: rgba(25, 31, 24, .68);
+    backdrop-filter: blur(4px);
+}
+
+.game-picker-dialog {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 900px);
+    height: min(88vh, 760px);
+    padding: 18px;
+    border: 1px solid var(--shell-edge);
+    border-radius: 24px 24px 38px 24px;
+    background: var(--shell);
+    box-shadow: 0 26px 80px rgba(20, 25, 19, .42), inset 0 1px 0 rgba(255, 255, 255, .65);
+}
+
+.game-picker-display {
+    flex: 0 0 auto;
+    padding: 19px 18px 17px;
+    border-width: 5px;
+}
+
+.game-picker-display h2 {
+    margin: 5px 0 7px;
+    font: 800 20px/1.15 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.game-search {
+    display: block;
+    margin-top: 12px;
+}
+
+.game-search input {
+    width: 100%;
+    min-height: 42px;
+    padding: 0 13px;
+    border: 1px solid #697461;
+    border-radius: 8px;
+    color: var(--lcd-ink);
+    background: rgba(255, 255, 255, .46);
+    font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.game-search input::placeholder {
+    color: rgba(37, 48, 36, .55);
+}
+
+.rom-list {
+    counter-reset: rom-card;
+    display: grid;
+    flex: 1 1 auto;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    align-content: start;
+    gap: 10px;
+    min-height: 0;
+    margin: 10px 0;
+    padding: 2px 3px 12px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+}
+
+.rom-list::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+.rom-card {
+    counter-increment: rom-card;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    height: 72px;
+    min-width: 0;
+    padding: 10px 34px 10px 10px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    color: var(--lcd-ink);
+    background: var(--paper);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.rom-card::after {
+    position: absolute;
+    right: 12px;
+    content: "›";
+    font-size: 22px;
+    opacity: .45;
+}
+
+.rom-card.is-selected {
+    border-color: rgba(173, 76, 61, .72);
+    background: rgba(173, 76, 61, .1);
+    box-shadow: inset 4px 0 0 var(--accent), inset 0 1px 0 rgba(255, 255, 255, .45);
+}
+
+.rom-card.is-selected::after {
+    content: "●";
+    color: var(--accent);
+    font-size: 11px;
+    opacity: 1;
+}
+
+.rom-number {
+    display: grid;
+    place-items: center;
+    flex: 0 0 43px;
+    width: 43px;
+    height: 43px;
+    border-radius: 7px;
+    color: #dbe1c3;
+    background: var(--key);
+    box-shadow: inset 0 -4px 0 var(--key-edge), 0 3px 7px rgba(37, 45, 35, .18);
+    font: 800 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.rom-name {
+    display: -webkit-box;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.empty-result {
+    grid-column: 1 / -1;
+    margin: 0;
+}
+
+.dialog-error {
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    border: 1px solid rgba(173, 76, 61, .35);
+    border-radius: 8px;
+    color: #773328;
+    background: rgba(173, 76, 61, .09);
+    font-size: 12px;
+}
+
+.dialog-status {
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    border: 1px solid rgba(66, 91, 58, .28);
+    border-radius: 8px;
+    color: #344b31;
+    background: rgba(87, 119, 75, .11);
+    font-size: 12px;
+}
+
+.game-picker-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 9px;
+}
+
+.game-picker-actions .device-button {
+    min-height: 42px;
+    border: 0;
+    cursor: pointer;
+}
+
+.import-button {
+    justify-self: start;
+}
+
+.primary-button {
+    background: var(--accent);
+    box-shadow: inset 0 -4px 0 #7d3a2f;
+}
+
+.primary-button:disabled {
+    cursor: not-allowed;
+    opacity: .48;
+}
+
+.dialog-busy {
+    position: absolute;
+    z-index: 3;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border-radius: inherit;
+    background: rgba(25, 31, 24, .58);
+    backdrop-filter: blur(3px);
+}
+
+.dialog-busy span {
+    padding: 18px 20px;
+    border: 4px solid #4c5449;
+    border-radius: 10px;
+    color: var(--lcd-ink);
+    background: var(--lcd);
+    font: 800 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.save-manager-overlay {
+    background: rgba(25, 31, 24, .68);
+    backdrop-filter: blur(4px);
+}
+
+.save-manager-dialog {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 760px);
+    max-height: min(88vh, 680px);
+    padding: 18px;
+    border: 1px solid var(--shell-edge);
+    border-radius: 24px 24px 38px 24px;
+    background: var(--shell);
+    box-shadow: 0 26px 80px rgba(20, 25, 19, .42), inset 0 1px 0 rgba(255, 255, 255, .65);
+}
+
+.save-manager-help {
+    margin: 13px 2px 10px;
+    font-size: 12px;
+    line-height: 1.55;
+    opacity: .7;
+}
+
+.save-slot-list {
+    display: grid;
+    flex: 1 1 auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    min-height: 0;
+    margin-bottom: 12px;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
+
+.save-slot-list::-webkit-scrollbar {
+    display: none;
+}
+
+.save-slot-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    min-height: 174px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--paper);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45);
+}
+
+.save-slot-card.has-save {
+    border-color: rgba(173, 76, 61, .42);
+    box-shadow: inset 4px 0 0 var(--accent), inset 0 1px 0 rgba(255, 255, 255, .45);
+}
+
+.save-slot-number {
+    display: grid;
+    place-items: center;
+    width: 43px;
+    height: 43px;
+    border-radius: 7px;
+    color: #dbe1c3;
+    background: var(--key);
+    box-shadow: inset 0 -4px 0 var(--key-edge), 0 3px 7px rgba(37, 45, 35, .18);
+    font: 800 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.save-slot-copy {
+    display: block;
+    min-width: 0;
+}
+
+.save-slot-copy strong,
+.save-slot-copy small {
+    display: block;
+}
+
+.save-slot-copy strong {
+    font-size: 13px;
+}
+
+.save-slot-copy small {
+    margin-top: 5px;
+    overflow: hidden;
+    font-size: 11px;
+    opacity: .62;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.save-slot-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    margin-top: auto;
+}
+
+.slot-action {
+    min-height: 38px;
+    border: 1px solid var(--key-edge);
+    border-radius: 8px;
+    color: #eef0e7;
+    background: var(--key);
+    box-shadow: inset 0 -3px 0 var(--key-edge);
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.slot-action-primary {
+    background: var(--accent);
+    box-shadow: inset 0 -3px 0 #7d3a2f;
+}
+
+.slot-action:active {
+    transform: translateY(2px);
+}
+
+.slot-action:disabled {
+    cursor: not-allowed;
+    opacity: .38;
+    transform: none;
+}
+
+.save-manager-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.save-manager-actions .device-button {
+    min-width: 110px;
+    border: 0;
+    cursor: pointer;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+@media (max-width: 520px) {
+    .game-picker-overlay,
+    .save-manager-overlay {
+        height: 100vh;
+        padding: 8px 8px max(8px, env(safe-area-inset-bottom));
+        overflow: hidden;
+    }
+
+    .game-picker-dialog,
+    .save-manager-dialog {
+        height: 100%;
+        max-height: 100%;
+        padding: 11px;
+        border-radius: 18px 18px 28px 18px;
+    }
+
+    .game-picker-display {
+        padding: 14px 13px 12px;
+    }
+
+    .game-picker-display h2 {
+        font-size: 17px;
+    }
+
+    .rom-list {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin: 9px 0;
+    }
+
+    .rom-card {
+        height: 64px;
+    }
+
+    .game-picker-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .import-button {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+    }
+
+    .save-slot-list {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .save-slot-card {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        min-height: 0;
+        padding: 10px;
+    }
+
+    .save-slot-actions {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+
+    .save-manager-actions .device-button {
+        width: 100%;
+    }
+
+    .utility-footer {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .footer-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .footer-link {
+        grid-column: 1 / -1;
+        padding-top: 4px;
+    }
+}
+
+@supports (height: 100dvh) {
+    @media (max-width: 520px) {
+        .game-picker-overlay,
+        .save-manager-overlay {
+            height: 100dvh;
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
