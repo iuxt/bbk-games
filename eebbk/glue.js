@@ -925,49 +925,55 @@
       fatalError('初始化失败', '缺少 8.BIN / E.BIN 固件文件，无法启动模拟器。');
       return;
     }
-    startEmulator();   /* power on → go straight to the device home screen */
     restoreCurrentRomFromStorage();
     loadCatalog();
 
     const pendingId = readLS('pendingRomId');
     const pendingName = readLS('pendingRomName');
-    if (pendingId) {
-      removeLS('pendingRomId');
-      removeLS('pendingRomName');
-      fetch('roms/' + encodeURIComponent(pendingId) + '.gam')
+    const hasAuto = currentRom.id ? !!readLS(BBK.autosaveKey(currentRom.id)) : false;
+    const decision = BBK.decideLaunch({
+      pendingId: pendingId,
+      currentRomId: currentRom.id,
+      hasAutosave: hasAuto
+    });
+
+    if (decision.action === 'home') {
+      if (pendingId) { removeLS('pendingRomId'); removeLS('pendingRomName'); }
+      setCurrentRom(BBK.HOME_ROM_ID, pendingId ? (pendingName || BBK.HOME_ROM.name) : (currentRom.name || BBK.HOME_ROM.name));
+      startEmulator();
+    } else if (decision.action === 'rom') {
+      const romId = decision.id;
+      const romName = pendingId ? (pendingName || romId) : (currentRom.name || romId);
+      if (pendingId) { removeLS('pendingRomId'); removeLS('pendingRomName'); }
+      fetch('roms/' + encodeURIComponent(romId) + '.gam')
         .then(function (r) { if (!r.ok) throw new Error('ROM 下载失败'); return r.arrayBuffer(); })
         .then(function (buf) {
-          loadGame(buf, pendingName || pendingId);
-          setCurrentRom(pendingId, pendingName || pendingId);
+          // 先 _web_load_game 填充 flash，再（如有 autosave）_web_load 叠加 ram/cpu/bk_tab
+          const rp = Module._malloc(buf.byteLength);
+          Module.HEAPU8.set(new Uint8Array(buf), rp);
+          Module._web_load_game(rp, buf.byteLength);
+          Module._free(rp);
+          if (decision.applyAutosave) {
+            const auto = readLS(BBK.autosaveKey(romId));
+            if (auto) {
+              const bytes = BBK.base64ToBytes(auto);
+              const ptr = Module._malloc(bytes.byteLength);
+              Module.HEAPU8.set(bytes, ptr);
+              Module._web_load(ptr, bytes.byteLength);
+              Module._free(ptr);
+            }
+          }
+          gameLoaded = true;
+          startEmulator();
+          setCurrentRom(romId, romName);
         })
-        .catch(function (e) { console.warn('pending rom load failed:', e); });
-    } else if (currentRom.id) {
-      const auto = readLS(BBK.autosaveKey(currentRom.id));
-      if (auto) {
-        // sys_state 不含 flash：刷新后 sys_init 已把 flash 擦空，必须先重新加载 ROM 填充 flash，
-        // 再 _web_load 叠加保存的 ram/cpu/bk_tab，才能真正恢复现场。
-        fetch('roms/' + encodeURIComponent(currentRom.id) + '.gam')
-          .then(function (r) { if (!r.ok) throw new Error('ROM 下载失败'); return r.arrayBuffer(); })
-          .then(function (buf) {
-            const rp = Module._malloc(buf.byteLength);
-            Module.HEAPU8.set(new Uint8Array(buf), rp);
-            Module._web_load_game(rp, buf.byteLength);
-            Module._free(rp);
-            const bytes = BBK.base64ToBytes(auto);
-            const ptr = Module._malloc(bytes.byteLength);
-            Module.HEAPU8.set(bytes, ptr);
-            Module._web_load(ptr, bytes.byteLength);
-            Module._free(ptr);
-            gameLoaded = true;
-            startEmulator();
-          })
-          .catch(function (e) {
-            console.warn('autosave resume failed:', e);
-            removeLS(BBK.autosaveKey(currentRom.id));
-            removeLS(BBK.autosaveKey(currentRom.id) + '.ts');
-          });
-      }
+        .catch(function (e) {
+          console.warn('launch rom failed:', e);
+          // ROM 拉取失败（如失效的游戏 id）：清掉记住的选择，停留占位画面
+          if (!pendingId) { removeLS('currentRomId'); removeLS('currentRomName'); }
+        });
     }
+    // decision.action === 'placeholder'：什么都不做，占位画面保持可见
   }).catch(function(err) {
     fatalError('初始化失败', (err && err.message) ? err.message : String(err));
   });
