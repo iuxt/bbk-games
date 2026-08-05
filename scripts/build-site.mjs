@@ -60,6 +60,16 @@ for (const directory of directories) {
             );
         });
     }
+    // eebbk 游戏目录（catalog.json + 各版本 .gam）→ dist/client/eebbk/roms/
+    await cp(
+        path.join(emuSrc, "roms"),
+        path.join(emuOut, "roms"),
+        { recursive: true }
+    ).catch(() => {
+        throw new Error("eebbk/roms/ 目录缺失，无法复制游戏清单。");
+    });
+    console.log("copied eebbk/roms (catalog + roms)");
+
     console.log(`copied eebbk runtime (${emuRuntime.length} files)`);
 }
 
