@@ -1,7 +1,109 @@
 /* ---- glue.js — GAM4980 Web Emulator JS Glue ---- */
 
-(function() {
+(function (global) {
   'use strict';
+
+  /* ---------- 纯函数（供 node 单测，不依赖 DOM / wasm） ---------- */
+
+  function bytesToBase64(bytes) {
+    if (!(bytes instanceof Uint8Array)) bytes = new Uint8Array(bytes);
+    const CHUNK = 0x8000;
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+    }
+    return global.btoa(binary);
+  }
+
+  function base64ToBytes(str) {
+    if (!str) return new Uint8Array(0);
+    const binary = global.atob(str);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  function isValidBase64(value) {
+    return typeof value === 'string' && value.length > 0 && value.length % 4 === 0 &&
+      /^[A-Za-z0-9+/]+={0,2}$/.test(value);
+  }
+
+  function romStorageId(bytes, catalogId) {
+    if (!(bytes instanceof Uint8Array)) bytes = new Uint8Array(bytes);
+    if (catalogId) return catalogId;
+    let hash = 2166136261;
+    for (let i = 0; i < bytes.length; i += 1) {
+      hash ^= bytes[i];
+      hash = Math.imul(hash, 16777619);
+    }
+    return 'local-' + bytes.length + '-' + (hash >>> 0).toString(16).padStart(8, '0');
+  }
+
+  function slotKey(storageId, slot) {
+    if (!storageId || !Number.isInteger(slot) || slot < 0 || slot > 2) {
+      throw new Error('无效的游戏或存档槽位');
+    }
+    return 'sav/gamesave' + slot + '-' + storageId;
+  }
+
+  function autosaveKey(storageId) {
+    if (!storageId) throw new Error('无效的游戏');
+    return 'sav/autosave-' + storageId;
+  }
+
+  function buildSavePayload(storageId, gameName, slot, base64Data, exportedAt) {
+    if (!isValidBase64(base64Data)) {
+      throw new Error('存档数据为空或不是合法 base64');
+    }
+    slotKey(storageId, slot);
+    return {
+      app: 'bbk-games',
+      type: 'eebbk-save-slot',
+      version: 1,
+      romId: storageId,
+      romName: gameName || storageId,
+      slot: slot,
+      data: base64Data,
+      exportedAt: exportedAt || new Date().toISOString()
+    };
+  }
+
+  function parseSavePayload(source, expectedStorageId) {
+    let payload;
+    try {
+      payload = typeof source === 'string' ? JSON.parse(source) : source;
+    } catch (e) {
+      return { ok: false, error: '无法读取备份文件。' };
+    }
+    if (!payload ||
+        payload.app !== 'bbk-games' ||
+        payload.type !== 'eebbk-save-slot' ||
+        payload.version !== 1 ||
+        !Number.isInteger(payload.slot) ||
+        payload.slot < 0 || payload.slot > 2 ||
+        !isValidBase64(payload.data) ||
+        typeof payload.romId !== 'string' || !payload.romId) {
+      return { ok: false, error: '这不是有效的 EEBBK 存档。' };
+    }
+    if (expectedStorageId && payload.romId !== expectedStorageId) {
+      return { ok: false, error: '该存档属于其他游戏，不能导入到当前游戏。' };
+    }
+    return { ok: true, payload: payload };
+  }
+
+  global.BBK4980Glue = {
+    bytesToBase64: bytesToBase64,
+    base64ToBytes: base64ToBytes,
+    isValidBase64: isValidBase64,
+    romStorageId: romStorageId,
+    slotKey: slotKey,
+    autosaveKey: autosaveKey,
+    buildSavePayload: buildSavePayload,
+    parseSavePayload: parseSavePayload
+  };
+
+  /* ---------- 以下依赖 DOM / wasm，仅在浏览器执行 ---------- */
+  if (!global.document) return;
 
   /* ---------- DOM refs ---------- */
   const canvas    = document.getElementById('screen');
@@ -321,4 +423,4 @@
     fatalError('初始化失败', (err && err.message) ? err.message : String(err));
   });
 
-})();
+}(typeof window !== "undefined" ? window : globalThis));
