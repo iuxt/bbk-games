@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAM4980 — 步步高电子词典模拟器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>GAM4980</h1>
+            <span class="subtitle">步步高朗文电子词典模拟器</span>
+        </header>
+
+        <main>
+            <div id="screen-wrapper">
+                <canvas id="screen" width="159" height="96"></canvas>
+                <div id="placeholder" class="show">
+                    <div class="drop-icon">⬇</div>
+                    <p>拖拽 .gam 文件到此处</p>
+                    <p class="hint">或点击选择文件</p>
+                    <input type="file" id="file-input" accept=".gam" hidden>
+                    <button id="load-btn">选择游戏文件</button>
+                </div>
+            </div>
+
+            <div id="controls">
+                <div class="control-group">
+                    <label>缩放:</label>
+                    <select id="scale-select">
+                        <option value="2">2x</option>
+                        <option value="3" selected>3x</option>
+                        <option value="4">4x</option>
+                        <option value="5">5x</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>LCD 残影:</label>
+                    <input type="range" id="ghosting" min="0" max="40" value="20" step="5">
+                    <span id="ghosting-val">20</span>
+                </div>
+                <div class="control-group">
+                    <label>速度:</label>
+                    <select id="cpu-rate">
+                        <option value="0.5">0.5x</option>
+                        <option value="1.0" selected>1x</option>
+                        <option value="2.0">2x</option>
+                        <option value="4.0">4x</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <button id="save-btn">💾 存档</button>
+                    <button id="load-btn-state">📂 读档</button>
+                </div>
+            </div>
+
+            <details id="keymap">
+                <summary>⌨ 键盘映射</summary>
+                <table>
+                    <tr><th>PC 键盘</th><th>词典按键</th></tr>
+                    <tr><td>F1</td><td>开关</td></tr>
+                    <tr><td>F2</td><td>目录</td></tr>
+                    <tr><td>F3</td><td>双解</td></tr>
+                    <tr><td>F4</td><td>十万/现代</td></tr>
+                    <tr><td>F5</td><td>汉英</td></tr>
+                    <tr><td>F6</td><td>对话</td></tr>
+                    <tr><td>F7</td><td>下载</td></tr>
+                    <tr><td>F8</td><td>发音</td></tr>
+                    <tr><td>A-Z</td><td>字母输入</td></tr>
+                    <tr><td>0-9</td><td>数字输入</td></tr>
+                    <tr><td>Enter</td><td>输入 (确认)</td></tr>
+                    <tr><td>Escape</td><td>跳出 (退出)</td></tr>
+                    <tr><td>方向键</td><td>上下左右</td></tr>
+                    <tr><td>PageUp/Down</td><td>翻页</td></tr>
+                    <tr><td>Shift/CapsLock</td><td>中英/输入法</td></tr>
+                    <tr><td>Space</td><td>空格</td></tr>
+                    <tr><td>Backspace</td><td>删除</td></tr>
+                </table>
+            </details>
+        </main>
+    </div>
+
+    <script src="gam4980.js?v=4"></script>
+    <script src="glue.js?v=4"></script>
+</body>
+</html>

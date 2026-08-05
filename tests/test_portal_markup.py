@@ -56,6 +56,7 @@ class IndexMarkupTests(unittest.TestCase):
                 "baye": "sanguobaye/index.html",
                 "bbk": "rpg/index.html",
                 "tower": "mota/index.html",
+                "emu4980": "4980emu/index.html",
             },
         )
 

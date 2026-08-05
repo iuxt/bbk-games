@@ -1,0 +1,876 @@
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <emscripten.h>
+
+#define _DATA1          0x00
+#define _DATA2          0x01
+#define _DATA3          0x02
+#define _DATA4          0x03
+#define _ISR            0x04
+#define _TISR           0x05
+#define _BK_SEL         0x0c
+#define _BK_ADRL        0x0d
+#define _BK_ADRH        0x0e
+#define _IRCNT          0x1b
+#define __oper1         0x20
+#define __oper2         0x23
+#define __addr_reg      0x26
+#define _SYSCON         0x200
+#define _INCR           0x207
+#define _ADDR1L         0x208
+#define _ADDR1M         0x209
+#define _ADDR1H         0x20a
+#define _ADDR2L         0x20b
+#define _ADDR2M         0x20c
+#define _ADDR2H         0x20d
+#define _ADDR3L         0x20e
+#define _ADDR3M         0x20f
+#define _ADDR3H         0x210
+#define _ADDR4L         0x211
+#define _ADDR4M         0x212
+#define _ADDR4H         0x213
+#define _PB             0x21b
+#define _STCON          0x226
+#define _ST1LD          0x227
+#define _ST2LD          0x228
+#define _ST3LD          0x229
+#define _ST4LD          0x22a
+#define _MTCT           0x22b
+#define _STCTCON        0x22e
+#define _CTLD           0x22f
+#define _ALMMIN         0x230
+#define _ALMHR          0x231
+#define _ALMDAYL        0x232
+#define _ALMDAYH        0x233
+#define _RTCSEC         0x234
+#define _RTCMIN         0x235
+#define _RTCHR          0x236
+#define _RTCDAYL        0x237
+#define _RTCDAYH        0x238
+#define _IER            0x23a
+#define _TIER           0x23b
+#define _AUDCON         0x23f
+#define _KEYCODE        0x24e
+#define _MACCTL         0x260
+#define _KeyBuffTop     0x2003
+#define _KeyBuffBottom  0x2004
+#define _KeyBuffer      0x2008
+
+#define LCD_WIDTH 159
+#define LCD_HEIGHT 96
+
+/* ---- global state ---- */
+static int8_t   fa[(LCD_WIDTH + 1) * LCD_HEIGHT];
+static uint16_t fb[(LCD_WIDTH + 1) * LCD_HEIGHT];
+
+/* ---- forward declarations ---- */
+static void sys_isr(void);
+static bool sys_halt_p(void);
+static void mem_bs(uint8_t sel);
+static uint8_t mem_read(uint16_t addr);
+static uint8_t mem_readx(uint16_t addr);
+static uint16_t mem_read16(uint16_t addr);
+static uint16_t mem_readx16(uint16_t addr);
+static uint16_t mem_read16_wrapped(uint16_t addr);
+static void mem_write(uint16_t addr, uint8_t val);
+
+#define READ8(addr)       mem_read(addr)
+#define READX8(addr)      mem_readx(addr)
+#define READ16(addr)      mem_read16(addr)
+#define READX16(addr)     mem_readx16(addr)
+#define READ16W(addr)     mem_read16_wrapped(addr)
+#define WRITE8(addr, val) mem_write(addr, val)
+#define BRK_HOOK                                      \
+    {                                                 \
+        executed = cycles;                            \
+        pc = _MACCTL;                                 \
+        emscripten_force_exit(0);                      \
+    }
+#include "s6502.c"
+
+static struct {
+    s6502_t      cpu;
+    uint8_t     *mem_r[0x100];
+    uint8_t    (*mem_ir[0x100])(uint16_t);
+    void       (*mem_iw[0x100])(uint16_t, uint8_t);
+    uint8_t      ram[0x8000];
+    uint8_t      flash[0x200000];
+    uint8_t      flash_cmd;
+    uint8_t      flash_cycles;
+    uint8_t      rom_8[0x200000];
+    uint8_t      rom_e[0x200000];
+    uint8_t      bk_sel;
+    uint16_t     bk_tab[16];
+    uint16_t     bk_sys_d;
+} sys;
+
+static struct {
+    float    cpu_rate;
+    float    timer_rate;
+    uint16_t lcd_bg;
+    uint16_t lcd_fg;
+    uint8_t  lcd_ghosting;
+} vars = { 1.0, 1.0, 0xd6da, 0x0000, 20 };
+
+static void s6502_push(uint8_t val)
+{
+    mem_write(0x100 | sys.cpu.sp--, val);
+}
+
+static bool sys_halt_p(void)
+{
+    return sys.ram[_SYSCON] & 0x08;
+}
+
+static inline uint32_t PA(uint16_t addr)
+{
+    uint8_t bank = addr >> 12;
+    return (sys.bk_tab[bank] << 12) | (addr & 0x0fff);
+}
+
+static uint8_t flash_read(uint32_t addr)
+{
+    static uint8_t flash_info[0x35] = {
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x51, 0x52, 0x59, 0x01, 0x07, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x27, 0x36, 0x00, 0x00, 0x04,
+        0x00, 0x04, 0x06, 0x01, 0x00, 0x01, 0x01, 0x15,
+        0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x01, 0x10,
+        0x00, 0x1f, 0x00, 0x00, 0x01,
+    };
+    if (sys.flash_cmd == 0 || sys.flash_cmd == 1) {
+        addr = (addr + 0x8000) % 0x200000;
+        return sys.flash[addr];
+    } else {
+        if (addr >= sizeof(flash_info)) return 0x00;
+        return flash_info[addr];
+    }
+}
+
+static void flash_write(uint32_t addr, uint8_t val)
+{
+    switch (sys.flash_cycles) {
+    case 0:
+        if (addr == 0x5555 && val == 0xaa)
+            sys.flash_cycles += 1;
+        else if (val == 0xf0)
+            sys.flash_cmd = 0;
+        break;
+    case 1:
+    case 4:
+        if (addr == 0x2aaa && val == 0x55)
+            sys.flash_cycles += 1;
+        break;
+    case 2:
+        if (addr != 0x5555)
+            return;
+        switch (val) {
+        case 0xa0:
+            sys.flash_cmd = 1;
+            sys.flash_cycles += 1;
+            break;
+        case 0x80:
+            sys.flash_cycles += 1;
+            break;
+        case 0x90:
+            sys.flash_cmd = 2;
+            sys.flash_cycles = 0;
+            break;
+        case 0x98:
+            sys.flash_cmd = 3;
+            sys.flash_cycles = 0;
+            break;
+        case 0xf0:
+            sys.flash_cmd = 0;
+            sys.flash_cycles = 0;
+            break;
+        }
+        break;
+    case 3:
+        if (sys.flash_cmd == 1) {
+            sys.flash_cmd = 0;
+            sys.flash_cycles = 0;
+            addr = (addr + 0x8000) % 0x200000;
+            sys.flash[addr] = val;
+        } else if ((addr == 0x5555) && (val == 0xaa)) {
+            sys.flash_cycles += 1;
+        }
+        break;
+    case 5:
+        switch (val) {
+        case 0x10:
+            if (addr == 0x5555)
+                memset(sys.flash, 0xff, 0x200000);
+            break;
+        case 0x30:
+            addr = (addr + 0x8000) % 0x200000;
+            memset(sys.flash + (addr & 0x1ff000), 0xff, 0x1000);
+            break;
+        case 0x50:
+            addr = ((addr & 0x1f0000) + 0x8000) % 0x200000;
+            memset(sys.flash + addr, 0xff, 0x8000);
+            addr = (addr + 0x8000) % 0x200000;
+            memset(sys.flash + addr, 0xff, 0x8000);
+            break;
+        }
+        sys.flash_cmd = 0;
+        sys.flash_cycles = 0;
+        break;
+    }
+    if (sys.flash_cmd == 2 || sys.flash_cmd == 3) {
+        for (int i = 0; i < 0x100; i += 1) {
+            if (sys.mem_r[i] >= sys.flash && sys.mem_r[i] < sys.flash + 0x200000) {
+                sys.mem_r[i] = 0;
+            }
+        }
+    }
+}
+
+static uint8_t invalid_read(uint16_t addr)  { return 0x00; }
+static void invalid_write(uint16_t addr, uint8_t val) {}
+
+static uint8_t ram_read(uint16_t addr)      { return sys.ram[addr]; }
+
+static void ram_write(uint16_t addr, uint8_t val)
+{
+    sys.ram[addr] = val;
+    if (addr == _PB)
+        sys.ram[addr] = 0;
+    if (addr == 0x2028)
+        sys.ram[addr] = 0xff;
+}
+
+static uint8_t direct_read(uint16_t addr)
+{
+    int _L = _ADDR1L + addr * 3;
+    int _M = _L + 1, _H = _M + 1;
+    uint32_t paddr = sys.ram[_L] | sys.ram[_M] << 8 | sys.ram[_H] << 16;
+    if (sys.ram[_INCR] & (1 << addr)) {
+        sys.ram[_L] += 1;
+        if (sys.ram[_L] == 0) { sys.ram[_M] += 1; if (sys.ram[_M] == 0) sys.ram[_H] += 1; }
+    }
+    if (paddr < 0x8000)           return ram_read(paddr & 0x7fff);
+    else if (paddr >= 0x200000 && paddr < 0x400000) return flash_read(paddr - 0x200000);
+    else if (paddr >= 0x800000 && paddr < 0xa00000) return sys.rom_8[paddr - 0x800000];
+    else if (paddr >= 0xe00000 && paddr < 0x1000000) return sys.rom_e[paddr - 0xe00000];
+    else return 0x00;
+}
+
+static void direct_write(uint16_t addr, uint8_t val)
+{
+    int _L = _ADDR1L + addr * 3, _M = _L + 1, _H = _M + 1;
+    uint32_t paddr = sys.ram[_L] | sys.ram[_M] << 8 | sys.ram[_H] << 16;
+    if (sys.ram[_INCR] & (1 << addr)) {
+        sys.ram[_L] += 1;
+        if (sys.ram[_L] == 0) { sys.ram[_M] += 1; if (sys.ram[_M] == 0) sys.ram[_H] += 1; }
+    }
+    if (paddr < 0x8000)           ram_write(paddr & 0x7fff, val);
+    else if (paddr >= 0x200000 && paddr < 0x400000) flash_write(paddr - 0x200000, val);
+}
+
+static uint8_t page0_read(uint16_t addr)
+{
+    switch (addr) {
+    case _DATA1: case _DATA2: case _DATA3: case _DATA4: return direct_read(addr);
+    case _BK_SEL:  return sys.bk_sel;
+    case _BK_ADRL: return sys.bk_tab[sys.bk_sel] & 0xff;
+    case _BK_ADRH: return sys.bk_tab[sys.bk_sel] >> 8;
+    }
+    return sys.ram[addr];
+}
+
+static void page0_write(uint16_t addr, uint8_t val)
+{
+    switch (addr) {
+    case _DATA1: case _DATA2: case _DATA3: case _DATA4: direct_write(addr, val); return;
+    case _ISR:   sys.ram[_ISR] &= val; return;
+    case _TISR:  sys.ram[_TISR] &= val; return;
+    case _BK_SEL: sys.bk_sel = val & 0x0f; return;
+    case _BK_ADRL:
+        sys.bk_tab[sys.bk_sel] &= 0xff00; sys.bk_tab[sys.bk_sel] |= val; mem_bs(sys.bk_sel); return;
+    case _BK_ADRH:
+        sys.bk_tab[sys.bk_sel] &= 0x00ff; sys.bk_tab[sys.bk_sel] |= (val & 0x0f) << 8; mem_bs(sys.bk_sel); return;
+    }
+    sys.ram[addr] = val;
+}
+
+static void mem_init()
+{
+    for (int i = 0; i < 0x100; i += 1) {
+        sys.mem_r[i] = 0;
+        sys.mem_ir[i] = invalid_read;
+        sys.mem_iw[i] = invalid_write;
+    }
+    for (int i = 1; i < 16; i += 1) {
+        sys.mem_r[i] = sys.ram + i * 0x100;
+        sys.mem_ir[i] = ram_read;
+        sys.mem_iw[i] = ram_write;
+    }
+    sys.mem_ir[0x00] = page0_read;
+    sys.mem_iw[0x00] = page0_write;
+    sys.mem_r[0x03] = sys.rom_e + 0x1fff00;
+    sys.mem_iw[0x03] = invalid_write;
+}
+
+/* virtual-read wrappers for banked memory */
+static uint8_t flash_vread(uint16_t addr)   { return flash_read(PA(addr) - 0x200000); }
+static void flash_vwrite(uint16_t addr, uint8_t val) { flash_write(PA(addr) - 0x200000, val); }
+static uint8_t rom_8_vread(uint16_t addr)   { return sys.rom_8[PA(addr) - 0x800000]; }
+static uint8_t rom_e_vread(uint16_t addr)   { return sys.rom_e[PA(addr) - 0xe00000]; }
+static uint8_t ram_vread(uint16_t addr)     { return ram_read(PA(addr)); }
+static void ram_vwrite(uint16_t addr, uint8_t val) { ram_write(PA(addr), val); }
+
+static void mem_bs(uint8_t sel)
+{
+    uint32_t paddr = PA(sel * 0x1000);
+    if (sel == 0) return;
+    if (paddr < 0x8000) {
+        for (int i = 0; i < 16; i += 1) {
+            sys.mem_r[sel * 16 + i]  = sys.ram + paddr + i * 0x100;
+            sys.mem_ir[sel * 16 + i] = ram_vread;
+            sys.mem_iw[sel * 16 + i] = ram_vwrite;
+        }
+    } else if (paddr >= 0x200000 && paddr < 0x400000) {
+        for (int i = 0; i < 16; i += 1) {
+            uint32_t faddr = (paddr - 0x200000 + 0x8000) % 0x200000;
+            sys.mem_r[sel * 16 + i]  = sys.flash + faddr + i * 0x100;
+            sys.mem_ir[sel * 16 + i] = flash_vread;
+            sys.mem_iw[sel * 16 + i] = flash_vwrite;
+        }
+    } else if (paddr >= 0x800000 && paddr < 0xa00000) {
+        for (int i = 0; i < 16; i += 1) {
+            sys.mem_r[sel * 16 + i]  = sys.rom_8 + (paddr - 0x800000) + i * 0x100;
+            sys.mem_ir[sel * 16 + i] = rom_8_vread;
+            sys.mem_iw[sel * 16 + i] = invalid_write;
+        }
+    } else if (paddr >= 0xe00000 && paddr < 0x1000000) {
+        for (int i = 0; i < 16; i += 1) {
+            sys.mem_r[sel * 16 + i]  = sys.rom_e + (paddr - 0xe00000) + i * 0x100;
+            sys.mem_ir[sel * 16 + i] = rom_e_vread;
+            sys.mem_iw[sel * 16 + i] = invalid_write;
+        }
+    } else {
+        for (int i = 0; i < 16; i += 1) {
+            sys.mem_r[sel * 16 + i]  = 0;
+            sys.mem_ir[sel * 16 + i] = invalid_read;
+            sys.mem_iw[sel * 16 + i] = invalid_write;
+        }
+    }
+}
+
+static uint8_t mem_readx(uint16_t addr)
+{
+    uint8_t page = addr >> 8;
+    return sys.mem_r[page][addr & 0xff];
+}
+
+static uint8_t mem_read(uint16_t addr)
+{
+    uint8_t page = addr >> 8;
+    if (sys.mem_r[page])
+        return sys.mem_r[page][addr & 0xff];
+    else
+        return sys.mem_ir[page](addr);
+}
+
+static uint16_t mem_read16(uint16_t addr)
+{
+    return mem_read(addr) | (mem_read(addr + 1) << 8);
+}
+
+static uint16_t mem_readx16(uint16_t addr)
+{
+    return mem_readx(addr) | (mem_readx(addr + 1) << 8);
+}
+
+static uint16_t mem_read16_wrapped(uint16_t addr)
+{
+    return mem_read(addr) | (mem_read((addr + 1) & 0xff) << 8);
+}
+
+static void mem_write(uint16_t addr, uint8_t val)
+{
+    return sys.mem_iw[addr >> 8](addr, val);
+}
+
+static void sys_timer(uint32_t n)
+{
+    static uint32_t t[5] = { 0 };
+    for (int i = 0; i < 4; i += 1) {
+        if (sys.ram[_STCON] & (1 << i)) {
+            t[i] += n;
+            if (t[i] >= 0x100) {
+                t[i] = sys.ram[_ST1LD + i];
+                if (sys.ram[_TIER] & (1 << i)) {
+                    sys.ram[_TISR] |= (1 << i);
+                    sys.ram[_SYSCON] &= 0xf7;
+                }
+            }
+        }
+    }
+    if (sys.ram[_STCTCON] & 0x10) {
+        t[4] += n;
+        if (t[4] >= 0x1000) {
+            t[4] = sys.ram[_CTLD];
+            if (sys.ram[_IER] & 0x02) {
+                sys.ram[_ISR] |= 0x02;
+                sys.ram[_SYSCON] &= 0xf7;
+            }
+        }
+    }
+}
+
+static void sys_rtc()
+{
+    if ((sys.ram[_STCTCON] & 0x40) == 0x00) return;
+    if (sys.ram[_RTCSEC]++ == 59) {
+        sys.ram[_RTCSEC] = 0;
+        if (sys.ram[_RTCMIN]++ == 59) {
+            sys.ram[_RTCMIN] = 0;
+            if (sys.ram[_RTCHR]++ == 23) {
+                sys.ram[_RTCHR] = 0;
+                if (sys.ram[_RTCDAYL]++ == 0xff) {
+                    if (sys.ram[_RTCDAYH]++ == 1) {
+                        sys.ram[_RTCDAYH] = 0;
+                    }
+                }
+            }
+        }
+    }
+    if ((sys.ram[_STCTCON] & 0x20) == 0x00) return;
+    if ((sys.ram[_RTCMIN] == sys.ram[_ALMMIN]) &&
+        (sys.ram[_RTCHR] == sys.ram[_ALMHR]) &&
+        (sys.ram[_RTCDAYL] == sys.ram[_ALMDAYL]) &&
+        (sys.ram[_RTCDAYH] == sys.ram[_ALMDAYH])) {
+        sys.ram[_ISR] |= 0x01;
+    }
+}
+
+static void sys_isr()
+{
+    uint8_t idx = 0;
+    if (sys.cpu.status & 0x04) return;
+    if ((sys.ram[_ISR] & 0x80) && (sys.ram[_IER] & 0x80)) {
+        idx = 0x02;
+        sys.ram[_ISR] &= 0x7f;
+        return;
+    } else if ((sys.ram[_ISR] & 0x01) && (sys.ram[_IER] & 0x01)) {
+        idx = 0x13;
+    } else if ((sys.ram[_ISR] & 0x02) && (sys.ram[_IER] & 0x02)) {
+        idx = 0x12;
+    } else if ((sys.ram[_TISR] & 0x20) && (sys.ram[_TIER] & 0x20)) {
+        idx = 0x11;
+    } else if ((sys.ram[_TISR] & 0x80) && (sys.ram[_TIER] & 0x80)) {
+        idx = 0x10;
+    } else if ((sys.ram[_TISR] & 0x40) && (sys.ram[_TIER] & 0x40)) {
+        idx = 0x0f;
+    } else if ((sys.ram[_TISR] & 0x01) && (sys.ram[_TIER] & 0x01)) {
+        idx = 0x03;
+        sys.ram[_TISR] &= 0xfe;
+        sys.ram[0x2018] += 1;
+        if (sys.ram[0x2018] >= sys.ram[0x2019]) {
+            sys.ram[0x201e] |= 0x01;
+            sys.ram[0x2018] = 0;
+        }
+        return;
+    } else if ((sys.ram[_TISR] & 0x02) && (sys.ram[_TIER] & 0x02)) {
+        idx = 0x04;
+    } else if ((sys.ram[_TISR] & 0x04) && (sys.ram[_TIER] & 0x04)) {
+        idx = 0x05;
+    } else if ((sys.ram[_TISR] & 0x08) && (sys.ram[_TIER] & 0x08)) {
+        idx = 0x06;
+    } else {
+        return;
+    }
+    s6502_push(sys.cpu.pc >> 8);
+    s6502_push(sys.cpu.pc & 0xff);
+    s6502_push(sys.cpu.status);
+    sys.cpu.status |= 0x04;
+    sys.cpu.pc = 0x0300 + idx * 4;
+}
+
+static void sys_step()
+{
+    static int32_t cycles = 0;
+    static uint32_t ticked = 0;
+    uint32_t tstep = 400 * vars.cpu_rate / vars.timer_rate;
+    cycles += vars.cpu_rate * 4000000 / 60;
+    while (ticked + tstep < cycles) {
+        if (sys_halt_p()) {
+            ticked += tstep;
+            sys_timer(1);
+        } else {
+            uint32_t p = ticked / tstep;
+            sys_isr();
+            ticked += s6502_exec(&sys.cpu, 0x100);
+            uint32_t q = ticked / tstep;
+            sys_timer(q - p);
+        }
+    }
+    cycles -= ticked;
+    ticked %= tstep;
+}
+
+// END OF PART A
+
+/* ---- key definitions ---- */
+enum _key {
+    KEY_ON_OFF     = 0x00,
+    KEY_HOME_MENU  = 0x01,
+    KEY_EC_SJ      = 0x02,
+    KEY_EC_SW      = 0x03,
+    KEY_CE         = 0x04,
+    KEY_DLG        = 0x05,
+    KEY_DOWNLOAD   = 0x06,
+    KEY_SPK        = 0x07,
+    KEY_1          = 0x08,
+    KEY_2          = 0x09,
+    KEY_3          = 0x0a,
+    KEY_4          = 0x0b,
+    KEY_5          = 0x0c,
+    KEY_6          = 0x0d,
+    KEY_7          = 0x0e,
+    KEY_8          = 0x0f,
+    KEY_9          = 0x30,
+    KEY_0          = 0x31,
+    KEY_Q          = 0x10,
+    KEY_W          = 0x11,
+    KEY_E          = 0x12,
+    KEY_R          = 0x13,
+    KEY_T          = 0x14,
+    KEY_Y          = 0x15,
+    KEY_U          = 0x16,
+    KEY_I          = 0x17,
+    KEY_O          = 0x32,
+    KEY_P          = 0x33,
+    KEY_SPACE      = 0x36,
+    KEY_A          = 0x18,
+    KEY_S          = 0x19,
+    KEY_D          = 0x1a,
+    KEY_F          = 0x1b,
+    KEY_G          = 0x1c,
+    KEY_H          = 0x1d,
+    KEY_J          = 0x1e,
+    KEY_K          = 0x1f,
+    KEY_L          = 0x34,
+    KEY_INPUT      = 0x20,
+    KEY_CAPS       = KEY_INPUT,
+    KEY_Z          = 0x21,
+    KEY_X          = 0x22,
+    KEY_C          = 0x23,
+    KEY_V          = 0x24,
+    KEY_B          = 0x25,
+    KEY_N          = 0x26,
+    KEY_M          = 0x27,
+    KEY_ZY         = 0x28,
+    KEY_SHIFT      = KEY_ZY,
+    KEY_HELP       = 0x29,
+    KEY_SEARCH     = 0x2a,
+    KEY_INSERT     = 0x2b,
+    KEY_MODIFY     = 0x2c,
+    KEY_DEL        = 0x2d,
+    KEY_SHIFT_4988 = 0x2d,
+    KEY_EXIT       = 0x2e,
+    KEY_ENTER      = 0x2f,
+    KEY_UP         = 0x35,
+    KEY_DOWN       = 0x38,
+    KEY_LEFT       = 0x37,
+    KEY_RIGHT      = 0x39,
+    KEY_PGUP       = 0x3a,
+    KEY_PGDN       = 0x3b,
+};
+
+static void sys_keydown(uint8_t key)
+{
+    if (key == 0) return;
+
+    static long last_input_time = 0;
+    static uint8_t last_input_key = 0;
+
+    long current_time = (long)(emscripten_get_now());
+
+    if (key == last_input_key
+        && current_time - last_input_time < 0)
+    {
+        return;
+    }
+
+    last_input_key = key;
+    last_input_time = current_time;
+
+    sys.ram[_SYSCON] &= 0xf7;
+    sys.ram[_KEYCODE] = key | 0x80;
+    sys.ram[_ISR] |= 0x80;
+    if (sys.ram[_IER] & 0x80) {
+        sys.ram[_KeyBuffTop] = 0x0;
+        sys.ram[_KeyBuffBottom] = 0xf;
+        sys.ram[_KeyBuffer + 0x0f] = key & 0x3f;
+        sys.ram[_KEYCODE] = 0x00;
+    }
+}
+
+static inline void pp8(int y, int x, uint8_t p8)
+{
+    for (int i = 0; i < 8; i += 1) {
+        int z = y * (LCD_WIDTH + 1) + x * 8 + i;
+        bool p = p8 & (1 << (7 - i));
+        fb[z] = p ? vars.lcd_fg : vars.lcd_bg;
+        if (vars.lcd_ghosting > 0) {
+            fa[z] += p ? 1 : -1;
+            if (fa[z] < 0) fa[z] = 0;
+            if (fa[z] > vars.lcd_ghosting - 1) fa[z] = vars.lcd_ghosting - 1;
+        }
+    }
+}
+
+static void blend_frame(void)
+{
+    /* RGB565: R[15:11] G[10:5] B[4:0]. Green is 6 bits at bit 5. */
+    uint8_t bg_r = (vars.lcd_bg >> 11) & 0x1f;
+    uint8_t bg_g = (vars.lcd_bg >>  5) & 0x3f;
+    uint8_t bg_b = (vars.lcd_bg >>  0) & 0x1f;
+    uint8_t fg_r = (vars.lcd_fg >> 11) & 0x1f;
+    uint8_t fg_g = (vars.lcd_fg >>  5) & 0x3f;
+    uint8_t fg_b = (vars.lcd_fg >>  0) & 0x1f;
+
+    for (int i = 0; i < LCD_HEIGHT; i += 1) {
+        for (int j = 0; j < LCD_WIDTH; j += 1) {
+            int z = i * (LCD_WIDTH + 1) + j;
+            float a = (float)fa[z] / vars.lcd_ghosting;
+            uint8_t mix_r = 0x1f & (uint8_t)((1 - a) * bg_r + a * fg_r);
+            uint8_t mix_g = 0x3f & (uint8_t)((1 - a) * bg_g + a * fg_g);
+            uint8_t mix_b = 0x1f & (uint8_t)((1 - a) * bg_b + a * fg_b);
+            fb[z] = mix_r << 11 | mix_g << 5 | mix_b;
+        }
+    }
+}
+
+static int sys_init(void)
+{
+    /* Load BIOS from Emscripten virtual filesystem */
+    const char *path8 = "/preload/8.BIN";
+    const char *pathE = "/preload/E.BIN";
+
+    FILE *stream = fopen(path8, "rb");
+    if (stream == NULL) {
+        EM_ASM({
+            console.error("GAM4980: Missing 8.BIN — ensure preload data is available");
+        });
+        return -1;
+    }
+    fread(sys.rom_8, 0x200000, 1, stream);
+    fclose(stream);
+
+    stream = fopen(pathE, "rb");
+    if (stream == NULL) {
+        EM_ASM({
+            console.error("GAM4980: Missing E.BIN — ensure preload data is available");
+        });
+        return -1;
+    }
+    fread(sys.rom_e, 0x200000, 1, stream);
+    fclose(stream);
+
+    memset(sys.ram, 0x00, 0x8000);
+    memset(sys.flash, 0xff, 0x200000);
+    sys.flash_cmd = 0;
+    sys.flash_cycles = 0;
+    sys.ram[_INCR] = 0x0f;
+
+    mem_init();
+    sys.cpu.pc = 0x350;
+    sys.cpu.ac = 0;
+    sys.cpu.ix = 0;
+    sys.cpu.iy = 0;
+    sys.cpu.sp = 0xff;
+    sys.cpu.status = 0x04;
+
+    /* Run boot sequence */
+    while (sys.ram[_MTCT] != 0xfe)
+        s6502_exec(&sys.cpu, 0x1000);
+    sys.bk_sys_d = sys.bk_tab[0xd];
+
+    EM_ASM({
+        console.log("GAM4980: System initialized, model = " + ($0 === 0x0ea8 ? "A4980" : $0 === 0x0e88 ? "A4988" : "Unknown"));
+    }, sys.bk_sys_d);
+
+    return 0;
+}
+
+static void sys_load(const uint8_t *gam, size_t size)
+{
+    uint16_t start = gam[0x40] | (gam[0x41] << 8);
+    uint32_t data = gam[0x42] | gam[0x43] << 8 | gam[0x44] << 16 | gam[0x45] << 24;
+    uint8_t sys_hdr[16] = {
+        0xc0, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x10, 0x00, 0x2f,
+    };
+    uint8_t gam_hdr[16] = {
+        0xd0, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00,
+        size & 0xff, (size >> 8) & 0xff, (size >> 16) & 0xff,
+        0x3d,
+    };
+
+    uint8_t *flash = sys.flash + 0x8000;
+    memcpy(gam_hdr + 2, gam + 6, 0x0a);
+    memcpy(flash, sys_hdr, 16);
+    memcpy(flash+16, gam_hdr, 16);
+    memcpy(flash+0xd000, gam, size);
+    memset(flash+0x1000, 0x01, 0x100);
+    for (int i = 0; i < 0x0c; i += 1) {
+        flash[0x1000 + i] = 0x04;
+    }
+
+    if (sys.bk_sys_d == 0x0ea8) {
+        memset(flash+0x7000, 0x01, 0x100);
+        flash[0x70f8] = 0x02; flash[0x70f9] = 0x02;
+        flash[0x70fa] = 0x02; flash[0x70fb] = 0x02;
+        flash[0x70fc] = 0x02; flash[0x70fd] = 0x02;
+        flash[0x70fe] = 0x03; flash[0x70ff] = 0x02;
+    } else if (sys.bk_sys_d == 0x0e88) {
+        memset(flash+0x8000, 0x01, 0x100);
+        flash[0x80f8] = 0x02; flash[0x80f9] = 0x02;
+        flash[0x80fa] = 0x02; flash[0x80fb] = 0x02;
+        flash[0x80fc] = 0x02; flash[0x80fd] = 0x02;
+        flash[0x80fe] = 0x03; flash[0x80ff] = 0x02;
+    } else {
+        return;
+    }
+
+    sys.bk_tab[0x5] = 0x20d;
+    sys.bk_tab[0x6] = sys.bk_tab[0x05] + 1;
+    sys.bk_tab[0x7] = sys.bk_tab[0x05] + 2;
+    sys.bk_tab[0x8] = sys.bk_tab[0x05] + 3;
+    sys.bk_tab[0x9] = 0x20d + (data >> 12);
+    sys.bk_tab[0xa] = sys.bk_tab[0x09] + 1;
+    sys.bk_tab[0xb] = sys.bk_tab[0x09] + 2;
+    sys.bk_tab[0xc] = sys.bk_tab[0x09] + 3;
+    for (int i = 0x05; i <= 0x0c; i += 1)
+        mem_bs(i);
+    mem_write(0x2029, 0x0d);
+    mem_write(0x202a, 0x02);
+    s6502_push(0x02);
+    s6502_push(0x60);
+    sys.cpu.pc = start;
+}
+
+/* ---- Web Exports ---- */
+
+EMSCRIPTEN_KEEPALIVE
+int web_init(void)
+{
+    if (sys_init() != 0) return -1;
+    return (sys.bk_sys_d == 0x0ea8 || sys.bk_sys_d == 0x0e88) ? 0 : -1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void web_load_game(const uint8_t *data, size_t size)
+{
+    if (size > 0x1e0000) return;
+    sys_load(data, size);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void web_run_frame(void)
+{
+    sys_step();
+
+    /* Draw screen — copied from retro_run */
+    uint8_t *v = sys.ram + 0x400;
+    sys.ram[0x400] = sys.ram[0x1000];
+
+    for (int j = 65; j >= -30; j -= 1) {
+        for (int i = 1; i < 20; i += 1) {
+            pp8(j >= 0 ? j : (j * -1 + 65), i, *v++);
+        }
+        v += 13;
+    }
+    v = sys.ram + 0x413;
+    for (int j = 64; j >= -30; j -= 1) {
+        pp8(j >= 0 ? j : (j * -1 + 65), 0, *v++);
+        v += 31;
+    }
+    pp8(65, 0, sys.ram[0x0ff3]);
+
+    if (vars.lcd_ghosting > 0)
+        blend_frame();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void web_keydown(uint8_t key)
+{
+    sys_keydown(key);
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint16_t* web_get_framebuffer(void)
+{
+    return fb;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int web_get_fb_width(void)
+{
+    return LCD_WIDTH;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int web_get_fb_height(void)
+{
+    return LCD_HEIGHT;
+}
+
+/* ---- Save/Load State ---- */
+
+struct __attribute__((packed)) sys_state {
+    uint8_t ram[0x8000];
+    s6502_t cpu;
+    uint8_t bk_sel;
+    uint16_t bk_tab[16];
+    uint8_t flash_cmd;
+    uint8_t flash_cycles;
+};
+
+EMSCRIPTEN_KEEPALIVE
+size_t web_save_size(void)
+{
+    return sizeof(struct sys_state);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void web_save(uint8_t *buf)
+{
+    struct sys_state state;
+    memcpy(&state.ram, sys.ram, sizeof(sys.ram));
+    state.cpu = sys.cpu;
+    state.bk_sel = sys.bk_sel;
+    for (int i = 0; i < 16; ++i)
+        state.bk_tab[i] = sys.bk_tab[i];
+    state.flash_cmd = sys.flash_cmd;
+    state.flash_cycles = sys.flash_cycles;
+    memcpy(buf, &state, sizeof(state));
+}
+
+EMSCRIPTEN_KEEPALIVE
+void web_load(const uint8_t *buf, size_t size)
+{
+    if (size > sizeof(struct sys_state)) return;
+    struct sys_state state;
+    memcpy(&state, buf, size);
+    memcpy(sys.ram, &state.ram, sizeof(sys.ram));
+    sys.cpu = state.cpu;
+    sys.bk_sel = state.bk_sel;
+    for (int i = 0; i < 16; ++i)
+        sys.bk_tab[i] = state.bk_tab[i];
+    sys.flash_cmd = state.flash_cmd;
+    sys.flash_cycles = state.flash_cycles;
+    for (int i = 0; i < 16; ++i)
+        mem_bs(i);
+}
