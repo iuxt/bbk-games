@@ -122,6 +122,7 @@
   const gameCount        = document.getElementById('game-count');
   const gamePickerError  = document.getElementById('game-picker-error');
   const gamePickerBusy   = document.getElementById('game-picker-busy');
+  const gamePickerSearch = document.getElementById('game-picker-search');
   const fileInput        = document.getElementById('file-input');
   const saveManager      = document.getElementById('save-manager');
   const saveManagerOpen  = document.getElementById('save-manager-open');
@@ -145,9 +146,12 @@
 
   const picker = {
     games: [],
+    filtered: [],
+    query: '',
     selectedId: '',
     opener: null
   };
+  let composing = false;   // 中文输入法组合中，避免拼音过程中误过滤
   let currentRom = { id: '', name: '' };
 
   /* ---------- LocalStorage helpers ---------- */
@@ -190,9 +194,36 @@
     gamePickerUse.disabled = !picker.selectedId;
   }
 
+  function gameMatches(game, q) {
+    if (!q) return true;
+    if (game.name && game.name.toLowerCase().indexOf(q) !== -1) return true;
+    if (game.py && game.py.indexOf(q) !== -1) return true;
+    if (game.initial && game.initial.indexOf(q) !== -1) return true;
+    return false;
+  }
+
+  function applyFilter() {
+    const q = picker.query;
+    picker.filtered = q
+      ? picker.games.filter(function (g) { return gameMatches(g, q); })
+      : picker.games;
+    renderGames(picker.filtered);
+    gameCount.textContent = q
+      ? picker.filtered.length + ' / ' + picker.games.length + ' GAMES'
+      : picker.games.length + ' GAMES / 点击卡片后选择使用';
+  }
+
   function renderGames(games) {
-    const frag = document.createDocumentFragment();
     gameList.textContent = '';
+    if (!games.length) {
+      const empty = document.createElement('p');
+      empty.className = 'loading-card';
+      empty.textContent = picker.query ? '无匹配游戏' : '暂无游戏';
+      gameList.appendChild(empty);
+      updateSelection();
+      return;
+    }
+    const frag = document.createDocumentFragment();
     games.forEach(function (game, index) {
       const card = document.createElement('button');
       const num = document.createElement('span');
@@ -224,10 +255,11 @@
       .then(function (r) { if (!r.ok) throw new Error('目录读取失败'); return r.json(); })
       .then(function (games) {
         picker.games = games;
+        picker.query = '';
+        if (gamePickerSearch) gamePickerSearch.value = '';
         picker.selectedId = currentRom.id && games.some(function (g) { return g.id === currentRom.id; })
           ? currentRom.id : '';
-        gameCount.textContent = games.length + ' GAMES / 点击卡片后选择使用';
-        renderGames(games);
+        applyFilter();
       })
       .catch(function () {
         gameList.innerHTML = '<p class="loading-card">游戏目录读取失败，请刷新后重试</p>';
@@ -282,13 +314,16 @@
     if (picker.games.length) {
       picker.selectedId = picker.games.some(function (g) { return g.id === currentRom.id; })
         ? currentRom.id : '';
-      updateSelection();
+      picker.query = '';
+      if (gamePickerSearch) gamePickerSearch.value = '';
+      applyFilter();
     }
     picker.opener = document.activeElement;
     gamePicker.hidden = false;
     gamePickerOpen.setAttribute('aria-expanded', 'true');
     document.body.classList.add('dialog-open');
-    gamePicker.querySelector('.game-picker-dialog').focus();
+    if (gamePickerSearch) gamePickerSearch.focus();
+    else gamePicker.querySelector('.game-picker-dialog').focus();
   }
   function closePicker() {
     gamePicker.hidden = true;
@@ -639,6 +674,20 @@
   gamePickerOpen.addEventListener('click', openPicker);
   gamePickerClose.addEventListener('click', closePicker);
   gamePickerUse.addEventListener('click', useSelectedGame);
+
+  if (gamePickerSearch) {
+    gamePickerSearch.addEventListener('input', function () {
+      if (composing) return;
+      picker.query = gamePickerSearch.value.trim().toLowerCase();
+      applyFilter();
+    });
+    gamePickerSearch.addEventListener('compositionstart', function () { composing = true; });
+    gamePickerSearch.addEventListener('compositionend', function () {
+      composing = false;
+      picker.query = gamePickerSearch.value.trim().toLowerCase();
+      applyFilter();
+    });
+  }
 
   gamePicker.addEventListener('click', function (e) {
     if (e.target === e.currentTarget) closePicker();

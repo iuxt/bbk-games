@@ -759,6 +759,10 @@ static void sys_load(const uint8_t *gam, size_t size)
     s6502_push(0x02);
     s6502_push(0x60);
     sys.cpu.pc = start;
+    /* 热切换时常处于 HALT 待机态（如停留在主界面），仅改 pc 不会真正执行新游戏：
+       sys_step 见 halt 位即跳过 s6502_exec，画面停在旧帧，直到按键触发中断才唤醒。
+       这里清除 halt 位（同 sys_keydown / sys_timer 的唤醒写法），让游戏立即起跑。 */
+    sys.ram[_SYSCON] &= 0xf7;
 }
 
 /* ---- Web Exports ---- */
