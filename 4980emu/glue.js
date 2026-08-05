@@ -16,6 +16,10 @@
   const cpuRate   = document.getElementById('cpu-rate');
   const saveBtn   = document.getElementById('save-btn');
   const loadStateBtn = document.getElementById('load-btn-state');
+  const errorOverlay = document.getElementById('error-overlay');
+  const errorTitle   = document.getElementById('error-title');
+  const errorDetail  = document.getElementById('error-detail');
+  const restartBtn   = document.getElementById('restart-btn');
   const stateFileInput = document.createElement('input');
 
   stateFileInput.type = 'file';
@@ -28,6 +32,7 @@
   let running = false;   /* rAF loop active */
   let started = false;   /* emulator powered on (home UI or game) */
   let gameLoaded = false;
+  let exited = false;    /* runtime has exited (power-off / fatal error) */
   let animId = 0;
 
   /* ---------- PC key → emulator key mapping ---------- */
@@ -144,13 +149,38 @@
   /* ---------- Main loop ---------- */
   function frame() {
     if (!running || !started) return;
-    Module._web_run_frame();
+    try {
+      Module._web_run_frame();
+    } catch (e) {
+      // 设备关机 / BRK 会触发 emscripten_force_exit，抛出 ExitStatus；其他异常也一并不再以
+      // uncaught 形式打到控制台，统一在前端浮层提示。status===0 视为正常关机，其余按运行出错处理。
+      if (e && e.name === 'ExitStatus' && e.status === 0) {
+        fatalError('设备已关机', '模拟器已停止运行，点击下方按钮重新开机。');
+      } else {
+        fatalError('运行出错', (e && e.message) ? String(e.message) : String(e));
+      }
+      return;
+    }
     render();
     animId = requestAnimationFrame(frame);
   }
 
+  /* ---------- Fatal error / power-off: stop the loop and surface in the UI ---------- */
+  function fatalError(title, detail) {
+    if (exited) return;
+    exited = true;
+    running = false;
+    started = false;
+    if (animId) cancelAnimationFrame(animId);
+    canvas.classList.remove('show');
+    errorTitle.textContent = title;
+    errorDetail.textContent = detail;
+    errorOverlay.classList.add('show');
+  }
+
   /* ---------- Load game from buffer ---------- */
   function loadGame(data, name) {
+    if (exited) return;   /* runtime already torn down — ignore until reload */
     const size = data.byteLength;
     const ptr  = Module._malloc(size);
     Module.HEAPU8.set(new Uint8Array(data), ptr);
@@ -171,7 +201,7 @@
 
   /* ---------- Save/Load state ---------- */
   function doSave() {
-    if (!gameLoaded) return;
+    if (exited || !gameLoaded) return;
     const size = Module._web_save_size();
     const ptr  = Module._malloc(size);
     Module._web_save(ptr);
@@ -188,6 +218,7 @@
   }
 
   function doLoadState(file) {
+    if (exited) return;
     const reader = new FileReader();
     reader.onload = function() {
       const data = new Uint8Array(reader.result);
@@ -212,6 +243,8 @@
   });
 
   saveBtn.addEventListener('click', doSave);
+
+  restartBtn.addEventListener('click', function() { location.reload(); });
 
   loadStateBtn.addEventListener('click', function() { stateFileInput.click(); });
 
@@ -261,17 +294,21 @@
   /* ---------- Bootstrap ---------- */
   Gam4980Module({
     print: function(text) { console.log('[C] ' + text); },
-    printErr: function(text) { console.warn('[C] ' + text); },
+    printErr: function(text) {
+      // 关机时 emscripten 会输出 "Program terminated with exit(0)"，属正常退出，
+      // 已由前端浮层提示，这里不再打到控制台。
+      if (typeof text === 'string' && text.indexOf('Program terminated with exit(') !== -1) return;
+      console.warn('[C] ' + text);
+    },
   }).then(function(mod) {
     Module = mod;
     if (Module._web_init() !== 0) {
-      console.error('GAM4980: init failed — are 8.BIN / E.BIN present in preload?');
+      fatalError('初始化失败', '缺少 8.BIN / E.BIN 固件文件，无法启动模拟器。');
       return;
     }
-    console.log('GAM4980: WASM module ready — booting dictionary UI');
     startEmulator();   /* power on → go straight to the device home screen */
   }).catch(function(err) {
-    console.error('GAM4980: Failed to initialize WASM module:', err);
+    fatalError('初始化失败', (err && err.message) ? err.message : String(err));
   });
 
 })();

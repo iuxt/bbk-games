@@ -92,6 +92,45 @@ main {
 
 #load-btn:hover { background: #1a4a80; }
 
+/* Power-off / fatal error overlay (shown over the screen area) */
+#error-overlay {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 40px;
+    text-align: center;
+    min-width: 260px;
+    min-height: 180px;
+}
+
+#error-overlay.show { display: flex; }
+
+#error-overlay .error-icon {
+    font-size: 2.5rem;
+    color: var(--highlight);
+    line-height: 1;
+}
+
+#error-overlay #error-title {
+    font-size: 1rem;
+    color: var(--text);
+}
+
+#restart-btn {
+    background: var(--highlight);
+    color: #fff;
+    border: none;
+    padding: 8px 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin-top: 6px;
+}
+
+#restart-btn:hover { background: #ff5f7a; }
+
 #controls {
     display: flex;
     gap: 16px;
