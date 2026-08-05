@@ -223,7 +223,7 @@
     writeLS('currentRomId', currentRom.id);
     writeLS('currentRomName', currentRom.name);
     currentGameName.textContent = currentRom.name;
-    saveManagerOpen.disabled = !currentRom.id;
+    saveManagerOpen.disabled = !BBK.saveManagerEnabledFor(currentRom.id);
   }
 
   function restoreCurrentRomFromStorage() {
@@ -303,6 +303,12 @@
       name.textContent = game.name;
       card.appendChild(num);
       card.appendChild(name);
+      if (game.isSystem) {
+        const tag = document.createElement('span');
+        tag.className = 'rom-tag';
+        tag.textContent = '系统';
+        card.appendChild(tag);
+      }
       frag.appendChild(card);
     });
     gameList.appendChild(frag);
@@ -313,10 +319,10 @@
     fetch('roms/catalog.json')
       .then(function (r) { if (!r.ok) throw new Error('目录读取失败'); return r.json(); })
       .then(function (games) {
-        picker.games = games;
+        picker.games = BBK.buildPickerGames(games);
         picker.query = '';
         if (gamePickerSearch) gamePickerSearch.value = '';
-        picker.selectedId = currentRom.id && games.some(function (g) { return g.id === currentRom.id; })
+        picker.selectedId = currentRom.id && picker.games.some(function (g) { return g.id === currentRom.id; })
           ? currentRom.id : '';
         applyFilter();
       })
@@ -328,16 +334,38 @@
 
   /* ---------- Hot-switch + power-off fallback ---------- */
   function autosaveCurrent() {
-    if (!currentRom.id) return;
-    if (currentRom.id.indexOf('local-') === 0) return;  // 本地导入 rom 不持久化，reload 后无法恢复
+    if (!BBK.shouldAutosave(currentRom.id)) return;  // home / local / 空 都不持久化
     const cap = captureState();
     if (!cap) return;
     writeLS(BBK.autosaveKey(currentRom.id), cap.b64);
     writeLS(BBK.autosaveKey(currentRom.id) + '.ts', String(Date.now()));
   }
 
+  function launchHome() {
+    const mode = BBK.decideHomeLaunch({ exited: exited, started: started });
+    if (mode === 'pending-reload') {
+      writeLS('pendingRomId', BBK.HOME_ROM_ID);
+      writeLS('pendingRomName', BBK.HOME_ROM.name);
+      location.reload();
+      return;
+    }
+    if (mode === 'start') {
+      setCurrentRom(BBK.HOME_ROM_ID, BBK.HOME_ROM.name);
+      startEmulator();
+      setPickerBusy(false);
+      closePicker();
+      return;
+    }
+    // autosave-reload：运行游戏中切换回词典
+    setPickerBusy(true, '切换中…');
+    autosaveCurrent();
+    setCurrentRom(BBK.HOME_ROM_ID, BBK.HOME_ROM.name);
+    location.reload();
+  }
+
   function useSelectedGame() {
     if (!picker.selectedId) return;
+    if (picker.selectedId === BBK.HOME_ROM_ID) { launchHome(); return; }
     const game = picker.games.find(function (g) { return g.id === picker.selectedId; });
     const name = game ? game.name : picker.selectedId;
     setPickerError('');
