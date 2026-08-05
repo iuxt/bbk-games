@@ -327,6 +327,10 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertNotIn('id="save-btn"', markup)
         self.assertNotIn('id="load-btn-state"', markup)
 
+    def test_dialog_css_has_system_tag_style(self):
+        css = (ROOT / "eebbk" / "dialog.css").read_text(encoding="utf-8")
+        self.assertIn(".rom-tag", css, "dialog.css 缺少 .rom-tag 系统标签样式")
+
 
 if __name__ == "__main__":
     unittest.main()
