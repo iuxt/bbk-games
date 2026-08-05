@@ -292,6 +292,22 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertNotIn('id="ghosting"', markup)
         self.assertNotIn("cpu-rate", markup)
 
+    def test_catalog_lists_every_bundled_rom_exactly_once(self):
+        catalog_path = ROOT / "eebbk" / "roms" / "catalog.json"
+        self.assertTrue(catalog_path.is_file(), "eebbk/roms/catalog.json 缺失")
+
+        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+        catalog_ids = [item["id"] for item in catalog]
+
+        rom_ids = sorted(p.stem for p in (ROOT / "eebbk" / "roms").glob("*.gam"))
+        self.assertTrue(catalog_ids, "catalog 为空：未声明任何 rom")
+        self.assertEqual(len(catalog_ids), len(set(catalog_ids)), "catalog id 重复")
+        self.assertEqual(
+            sorted(catalog_ids),
+            rom_ids,
+            "catalog id 与 roms/*.gam 文件名不一致",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
