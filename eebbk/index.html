@@ -13,6 +13,7 @@
     <link rel="icon" href="../favicon.png">
     <link rel="stylesheet" href="../css/portal.css?v=2">
     <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="dialog.css?v=1">
 </head>
 <body>
     <main class="device-shell utility-shell">
@@ -25,7 +26,7 @@
         </header>
 
         <div class="section-heading game-title">
-            <h1>EEBBK模拟器</h1>
+            <h1 id="current-game-name">EEBBK模拟器</h1>
             <span>朗文4980 · 159×96</span>
         </div>
 
@@ -34,8 +35,7 @@
             <div id="placeholder" class="show" aria-live="polite">
                 <span class="drop-icon" aria-hidden="true">⬇</span>
                 <strong>拖拽 .gam 文件到此处</strong>
-                <span class="lcd-help">或点击下方「选择 .gam」按钮</span>
-                <input type="file" id="file-input" accept=".gam" hidden>
+                <span class="lcd-help">或点击下方「选择游戏」</span>
             </div>
             <div id="error-overlay" role="alert" aria-live="assertive">
                 <span class="drop-icon" aria-hidden="true">⏻</span>
@@ -88,13 +88,75 @@
         <footer class="device-footer utility-footer">
             <span>SIMULATOR · 朗文4980</span>
             <nav class="footer-actions" aria-label="模拟器辅助功能">
-                <button id="load-btn" class="footer-action" type="button">选择 .gam</button>
-                <button id="save-btn" class="footer-action" type="button">存档</button>
-                <button id="load-btn-state" class="footer-action" type="button">读档</button>
+                <button id="game-picker-open" class="footer-action" type="button"
+                        aria-haspopup="dialog" aria-controls="game-picker" aria-expanded="false">
+                    选择游戏
+                </button>
+                <button id="save-manager-open" class="footer-action" type="button"
+                        aria-haspopup="dialog" aria-controls="save-manager" aria-expanded="false"
+                        disabled>
+                    存档管理
+                </button>
                 <a class="footer-link" href="../index.html">‹ 返回游戏中心</a>
             </nav>
         </footer>
     </main>
+
+    <div id="game-picker" class="dialog-overlay game-picker-overlay" hidden>
+        <section class="game-picker-dialog" role="dialog" aria-modal="true" tabindex="-1"
+                 aria-labelledby="game-picker-title">
+            <header class="lcd-panel game-picker-display">
+                <p class="lcd-kicker">ROM COLLECTION / 游戏合集</p>
+                <h2 id="game-picker-title">选择游戏<span aria-hidden="true">_</span></h2>
+                <p id="game-count" class="lcd-help">正在读取游戏目录…</p>
+            </header>
+
+            <div id="game-list" class="rom-list" aria-live="polite">
+                <p class="loading-card">正在读取游戏目录…</p>
+            </div>
+
+            <p id="game-picker-error" class="dialog-error" role="alert" hidden></p>
+
+            <footer class="game-picker-actions">
+                <label class="device-button import-button" for="file-input">
+                    导入 .gam
+                </label>
+                <input id="file-input" class="sr-only" type="file" accept=".gam">
+                <button id="game-picker-close" class="device-button" type="button">取消</button>
+                <button id="game-picker-use" class="device-button primary-button" type="button" disabled>
+                    使用
+                </button>
+            </footer>
+
+            <div id="game-picker-busy" class="dialog-busy" role="status" hidden>
+                <span>游戏载入中…</span>
+            </div>
+        </section>
+    </div>
+
+    <div id="save-manager" class="dialog-overlay save-manager-overlay" hidden>
+        <section class="save-manager-dialog" role="dialog" aria-modal="true"
+                 aria-labelledby="save-manager-title">
+            <header class="lcd-panel game-picker-display">
+                <p class="lcd-kicker">CURRENT GAME / 当前游戏</p>
+                <h2 id="save-manager-title">存档管理<span aria-hidden="true">_</span></h2>
+                <p id="save-game-name" class="lcd-help">尚未选择游戏</p>
+            </header>
+
+            <p class="save-manager-help">保存当前进度到槽位、读取槽位，或导出/导入备份。存档按游戏独立存放。</p>
+
+            <div id="save-slot-list" class="save-slot-list" aria-live="polite"></div>
+
+            <p id="save-manager-error" class="dialog-error" role="alert" hidden></p>
+            <p id="save-manager-status" class="dialog-status" role="status" hidden></p>
+
+            <footer class="save-manager-actions">
+                <button id="save-manager-close" class="device-button" type="button">完成</button>
+            </footer>
+
+            <input id="save-input" class="sr-only" type="file" accept=".json,application/json">
+        </section>
+    </div>
 
     <noscript>
         <p class="noscript-note">模拟器需要启用 JavaScript。<a href="../index.html">返回游戏中心</a></p>

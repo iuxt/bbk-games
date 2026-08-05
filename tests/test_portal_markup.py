@@ -308,6 +308,25 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
             "catalog id 与 roms/*.gam 文件名不一致",
         )
 
+    def test_has_game_switcher_and_save_manager_hooks(self):
+        markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('id="current-game-name"', markup)
+        self.assertIn('id="game-picker"', markup)
+        self.assertIn('id="game-picker-open"', markup)
+        self.assertIn('id="game-picker-use"', markup)
+        self.assertIn('id="save-manager"', markup)
+        self.assertIn('id="save-manager-open"', markup)
+        self.assertIn('id="save-slot-list"', markup)
+        self.assertIn('id="file-input"', markup)
+        self.assertIn('id="save-input"', markup)
+        self.assertIn('dialog.css', markup)
+
+    def test_drops_legacy_save_buttons(self):
+        markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")
+        self.assertNotIn('id="load-btn"', markup)
+        self.assertNotIn('id="save-btn"', markup)
+        self.assertNotIn('id="load-btn-state"', markup)
+
 
 if __name__ == "__main__":
     unittest.main()
