@@ -19,6 +19,7 @@ const directories = ["css", "js", "sanguobaye", "mota", "rpg"];
 const emuRuntime = [
     "index.html",
     "style.css",
+    "dialog.css",
     "glue.js",
     "gam4980.js",
     "gam4980.wasm",
