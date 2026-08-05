@@ -122,6 +122,7 @@ npm run build     # 构建站点到 dist/
 
 - 伏魔记引擎：[bgwp/fmj.kt](http://gitee.com/bgwp/fmj.kt)、[redwolf-zh/bbk-games](https://github.com/redwolf-zh/bbk-games)
 - 三国霸业引擎：[bgwp/iBaye](http://gitee.com/bgwp/iBaye)
+- https://codeberg.org/iyzsong/gam4980
 - 当年所有为步步高电子词典贡献游戏与工具的玩家与开发者
 
 游戏版权归各自作者所有，本项目仅作学习与怀旧用途。

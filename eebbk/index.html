@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN" class="gameplay-page">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+    <meta name="theme-color" content="#dfe3d1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="description" content="步步高朗文4980电子词典模拟器，拖入 .gam 文件即可在浏览器运行经典词典游戏。">
+    <meta name="keywords" content="EEBBK模拟器,步步高朗文4980,电子词典模拟器,gam,在线模拟器,BBK游戏">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://bbk-games.zahui.fan/eebbk/">
+    <title>EEBBK模拟器 — 步步高朗文4980电子词典模拟器</title>
+    <link rel="icon" href="../favicon.png">
+    <link rel="stylesheet" href="../css/portal.css?v=2">
+    <link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+    <main class="device-shell utility-shell">
+        <header class="device-header">
+            <a class="brand" href="../index.html" aria-label="返回 BBK 经典游戏首页">
+                <span class="brand-mark">BBK</span>
+                <span>经典游戏</span>
+            </a>
+            <span class="power-light" aria-hidden="true"></span>
+        </header>
+
+        <div class="section-heading game-title">
+            <h1>EEBBK模拟器</h1>
+            <span>朗文4980 · 159×96</span>
+        </div>
+
+        <section id="screen-wrapper" class="lcd-panel lcd-panel-screen" aria-label="模拟器画面">
+            <canvas id="screen" width="159" height="96"></canvas>
+            <div id="placeholder" class="show" aria-live="polite">
+                <span class="drop-icon" aria-hidden="true">⬇</span>
+                <strong>拖拽 .gam 文件到此处</strong>
+                <span class="lcd-help">或点击下方「选择 .gam」按钮</span>
+                <input type="file" id="file-input" accept=".gam" hidden>
+            </div>
+            <div id="error-overlay" role="alert" aria-live="assertive">
+                <span class="drop-icon" aria-hidden="true">⏻</span>
+                <strong id="error-title">设备已关机</strong>
+                <span id="error-detail" class="lcd-help">模拟器已停止运行</span>
+                <button id="restart-btn" type="button">重新开机</button>
+            </div>
+        </section>
+
+        <section id="desktop-controls" class="game-section desktop-controls" aria-labelledby="keys-title">
+            <div class="section-heading">
+                <h2 id="keys-title">键盘映射</h2>
+                <span>KEYBOARD</span>
+            </div>
+            <div class="key-map">
+                <div class="key-map-item"><span class="key-chip">↑ ↓ ← →</span><span>上下左右</span></div>
+                <div class="key-map-item"><span class="key-chip">Enter</span><span>输入 / 确认</span></div>
+                <div class="key-map-item"><span class="key-chip">Esc</span><span>跳出 / 退出</span></div>
+                <div class="key-map-item"><span class="key-chip">PgUp / PgDn</span><span>翻页</span></div>
+                <div class="key-map-item"><span class="key-chip">Space</span><span>空格</span></div>
+                <div class="key-map-item"><span class="key-chip">Shift</span><span>中英 / 输入法</span></div>
+                <div class="key-map-item"><span class="key-chip">F1–F8</span><span>开关 / 目录 / 双解 …</span></div>
+                <div class="key-map-item"><span class="key-chip">A–Z / 0–9</span><span>字母 / 数字输入</span></div>
+            </div>
+        </section>
+
+        <div id="touchpad" aria-label="模拟器触控按键">
+            <div class="kb-row">
+                <button class="btn" type="button" data-key="58" aria-label="向上翻页">PgUp</button>
+                <button class="btn" type="button" data-key="53" aria-label="方向上">↑</button>
+                <button class="btn" type="button" data-key="59" aria-label="向下翻页">PgDn</button>
+            </div>
+            <div class="kb-row">
+                <button class="btn" type="button" data-key="55" aria-label="方向左">←</button>
+                <button class="btn" type="button" data-key="56" aria-label="方向下">↓</button>
+                <button class="btn" type="button" data-key="57" aria-label="方向右">→</button>
+            </div>
+            <div class="kb-row">
+                <button class="btn" type="button" data-key="46" aria-label="跳出/退出">退出</button>
+                <button class="btn" type="button" data-key="54" aria-label="空格">⎵</button>
+                <button class="btn enter" type="button" data-key="47" aria-label="输入/确认">确认</button>
+            </div>
+            <div class="kb-row">
+                <button class="btn" type="button" data-key="1" aria-label="目录">目录</button>
+                <button class="btn" type="button" data-key="32" aria-label="输入法">输入法</button>
+                <button class="btn" type="button" data-key="45" aria-label="删除">删除</button>
+            </div>
+        </div>
+
+        <footer class="device-footer utility-footer">
+            <span>SIMULATOR · 朗文4980</span>
+            <nav class="footer-actions" aria-label="模拟器辅助功能">
+                <button id="load-btn" class="footer-action" type="button">选择 .gam</button>
+                <button id="save-btn" class="footer-action" type="button">存档</button>
+                <button id="load-btn-state" class="footer-action" type="button">读档</button>
+                <a class="footer-link" href="../index.html">‹ 返回游戏中心</a>
+            </nav>
+        </footer>
+    </main>
+
+    <noscript>
+        <p class="noscript-note">模拟器需要启用 JavaScript。<a href="../index.html">返回游戏中心</a></p>
+    </noscript>
+
+    <script src="gam4980.js?v=4"></script>
+    <script src="glue.js?v=6"></script>
+</body>
+</html>

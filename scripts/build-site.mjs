@@ -14,7 +14,7 @@ const files = [
 ];
 const directories = ["css", "js", "sanguobaye", "mota", "rpg"];
 
-// 4980 模拟器运行时文件（前端 + 预构建的 wasm 产物）位于 4980emu/ 根目录。
+// EEBBK 模拟器运行时文件（前端 + 预构建的 wasm 产物）位于 eebbk/ 根目录。
 // wasm 产物由 `npm run build:4980`（本地 emsdk）预构建后提交，Vercel 上的 build 只负责拷贝。
 const emuRuntime = [
     "index.html",
@@ -45,22 +45,22 @@ for (const directory of directories) {
     });
 }
 
-// 4980 模拟器运行时文件 → dist/client/4980emu/
+// EEBBK 模拟器运行时文件 → dist/client/eebbk/
 {
-    const emuSrc = path.join(root, "4980emu");
-    const emuOut = path.join(client, "4980emu");
+    const emuSrc = path.join(root, "eebbk");
+    const emuOut = path.join(client, "eebbk");
     await mkdir(emuOut, { recursive: true });
     for (const rel of emuRuntime) {
         await cp(path.join(emuSrc, rel), path.join(emuOut, rel)).catch(() => {
             throw new Error(
-                `4980emu 运行时文件缺失：4980emu/${rel}\n` +
+                `eebbk 运行时文件缺失：eebbk/${rel}\n` +
                     (rel.startsWith("gam4980")
                         ? '请先在本地执行 "npm run build:4980"（需要 emsdk）生成 wasm 产物，再提交。'
-                        : "该文件应已在仓库中，请检查 4980emu/ 是否完整。")
+                        : "该文件应已在仓库中，请检查 eebbk/ 是否完整。")
             );
         });
     }
-    console.log(`copied 4980emu runtime (${emuRuntime.length} files)`);
+    console.log(`copied eebbk runtime (${emuRuntime.length} files)`);
 }
 
 for (const rel of minifiable) {

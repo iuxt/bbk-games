@@ -1,0 +1,136 @@
+/* EEBBK 模拟器专属样式。
+   外壳 / LCD 面板 / 按键 / 卡片等通用样式与变量来自 ../css/portal.css，
+   这里只补充模拟器独有的画面层、设置区与触控按键。 */
+
+#screen {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
+/* 拖拽提示与关机/出错浮层：覆盖在 LCD 屏幕之上 */
+#placeholder,
+#error-overlay {
+    position: absolute;
+    inset: 10px;
+    z-index: 3;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 14px;
+    text-align: center;
+    color: var(--lcd-ink);
+    background: var(--lcd);
+    font: 800 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+#placeholder.show,
+#error-overlay.show { display: flex; }
+
+.drop-icon {
+    font-size: 1.8rem;
+    line-height: 1;
+    opacity: .7;
+}
+
+#error-overlay strong { font-size: 14px; }
+
+#restart-btn {
+    margin-top: 8px;
+    padding: 8px 18px;
+    border: 0;
+    border-radius: 8px;
+    color: #fff;
+    background: var(--accent);
+    box-shadow: inset 0 -3px 0 #7d3a2f;
+    font: 800 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    cursor: pointer;
+}
+
+#restart-btn:active { transform: translateY(2px); }
+
+/* 触控虚拟按键（仅触屏 / 窄屏显示，样式与 RPG touchpad 一致） */
+#touchpad {
+    display: none;
+    margin-top: 14px;
+}
+
+#touchpad .kb-row {
+    display: flex;
+    gap: 8px;
+}
+
+#touchpad .kb-row + .kb-row { margin-top: 8px; }
+
+#touchpad .btn {
+    flex: 1;
+    height: 52px;
+    border: 0;
+    border-radius: 8px;
+    color: #eef0e7;
+    background: var(--key);
+    box-shadow: inset 0 -4px 0 var(--key-edge);
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    -webkit-appearance: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    user-select: none;
+}
+
+#touchpad .btn:active { transform: translateY(2px); }
+
+#touchpad .btn.enter {
+    background: var(--accent);
+    box-shadow: inset 0 -4px 0 #7d3a2f;
+}
+
+/* 拖拽悬停高亮 */
+#screen-wrapper.drag-over {
+    box-shadow: inset 0 0 0 3px var(--accent);
+}
+
+/* 桌面显示键盘映射；触屏 / 窄屏显示虚拟按键（与 RPG 行为一致） */
+@media (max-width: 759px), (pointer: coarse) {
+    .utility-shell {
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        user-select: none;
+    }
+
+    .desktop-controls { display: none; }
+
+    #touchpad {
+        display: block;
+        touch-action: none;
+    }
+
+    .utility-footer {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .footer-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .footer-link {
+        grid-column: 1 / -1;
+        padding-top: 4px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}

@@ -56,7 +56,7 @@ class IndexMarkupTests(unittest.TestCase):
                 "baye": "sanguobaye/index.html",
                 "bbk": "rpg/index.html",
                 "tower": "mota/index.html",
-                "emu4980": "4980emu/index.html",
+                "eebbk": "eebbk/index.html",
             },
         )
 
@@ -264,6 +264,33 @@ class SimulatorMarkupTests(unittest.TestCase):
 
         self.assertEqual(len(catalog_ids), len(set(catalog_ids)))
         self.assertEqual(sorted(catalog_ids), rom_ids)
+
+
+class EebbkSimulatorMarkupTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.parser = parse("eebbk/index.html")
+
+    def test_uses_shared_game_center_chrome(self):
+        self.assertEqual(self.parser.h1_count, 1)
+        self.assertTrue(
+            any("portal.css" in href for href in self.parser.stylesheets),
+            f"portal.css not among stylesheets: {self.parser.stylesheets}",
+        )
+        self.assertIn("../index.html", self.parser.links)
+
+    def test_screen_fills_lcd_panel_without_pixel_scale_controls(self):
+        markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")
+        # 画面区存在；canvas 显示尺寸由 portal.css 的
+        # .lcd-panel-screen canvas { width:100%; height:auto } 接管，填满 LCD 面板。
+        self.assertIn('id="screen-wrapper"', markup)
+        self.assertIn('id="screen"', markup)
+        # 已移除会阻止画面填满的固定像素「缩放」控件，
+        # 以及从未接线的「LCD 残影」「速度」控件。
+        self.assertNotIn("emu-settings", markup)
+        self.assertNotIn("scale-select", markup)
+        self.assertNotIn('id="ghosting"', markup)
+        self.assertNotIn("cpu-rate", markup)
 
 
 if __name__ == "__main__":

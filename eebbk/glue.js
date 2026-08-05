@@ -10,10 +10,6 @@
   const placeholder = document.getElementById('placeholder');
   const fileInput = document.getElementById('file-input');
   const loadBtn   = document.getElementById('load-btn');
-  const scaleSel  = document.getElementById('scale-select');
-  const ghosting  = document.getElementById('ghosting');
-  const ghostingVal = document.getElementById('ghosting-val');
-  const cpuRate   = document.getElementById('cpu-rate');
   const saveBtn   = document.getElementById('save-btn');
   const loadStateBtn = document.getElementById('load-btn-state');
   const errorOverlay = document.getElementById('error-overlay');
@@ -139,7 +135,6 @@
     canvas.height = Module._web_get_fb_height();
     placeholder.classList.remove('show');
     canvas.classList.add('show');
-    updateScale();
     if (!running) {
       running = true;
       animId = requestAnimationFrame(frame);
@@ -190,13 +185,6 @@
     gameLoaded = true;
     startEmulator();   /* power on if not already (loop keeps running) */
     console.log('Loaded game:', name, '(' + (size / 1024).toFixed(1) + ' KB)');
-  }
-
-  /* ---------- Scale ---------- */
-  function updateScale() {
-    const s = parseInt(scaleSel.value, 10);
-    canvas.style.width  = (Module._web_get_fb_width() * s) + 'px';
-    canvas.style.height = (Module._web_get_fb_height() * s) + 'px';
   }
 
   /* ---------- Save/Load state ---------- */
@@ -252,12 +240,6 @@
     if (stateFileInput.files.length) doLoadState(stateFileInput.files[0]);
   });
 
-  scaleSel.addEventListener('change', updateScale);
-
-  ghosting.addEventListener('input', function() {
-    ghostingVal.textContent = ghosting.value;
-  });
-
   /* ---------- Drag & drop ---------- */
   wrapper.addEventListener('dragover', function(e) {
     e.preventDefault();
@@ -277,6 +259,34 @@
     reader.onload = function() { loadGame(reader.result, f.name); };
     reader.readAsArrayBuffer(f);
   });
+
+  /* ---------- Touchpad (on-screen keys, touch / narrow screens) ---------- */
+  const touchpad = document.getElementById('touchpad');
+
+  function releaseKey(btn) {
+    if (btn && btn._timer) {
+      clearInterval(btn._timer);
+      btn._timer = 0;
+    }
+  }
+
+  touchpad.addEventListener('pointerdown', function(e) {
+    if (!started || exited) return;
+    const btn = e.target.closest('.btn');
+    if (!btn) return;
+    const key = parseInt(btn.dataset.key, 10);
+    if (isNaN(key)) return;
+    e.preventDefault();
+    try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+    Module._web_keydown(key);
+    /* 核心按键是事件型（无 keyup）：按住时周期重发，模拟键盘自动重复，
+       这样触屏按住方向键才能持续移动。 */
+    if (btn._timer) clearInterval(btn._timer);
+    btn._timer = setInterval(function() { Module._web_keydown(key); }, 100);
+  });
+
+  touchpad.addEventListener('pointerup', function(e) { releaseKey(e.target.closest('.btn')); });
+  touchpad.addEventListener('pointercancel', function(e) { releaseKey(e.target.closest('.btn')); });
 
   /* ---------- Keyboard ---------- */
   document.addEventListener('keydown', function(e) {
