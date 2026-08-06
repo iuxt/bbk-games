@@ -178,7 +178,7 @@ test("magic screen shows the MP cost of the selected spell", () => {
         source,
         /"耗真气:"\s*\+\s*toString\(hlMagic\.costMp\)/
     );
-    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=20"/);
+    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=19"/);
 });
 
 test("thrown/used goods are refunded when their target dies before the action runs", () => {
@@ -240,25 +240,27 @@ test("all-target healing pays once and applies healing to every target", () => {
 test("single-target attack magic renders at the device-accurate target anchor", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
 
-    // Single-target attack magic centres its SRS visual centre on the target's
-    // body (combatX, combatY) via drawAtTarget, so the burst covers the target
-    // and matches the real device (eebbk). Anchoring frame 0 at the target's
-    // top-centre via drawAbsolutely instead pinned the effect's foot at the
-    // target's head and dropped the whole burst above the target. Single-target
-    // ActionCoopMagic matches this; help/throw/use-item keep the feet anchor.
-    assert.match(source, /this\.mAniY_0\s*=\s*target\.combatY\s*;/);
-    assert.match(source, /this\.mAniY_0\s*=\s*this\.mMonster_0\.combatY\s*;/);
-    // The old top-centre anchor (combatY - height/2) is gone for attack and
-    // coop magic; help/throw/use-item still anchor at the character's feet.
-    assert.doesNotMatch(source, /target\.combatY\s*-\s*\(ensureNotNull\(target\.fightingSprite\)\.height/);
-    assert.doesNotMatch(source, /mMonster_0\.combatY\s*-\s*\(ensureNotNull\(this\.mMonster_0\.fightingSprite\)\.height/);
+    // Single-target attack magic anchors the authored frame 0 at the target's
+    // top-centre (combatX, combatY - height/2) via drawAbsolutely, reproducing
+    // the original device behaviour (the authored layout settles the effect at
+    // the target's feet) and matching ActionCoopMagic. Anchoring the area-
+    // weighted visual centre there instead (drawAtTarget) centred the burst on
+    // the top-centre and floated it over the target's head.
+    assert.match(
+        source,
+        /this\.mAniY_0\s*=\s*target\.combatY\s*-\s*\(ensureNotNull\(target\.fightingSprite\)\.height\s*\/\s*2\s*\|\s*0\)\s*\|\s*0/
+    );
+    assert.match(
+        source,
+        /this\.mMonster_0\.combatY\s*-\s*\(ensureNotNull\(this\.mMonster_0\.fightingSprite\)\.height\s*\/\s*2\s*\|\s*0\)\s*\|\s*0/
+    );
 
     const attackDraw = source.slice(
         source.indexOf("ActionMagicAttackOne.prototype.draw_9in0vv$"),
         source.indexOf("ActionMagicAttackOne.prototype.rollbackToPhysical")
     );
-    assert.match(attackDraw, /drawAtTarget_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/);
-    assert.doesNotMatch(attackDraw, /drawAbsolutely_2g4tob/);
+    assert.match(attackDraw, /drawAbsolutely_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/);
+    assert.doesNotMatch(attackDraw, /drawAtTarget_2g4tob/);
 });
 
 test("all-target attack magic anchors its effect on the target formation", () => {
@@ -291,15 +293,17 @@ test("all-target attack magic anchors its effect on the target formation", () =>
 });
 
 test("single-target help, throw and use-item effects render at the target anchor", () => {
-    // Help magic, thrown weapons and used items are non-attack effects whose
-    // authored layout settles at the character's feet, so they keep anchoring
-    // frame 0 at the target's top-centre (combatX, combatY - height/2) via
-    // drawAbsolutely. (Attack and coop magic instead centre on the body — see
-    // the test above — because their bursts must cover the target.)
+    // The climax-anchor heuristic (drawAtTarget via BBKSrsAnchor.compute) placed
+    // spell/item particle bursts off the target. Single-target help magic,
+    // thrown weapons and used items revert to the device-accurate behaviour:
+    // anchor the authored frame 0 at the target's top-centre
+    // (combatX, combatY - height/2) via drawAbsolutely, matching
+    // ActionMagicAttackOne and ActionCoopMagic.
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
 
-    // These non-attack effects anchor frame 0 at the target top-centre so the
-    // effect settles at the character's feet instead of floating overhead.
+    // All single-target effects must anchor frame 0 at the target top-centre,
+    // not at the target centre, so the effect settles at the character's feet
+    // instead of floating above their head.
     const yAnchor = /combatY\s*-\s*\(ensureNotNull\(.*?fightingSprite\)\.height\s*\/\s*2\s*\|\s*0\)\s*\|\s*0/;
 
     const cases = [
