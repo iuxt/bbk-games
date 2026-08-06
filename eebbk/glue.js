@@ -905,13 +905,6 @@
   /* ---------- Touchpad (on-screen keys, touch / narrow screens) ---------- */
   const touchpad = document.getElementById('touchpad');
 
-  function releaseKey(btn) {
-    if (btn && btn._timer) {
-      clearInterval(btn._timer);
-      btn._timer = 0;
-    }
-  }
-
   touchpad.addEventListener('pointerdown', function(e) {
     if (!started || exited) return;
     const btn = e.target.closest('.btn');
@@ -920,15 +913,10 @@
     if (isNaN(key)) return;
     e.preventDefault();
     try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+    /* 核心按键是事件型（无 keyup）：每次按下只触发一次，
+       长按不会自动重复，必须抬起后再按下才会再次触发。 */
     Module._web_keydown(key);
-    /* 核心按键是事件型（无 keyup）：按住时周期重发，模拟键盘自动重复，
-       这样触屏按住方向键才能持续移动。 */
-    if (btn._timer) clearInterval(btn._timer);
-    btn._timer = setInterval(function() { Module._web_keydown(key); }, 100);
   });
-
-  touchpad.addEventListener('pointerup', function(e) { releaseKey(e.target.closest('.btn')); });
-  touchpad.addEventListener('pointercancel', function(e) { releaseKey(e.target.closest('.btn')); });
 
   /* ---------- Keyboard ---------- */
   document.addEventListener('keydown', function(e) {
