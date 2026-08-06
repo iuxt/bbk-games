@@ -219,7 +219,7 @@
   function removeLS(key) { try { localStorage.removeItem(key); } catch (e) {} }
 
   function setCurrentRom(id, name) {
-    currentRom = { id: id || '', name: name || 'EEBBK模拟器' };
+    currentRom = { id: id || '', name: name || '电子词典模拟器' };
     writeLS('currentRomId', currentRom.id);
     writeLS('currentRomName', currentRom.name);
     currentGameName.textContent = currentRom.name;
