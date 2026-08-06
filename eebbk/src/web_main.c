@@ -112,7 +112,7 @@ static struct {
     uint16_t lcd_bg;
     uint16_t lcd_fg;
     uint8_t  lcd_ghosting;
-} vars = { 1.0, 1.0, 0xd6da, 0x0000, 0 };  /* lcd_ghosting=0：关闭 LCD 残影模拟，消除重影 */
+} vars = { 1.0, 1.0, 0xd6da, 0x0000, 10 };  /* lcd_ghosting=10：保留约 5 成残影（原 20 帧过渡 → 10 帧） */
 
 static void s6502_push(uint8_t val)
 {
