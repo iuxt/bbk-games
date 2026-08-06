@@ -229,7 +229,8 @@
   function restoreCurrentRomFromStorage() {
     const id = readLS('currentRomId');
     const name = readLS('currentRomName');
-    if (id) setCurrentRom(id, name || id);
+    // local-* 来源为已导入的 .gam，重载后无法重新拉取，故不恢复，保持占位画面默认标题。
+    if (id && id.indexOf('local-') !== 0) setCurrentRom(id, name || id);
   }
 
   /* ---------- Picker error / busy ---------- */
@@ -344,6 +345,7 @@
   function launchHome() {
     const mode = BBK.decideHomeLaunch({ exited: exited, started: started });
     if (mode === 'pending-reload') {
+      setPickerBusy(true, '切换中…');
       writeLS('pendingRomId', BBK.HOME_ROM_ID);
       writeLS('pendingRomName', BBK.HOME_ROM.name);
       location.reload();
@@ -970,7 +972,11 @@
         .catch(function (e) {
           console.warn('launch rom failed:', e);
           // ROM 拉取失败（如失效的游戏 id）：清掉记住的选择，停留占位画面
-          if (!pendingId) { removeLS('currentRomId'); removeLS('currentRomName'); }
+          if (!pendingId) {
+            removeLS('currentRomId');
+            removeLS('currentRomName');
+            setCurrentRom('', '');  // 同步重置标题与存档管理按钮，匹配占位画面
+          }
         });
     }
     // decision.action === 'placeholder'：什么都不做，占位画面保持可见
