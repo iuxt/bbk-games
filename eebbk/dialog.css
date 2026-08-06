@@ -403,6 +403,7 @@
     .save-slot-card {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr);
+        grid-template-rows: auto auto;
         align-items: center;
         min-height: 0;
         padding: 10px;
@@ -410,7 +411,12 @@
 
     .save-slot-actions {
         grid-column: 1 / -1;
+        grid-row: 2;
         width: 100%;
+        /* 桌面态用 margin-top:auto 把按钮推到 flex 列底部；移动态卡片是 grid，
+           继承的 auto margin 在 Safari 上会触发轨道尺寸循环依赖，
+           使按钮块溢出底内边距、与下方存档框粘连。这里显式归零。 */
+        margin-top: 0;
     }
 
     .save-manager-actions .device-button {
