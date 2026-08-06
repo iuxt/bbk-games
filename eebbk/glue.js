@@ -143,6 +143,25 @@
     return true;
   }
 
+  /* 固定逻辑帧步进决策（纯函数，便于单测）。
+     web_run_frame 每次代表 1/60 秒硬件时间（见 wasm sys_step），故逻辑帧须恒为 60fps。
+     裸 requestAnimationFrame 跟随显示器刷新率：120Hz 屏会把游戏跑成约 2 倍速。
+     本函数按墙钟增量累积，每凑满 1000/60 ms 产出一步，从而与刷新率解耦。
+     - deltaMs 为负（系统时间回退）按 0 处理。
+     - deltaMs 过大时由 maxSteps 触顶并清零余量，避免标签页切回后追帧螺旋。 */
+  function planLogicSteps(deltaMs, prevAcc, opts) {
+    const STEP_MS = 1000 / 60;
+    const maxSteps = (opts && opts.maxSteps) || 6;
+    let acc = (prevAcc || 0) + (deltaMs > 0 ? deltaMs : 0);
+    let steps = 0;
+    while (acc >= STEP_MS && steps < maxSteps) {
+      acc -= STEP_MS;
+      steps += 1;
+    }
+    if (steps >= maxSteps) acc = 0;   /* 触顶：丢弃过期时间 */
+    return { steps: steps, acc: acc };
+  }
+
   global.BBK4980Glue = {
     bytesToBase64: bytesToBase64,
     base64ToBytes: base64ToBytes,
@@ -158,7 +177,8 @@
     decideLaunch: decideLaunch,
     decideHomeLaunch: decideHomeLaunch,
     saveManagerEnabledFor: saveManagerEnabledFor,
-    shouldAutosave: shouldAutosave
+    shouldAutosave: shouldAutosave,
+    planLogicSteps: planLogicSteps
   };
 
   /* ---------- 以下依赖 DOM / wasm，仅在浏览器执行 ---------- */
@@ -681,20 +701,31 @@
     }
   }
 
-  /* ---------- Main loop ---------- */
-  function frame() {
+  /* ---------- Main loop ----------
+     固定 60fps 逻辑步进：按墙钟时间累积，每满 1000/60 ms 才调一次 web_run_frame，
+     与 requestAnimationFrame 的显示器刷新率解耦（否则 120Hz 屏会跑成约 2 倍速）。
+     render() 仍每个 rAF 帧都执行，保持画面平滑。 */
+  let lastFrameTs = 0;
+  let frameAcc = 0;
+  function frame(ts) {
     if (!running || !started) return;
-    try {
-      Module._web_run_frame();
-    } catch (e) {
-      // 设备关机 / BRK 会触发 emscripten_force_exit，抛出 ExitStatus；其他异常也一并不再以
-      // uncaught 形式打到控制台，统一在前端浮层提示。status===0 视为正常关机，其余按运行出错处理。
-      if (e && e.name === 'ExitStatus' && e.status === 0) {
-        fatalError('设备已关机', '模拟器已停止运行，点击下方按钮重新开机。');
-      } else {
-        fatalError('运行出错', (e && e.message) ? String(e.message) : String(e));
+    if (!lastFrameTs) lastFrameTs = ts;
+    const plan = planLogicSteps(ts - lastFrameTs, frameAcc);
+    lastFrameTs = ts;
+    frameAcc = plan.acc;
+    for (let i = 0; i < plan.steps; i += 1) {
+      try {
+        Module._web_run_frame();
+      } catch (e) {
+        // 设备关机 / BRK 会触发 emscripten_force_exit，抛出 ExitStatus；其他异常也一并不再以
+        // uncaught 形式打到控制台，统一在前端浮层提示。status===0 视为正常关机，其余按运行出错处理。
+        if (e && e.name === 'ExitStatus' && e.status === 0) {
+          fatalError('设备已关机', '模拟器已停止运行，点击下方按钮重新开机。');
+        } else {
+          fatalError('运行出错', (e && e.message) ? String(e.message) : String(e));
+        }
+        return;
       }
-      return;
     }
     render();
     animId = requestAnimationFrame(frame);

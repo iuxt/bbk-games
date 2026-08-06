@@ -166,3 +166,53 @@ test("shouldAutosave：home / local / 空 都跳过", () => {
     assert.equal(G.shouldAutosave("local-1-2"), false);
     assert.equal(G.shouldAutosave(""), false);
 });
+
+test("planLogicSteps：达到一帧即出一步", () => {
+    const r = G.planLogicSteps(1000 / 60, 0);
+    assert.equal(r.steps, 1);
+});
+
+test("planLogicSteps：120Hz 序列收敛到 60 逻辑帧/秒（与刷新率解耦）", () => {
+    let acc = 0, total = 0;
+    for (let i = 0; i < 120; i++) {            // 120 个 rAF 帧 = 1 秒 @120Hz
+        const r = G.planLogicSteps(1000 / 120, acc);
+        total += r.steps;
+        acc = r.acc;
+    }
+    assert.ok(Math.abs(total - 60) <= 1, `期望约 60 步，实际 ${total}`);
+});
+
+test("planLogicSteps：60Hz 序列约 60 逻辑帧/秒", () => {
+    let acc = 0, total = 0;
+    for (let i = 0; i < 60; i++) {
+        const r = G.planLogicSteps(1000 / 60, acc);
+        total += r.steps;
+        acc = r.acc;
+    }
+    assert.ok(Math.abs(total - 60) <= 1, `期望约 60 步，实际 ${total}`);
+});
+
+test("planLogicSteps：累积两个半帧才出一步", () => {
+    const half = 1000 / 120;
+    let r = G.planLogicSteps(half, 0);
+    assert.equal(r.steps, 0);                  // 第一次不够一帧
+    r = G.planLogicSteps(half, r.acc);
+    assert.equal(r.steps, 1);                  // 第二次凑够一帧
+});
+
+test("planLogicSteps：丢帧后连续补步", () => {
+    const r = G.planLogicSteps(55, 0);         // >3 帧时间，应连续补 3 步
+    assert.equal(r.steps, 3);
+});
+
+test("planLogicSteps：超大 delta 触顶防追帧螺旋", () => {
+    const r = G.planLogicSteps(1000, 0);
+    assert.ok(r.steps >= 1 && r.steps <= 6);
+    assert.equal(r.acc, 0);                    // 触顶清零
+});
+
+test("planLogicSteps：负 delta 不倒退", () => {
+    const r = G.planLogicSteps(-20, 5);
+    assert.equal(r.steps, 0);
+    assert.equal(r.acc, 5);
+});
