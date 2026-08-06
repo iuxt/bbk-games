@@ -42767,7 +42767,8 @@ if (game.rom["GAME.ROM"]) {
       }
       if (this.isSingleTarget) {
         this.mAniX_0 = this.mMonster_0.combatX;
-        this.mAniY_0 = this.mMonster_0.combatY - (ensureNotNull(this.mMonster_0.fightingSprite).height / 2 | 0) | 0;
+        // 锚在目标中心而非头顶，配合 drawAtTarget 让合击特效盖住目标（对齐真机）。
+        this.mAniY_0 = this.mMonster_0.combatY;
       } else {
         this.mAniY_0 = 0;
         this.mAniX_0 = this.mAniY_0;
@@ -42865,7 +42866,7 @@ if (game.rom["GAME.ROM"]) {
       switch (this.mState_0) {
        case 2:
         if (this.isSingleTarget) {
-          this.mAni_0.drawAbsolutely_2g4tob$(canvas, this.mAniX_0, this.mAniY_0);
+          this.mAni_0.drawAtTarget_2g4tob$(canvas, this.mAniX_0, this.mAniY_0);
         } else {
           this.mAni_0.drawAbsolutely_2g4tob$(canvas, 0, 0);
         }
@@ -43256,7 +43257,11 @@ if (game.rom["GAME.ROM"]) {
         this.magic_0.use_qwqr58$(attacker, target);
       }
       this.mAniX_0 = target.combatX;
-      this.mAniY_0 = target.combatY - (ensureNotNull(target.fightingSprite).height / 2 | 0) | 0;
+      // 锚在目标身体中心（combatY）而非头顶，配合下面的 drawAtTarget，把 SRS 的
+      // 视觉重心（BBKSrsAnchor.compute）落到目标身上。此前锚在 combatY - height/2
+      // 且用 drawAbsolutely（把 frame0 左上角钉在目标头顶），会让整个攻击爆裂特效
+      // 浮在目标上方、盖不到目标，与真机 eebbk 不一致。
+      this.mAniY_0 = target.combatY;
       this.mRaiseAnimations.add_11rb$(target.diffToAnimation_6taknv$());
       this.mRaiseAnimations.add_11rb$(attacker.diffToAnimation_6taknv$());
       if (Typescript.isType(this.magic_0, MagicSpecial)) {
@@ -43321,7 +43326,7 @@ if (game.rom["GAME.ROM"]) {
       var tmp$, tmp$_0;
       switch (this.mState_0) {
        case 2:
-        (tmp$ = this.mAni_0) != null ? (tmp$.drawAbsolutely_2g4tob$(canvas, this.mAniX_0, this.mAniY_0),
+        (tmp$ = this.mAni_0) != null ? (tmp$.drawAtTarget_2g4tob$(canvas, this.mAniX_0, this.mAniY_0),
         Unit) : null;
         break;
 
@@ -47724,15 +47729,18 @@ if (game.rom["GAME.ROM"]) {
       var i = 0;
       while (tmpY <= (r.top - 16 | 0) && i < buf.length) {
         var tmpX = r.left;
-        while (tmpX <= (r.right - 16 | 0) && i < buf.length) {
+        while (i < buf.length) {
           var t = buf[i] & 255;
+          var cw = t >= 161 ? 16 : 8;
+          if (tmpX + cw > r.right) {
+            break;
+          }
           if (t >= 161) {
             i = i + 2 | 0;
-            tmpX = tmpX + 16 | 0;
           } else {
             i = i + 1 | 0;
-            tmpX = tmpX + 8 | 0;
           }
+          tmpX = tmpX + cw | 0;
         }
         tmpY = tmpY + 16 | 0;
       }
@@ -47741,20 +47749,21 @@ if (game.rom["GAME.ROM"]) {
       }
       while (tmpY <= (r.bottom - 16 | 0) && i < buf.length) {
         var tmpX_0 = r.left;
-        while (tmpX_0 <= (r.right - 16 | 0) && i < buf.length) {
+        while (i < buf.length) {
           var t_0 = buf[i] & 255;
+          var cw = t_0 >= 161 ? 16 : 8;
+          if (tmpX_0 + cw > r.right) {
+            break;
+          }
           if (t_0 >= 161) {
             i = i + 1 | 0;
             var offset = ((94 * (t_0 - 161 | 0) | 0) + (buf[i] & 255) - 161 | 0) * 32 | 0;
             canvas.drawBitmap_t8cslu$(this.getHzk_0(offset), tmpX_0, tmpY);
-            tmpX_0 = tmpX_0 + 16 | 0;
           } else if (t_0 < 128) {
             var offset_0 = t_0 * 16 | 0;
             canvas.drawBitmap_t8cslu$(this.getAsc_0(offset_0), tmpX_0, tmpY);
-            tmpX_0 = tmpX_0 + 8 | 0;
-          } else {
-            tmpX_0 = tmpX_0 + 8 | 0;
           }
+          tmpX_0 = tmpX_0 + cw | 0;
           i = i + 1 | 0;
         }
         tmpY = tmpY + 16 | 0;
@@ -47800,20 +47809,21 @@ if (game.rom["GAME.ROM"]) {
       var y = r.top;
       while (y <= (r.bottom - 16 | 0) && i < buf.length) {
         var x = r.left;
-        while (x <= (r.right - 16 | 0) && i < buf.length) {
+        while (i < buf.length) {
           var t = buf[i] & 255;
+          var cw = t >= 161 ? 16 : 8;
+          if (x + cw > r.right) {
+            break;
+          }
           if (t >= 161) {
             i = i + 1 | 0;
             var offset = ((94 * (t - 161 | 0) | 0) + (buf[i] & 255) - 161 | 0) * 32 | 0;
             canvas.drawBitmap_t8cslu$(this.getHzk_0(offset), x, y);
-            x = x + 16 | 0;
           } else if (t < 128) {
             var offset_0 = t * 16 | 0;
             canvas.drawBitmap_t8cslu$(this.getAsc_0(offset_0), x, y);
-            x = x + 8 | 0;
-          } else {
-            x = x + 8 | 0;
           }
+          x = x + cw | 0;
           i = i + 1 | 0;
         }
         y = y + 16 | 0;
