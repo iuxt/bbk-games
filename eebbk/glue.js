@@ -660,39 +660,28 @@
     }
   }
 
-  /* ---------- Canvas rendering ---------- */
+  /* ---------- Canvas rendering ----------
+     RGB565→RGBA 转换已移入 wasm（_web_get_framebuffer_rgba），这里只做一次整块拷贝；
+     ImageData 复用同一份缓冲，避免每帧 createImageData 分配引发 GC。 */
+  let fbW = 0;
+  let fbH = 0;
+  let screenImg = null;
+
   function render() {
-    const fbPtr = Module._web_get_framebuffer();
-    const w     = Module._web_get_fb_width();
-    const h     = Module._web_get_fb_height();
-    const fbLen = (w + 1) * h;  // pitch includes +1 padding
-    const fb16  = new Uint16Array(Module.HEAPU16.buffer, fbPtr, fbLen);
-
-    const img = ctx.createImageData(w, h);
-    const d   = img.data;
-
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const rgb565 = fb16[y * (w + 1) + x];
-        const r = ((rgb565 >> 11) & 0x1f) << 3;
-        const g = ((rgb565 >>  5) & 0x3f) << 2;
-        const b = ((rgb565 >>  0) & 0x1f) << 3;
-        const off = (y * w + x) * 4;
-        d[off]     = r;
-        d[off + 1] = g;
-        d[off + 2] = b;
-        d[off + 3] = 255;
-      }
-    }
-    ctx.putImageData(img, 0, 0);
+    const ptr = Module._web_get_framebuffer_rgba();
+    if (!screenImg) screenImg = ctx.createImageData(fbW, fbH);
+    screenImg.data.set(new Uint8Array(Module.HEAPU8.buffer, ptr, fbW * fbH * 4));
+    ctx.putImageData(screenImg, 0, 0);
   }
 
   /* ---------- Power on: show canvas + start the frame loop ---------- */
   function startEmulator() {
     if (started) return;
     started = true;
-    canvas.width  = Module._web_get_fb_width();
-    canvas.height = Module._web_get_fb_height();
+    fbW = Module._web_get_fb_width();
+    fbH = Module._web_get_fb_height();
+    canvas.width  = fbW;
+    canvas.height = fbH;
     placeholder.classList.remove('show');
     canvas.classList.add('show');
     if (!running) {
@@ -727,7 +716,9 @@
         return;
       }
     }
-    render();
+    // 帧缓冲只在 web_run_frame 里变化：没有逻辑步进的 rAF（例如 120Hz 屏的偶数帧）
+    // 直接跳过绘制，按 LCD 的 60fps 节奏渲染即可，减少高刷屏上的重复绘制。
+    if (plan.steps > 0) render();
     animId = requestAnimationFrame(frame);
   }
 

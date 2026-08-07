@@ -16,7 +16,7 @@ target_compile_options(gam4980 PRIVATE
 target_link_options(gam4980 PRIVATE
     -O2
     -flto
-    "SHELL:-sEXPORTED_FUNCTIONS=[\"_web_init\",\"_web_run_frame\",\"_web_keydown\",\"_web_get_framebuffer\",\"_web_get_fb_width\",\"_web_get_fb_height\",\"_web_load_game\",\"_web_save_size\",\"_web_save\",\"_web_load\",\"_malloc\",\"_free\"]"
+    "SHELL:-sEXPORTED_FUNCTIONS=[\"_web_init\",\"_web_run_frame\",\"_web_keydown\",\"_web_get_framebuffer\",\"_web_get_framebuffer_rgba\",\"_web_get_fb_width\",\"_web_get_fb_height\",\"_web_load_game\",\"_web_save_size\",\"_web_save\",\"_web_load\",\"_malloc\",\"_free\"]"
     "SHELL:-sEXPORTED_RUNTIME_METHODS=[\"ccall\",\"cwrap\",\"getValue\",\"setValue\",\"HEAPU8\",\"HEAPU16\"]"
     -sALLOW_MEMORY_GROWTH=1
     -sINITIAL_MEMORY=80MB

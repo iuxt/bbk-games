@@ -64,6 +64,7 @@
 /* ---- global state ---- */
 static int8_t   fa[(LCD_WIDTH + 1) * LCD_HEIGHT];
 static uint16_t fb[(LCD_WIDTH + 1) * LCD_HEIGHT];
+static uint8_t  rgba_fb[LCD_HEIGHT][LCD_WIDTH * 4];   /* RGBA8888 输出缓冲（不透明） */
 
 /* ---- forward declarations ---- */
 static void sys_isr(void);
@@ -829,6 +830,24 @@ EMSCRIPTEN_KEEPALIVE
 int web_get_fb_height(void)
 {
     return LCD_HEIGHT;
+}
+
+/* 把当前 RGB565 帧缓冲转换为 RGBA8888（每像素 4 字节，alpha=255），
+   供 JS 侧一次性整块拷贝到 canvas，避免在 JS 里逐像素换算。 */
+EMSCRIPTEN_KEEPALIVE
+uint8_t* web_get_framebuffer_rgba(void)
+{
+    for (int y = 0; y < LCD_HEIGHT; y += 1) {
+        for (int x = 0; x < LCD_WIDTH; x += 1) {
+            uint16_t c = fb[y * (LCD_WIDTH + 1) + x];
+            uint8_t *p = &rgba_fb[y][x * 4];
+            p[0] = (uint8_t)(((c >> 11) & 0x1f) << 3);
+            p[1] = (uint8_t)(((c >>  5) & 0x3f) << 2);
+            p[2] = (uint8_t)(((c >>  0) & 0x1f) << 3);
+            p[3] = 0xff;
+        }
+    }
+    return &rgba_fb[0][0];
 }
 
 /* ---- Save/Load State ---- */
