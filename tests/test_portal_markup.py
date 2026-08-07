@@ -331,6 +331,17 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         css = (ROOT / "eebbk" / "dialog.css").read_text(encoding="utf-8")
         self.assertIn(".rom-tag", css, "dialog.css 缺少 .rom-tag 系统标签样式")
 
+    def test_save_slot_rows_never_shrink_below_content(self):
+        # 回归：WebKit/Safari 在高度受限的网格里会把 auto 行压到卡片 min-height
+        # （移动端为 0），导致按钮块溢出卡片底边、与下一槽位重叠（手机界面保存存档时）。
+        # grid-auto-rows 必须保证行高不小于内容（min-content）。
+        css = (ROOT / "eebbk" / "dialog.css").read_text(encoding="utf-8")
+        self.assertIn(
+            "grid-auto-rows: minmax(min-content, 1fr)",
+            css,
+            "dialog.css 的 .save-slot-list 缺少 minmax(min-content, 1fr) 行高约束",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

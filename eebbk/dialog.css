@@ -239,6 +239,10 @@
     display: grid;
     flex: 1 1 auto;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    /* WebKit 在高度受限的网格里会把 auto 行压到卡片 min-height（移动端为 0），
+       导致按钮块溢出卡片底边、与下一槽位重叠。用 minmax(min-content, 1fr)
+       保证行高不小于内容，同时在大屏上仍可拉伸填满剩余空间。 */
+    grid-auto-rows: minmax(min-content, 1fr);
     gap: 10px;
     min-height: 0;
     margin-bottom: 12px;
