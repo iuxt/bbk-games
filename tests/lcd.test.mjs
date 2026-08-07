@@ -227,3 +227,39 @@ test("bayeExit can stay inside games that use exit as a cancel key", () => {
 
     assert.equal(context.window.location.href, "");
 });
+
+test("lcdBlitMono maps source bytes to monochrome RGBA (byte-equivalent to old imageDot)", () => {
+    const context = loadLcd();
+    // 边界值含 signed i8 下为负的字节（0x80、0xFF），均应判为「亮」。
+    const cases = [0, 1, 2, 0x7F, 0x80, 0xFE, 0xFF];
+    const len = cases.length;
+    const data = new Uint8ClampedArray(len * 4);    // 模拟 ImageData.data
+    const rgba32 = new Uint32Array(data.buffer);
+    const src = new Uint8Array(cases);
+
+    context.lcdBlitMono(src, rgba32, len);
+
+    for (let i = 0; i < len; i += 1) {
+        const on = cases[i] !== 0;
+        assert.equal(data[i * 4],     0,                "R 恒为 0");
+        assert.equal(data[i * 4 + 1], 0,                "G 恒为 0");
+        assert.equal(data[i * 4 + 2], 0,                "B 恒为 0");
+        assert.equal(data[i * 4 + 3], on ? 255 : 0,     "A：亮=不透明 255，灭=透明 0");
+    }
+});
+
+test("lcdBlitMono overwrites every pixel (no cross-frame residue when ImageData is reused)", () => {
+    const context = loadLcd();
+    const len = 4;
+    const data = new Uint8ClampedArray(len * 4);
+    data.fill(255);                                  // 预置上一帧不透明残影
+    const rgba32 = new Uint32Array(data.buffer);
+    const src = new Uint8Array([0, 0xFF, 0, 0xFF]);  // 交替 灭/亮
+
+    context.lcdBlitMono(src, rgba32, len);
+
+    assert.equal(data[0 * 4 + 3], 0,   "灭像素必须被清成透明，复用 ImageData 不留残影");
+    assert.equal(data[1 * 4 + 3], 255, "亮像素不透明");
+    assert.equal(data[2 * 4 + 3], 0,   "灭像素透明");
+    assert.equal(data[3 * 4 + 3], 255, "亮像素不透明");
+});

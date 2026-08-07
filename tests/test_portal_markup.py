@@ -98,7 +98,7 @@ class ChooseMarkupTests(unittest.TestCase):
             self.parser.scripts,
             [
                 "../js/jquery.min.js",
-                "../js/lcd.js?ver=17",
+                "../js/lcd.js?ver=18",
             ],
         )
 
@@ -131,7 +131,7 @@ class MobileGameMarkupTests(unittest.TestCase):
             with self.subTest(page=page):
                 markup = (ROOT / page).read_text(encoding="utf-8")
                 self.assertIn('id="game-load-error"', markup)
-                self.assertIn("../js/lcd.js?ver=17", markup)
+                self.assertIn("../js/lcd.js?ver=18", markup)
 
     def test_game_pages_do_not_load_retired_codec_helpers(self):
         for page in (

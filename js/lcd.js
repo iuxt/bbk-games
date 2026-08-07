@@ -32,43 +32,51 @@ function bayeResizeScreen(width, height) {
     _bayeSetLcdSize(lcdWidth, lcdHeight);
 }
 
-function imagePixel(img, i)
-{
-    img.data[i] = 0;
-    img.data[i+1] = 0;
-    img.data[i+2] = 0;
-    img.data[i+3] = 255;
-}
-
-function imageDot(img, x, y, lineSize)
-{
-    var ind = lineSize*y + x;
-    imagePixel(img, ind*4);
-}
-
 function lcdSetDotSize(s)
 {
     dotSize = s;
 }
 
-function lcdFlushBuffer(buffer) {
-    var lcd = getLCD();
-    var w = lcdWidth*dotSize;
-    var h = lcdHeight*dotSize
+/* 缓存 2D 上下文与 ImageData，避免每帧 getElementById/getContext/createImageData
+   带来的分配与 GC；尺寸变化（bayeResizeScreen / lcdSetDotSize）时按需重建。 */
+var lcdCtx = null;
+var lcdImg = null;
+var lcdImgW = 0;
+var lcdImgH = 0;
 
-    var img = lcd.createImageData(lcdWidth*dotSize, lcdHeight*dotSize);
-
-    for (var y = 0; y < h; y += 1) {
-        for (var x = 0; x < w; x += 1) {
-            var ind = w*y + x;
-            var pixel = getValue(buffer + ind, "i8");
-            if (pixel != 0) {
-                imageDot(img, x, y, w);
-            }
-        }
+/* 单色 LCD 位图纯变换：亮像素 src[i]!==0 → 不透明黑 (0,0,0,255)，
+   灭像素 → 透明 (0,0,0,0)。rgba32 为 ImageData.data 的 Uint32 视图
+   （小端：0xFF000000 即 R0 G0 B0 A255）。与旧逐像素 imageDot/imagePixel
+   实现逐字节等价，抽成纯函数便于单测。 */
+function lcdBlitMono(src, rgba32, len)
+{
+    for (var i = 0; i < len; i += 1) {
+        rgba32[i] = src[i] ? 0xFF000000 : 0;
     }
-    lcd.imageSmoothingEnabled = false;
-    lcd.putImageData(img, 0, 0);
+}
+
+function lcdFlushBuffer(buffer) {
+    var w = lcdWidth * dotSize;
+    var h = lcdHeight * dotSize;
+    var len = w * h;
+
+    if (!lcdCtx) lcdCtx = getLCD();
+
+    if (!lcdImg || lcdImgW !== w || lcdImgH !== h) {
+        lcdImg = lcdCtx.createImageData(w, h);
+        lcdImgW = w;
+        lcdImgH = h;
+        lcdCtx.imageSmoothingEnabled = false;
+    }
+
+    // 整块读取 wasm 帧缓冲（typed-array view，零拷贝），单遍写入 RGBA：
+    // 去掉每帧 len 次 getValue/imageDot 函数调用。步步高 dotSize=2 → 320×192≈6 万，
+    // 魔塔 dotSize=1 → 160×96≈1.5 万。访问范围与旧逐像素实现完全一致，逐字节等价。
+    var src = new Uint8Array(HEAPU8.buffer, buffer, len);
+    var rgba32 = new Uint32Array(lcdImg.data.buffer);
+    lcdBlitMono(src, rgba32, len);
+
+    lcdCtx.putImageData(lcdImg, 0, 0);
 }
 
 function sendKey(key) {
