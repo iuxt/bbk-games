@@ -136,6 +136,11 @@
     return !!id && id !== HOME_ROM_ID;
   }
 
+  /* 电子词典系统（home）才需要 目录/输入法/删除 功能键；游戏运行时替换为 R 键。 */
+  function isDictionarySystem(id) {
+    return id === HOME_ROM_ID;
+  }
+
   function shouldAutosave(id) {
     if (!id) return false;
     if (id === HOME_ROM_ID) return false;
@@ -177,6 +182,7 @@
     decideLaunch: decideLaunch,
     decideHomeLaunch: decideHomeLaunch,
     saveManagerEnabledFor: saveManagerEnabledFor,
+    isDictionarySystem: isDictionarySystem,
     shouldAutosave: shouldAutosave,
     planLogicSteps: planLogicSteps
   };
@@ -212,6 +218,8 @@
   const saveManagerStat  = document.getElementById('save-manager-status');
   const saveInput        = document.getElementById('save-input');
   const currentGameName  = document.getElementById('current-game-name');
+  const dictRow          = document.getElementById('dict-row');
+  const gameRow          = document.getElementById('game-row');
 
   /* ---------- state ---------- */
   let Module = null;
@@ -244,6 +252,14 @@
     writeLS('currentRomName', currentRom.name);
     currentGameName.textContent = currentRom.name;
     saveManagerOpen.disabled = !BBK.saveManagerEnabledFor(currentRom.id);
+    syncTouchpadMode();
+  }
+
+  /* 目录/输入法/删除 仅在运行电子词典系统时显示；游戏（含占位）只保留一个 R 键。 */
+  function syncTouchpadMode() {
+    const dictMode = BBK.isDictionarySystem(currentRom.id);
+    if (dictRow) dictRow.hidden = !dictMode;
+    if (gameRow) gameRow.hidden = dictMode;
   }
 
   function restoreCurrentRomFromStorage() {
@@ -938,6 +954,7 @@
       return;
     }
     restoreCurrentRomFromStorage();
+    syncTouchpadMode();
     loadCatalog();
 
     const pendingId = readLS('pendingRomId');

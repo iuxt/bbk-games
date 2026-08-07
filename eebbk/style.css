@@ -89,6 +89,15 @@
     box-shadow: inset 0 -4px 0 #7d3a2f;
 }
 
+/* 游戏模式只保留一个 R 键，居中且与词典功能键同宽 */
+#touchpad #game-row {
+    justify-content: center;
+}
+
+#touchpad #game-row .btn {
+    flex: 0 1 33.333%;
+}
+
 /* 拖拽悬停高亮 */
 #screen-wrapper.drag-over {
     box-shadow: inset 0 0 0 3px var(--accent);

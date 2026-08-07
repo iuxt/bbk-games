@@ -160,6 +160,13 @@ test("saveManagerEnabledFor：home 与空 id 禁用", () => {
     assert.equal(G.saveManagerEnabledFor(""), false);
 });
 
+test("isDictionarySystem：仅电子词典系统为 true", () => {
+    assert.equal(G.isDictionarySystem("__home__"), true);
+    assert.equal(G.isDictionarySystem("魔塔"), false);
+    assert.equal(G.isDictionarySystem("local-1-2"), false);
+    assert.equal(G.isDictionarySystem(""), false);
+});
+
 test("shouldAutosave：home / local / 空 都跳过", () => {
     assert.equal(G.shouldAutosave("魔塔"), true);
     assert.equal(G.shouldAutosave("__home__"), false);
