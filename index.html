@@ -119,8 +119,37 @@
 
         <footer class="device-footer">
             <span>WEB EDITION</span>
-            <p>把经典 RPG 游戏，重新装进口袋。</p>
+            <nav class="footer-nav" aria-label="站点导航">
+                <p>把经典 RPG 游戏，重新装进口袋。</p>
+                <a class="footer-link" href="#about" aria-haspopup="dialog">关于本站</a>
+            </nav>
         </footer>
     </main>
+
+    <div id="about" class="about-overlay" role="dialog" aria-modal="true" aria-labelledby="about-title">
+        <section class="about-dialog">
+            <header class="lcd-panel about-display">
+                <p class="lcd-kicker">ABOUT / 关于本站</p>
+                <h2 id="about-title">关于本站<span aria-hidden="true">_</span></h2>
+                <p class="lcd-help">把经典 RPG 游戏，重新装进口袋。</p>
+            </header>
+
+            <div class="about-body">
+                <p>本站把当年运行在步步高（BBK）电子词典上的经典游戏重新搬进浏览器，无需安装、打开即玩，只为重温 ibox 9288 / 9588、朗文 4980 等机型陪伴过的时光。</p>
+                <p>目前收录四大模块：</p>
+                <ul>
+                    <li>RPG 合集 —— 伏魔记、仙剑、金庸群侠传等 140+ 款经典 RPG</li>
+                    <li>三国霸业 —— 三国题材回合策略，含多个版本 / MOD</li>
+                    <li>魔塔 —— 经典层数探索解谜 RPG</li>
+                    <li>电子词典模拟器 —— 拖入 .gam 文件即可运行</li>
+                </ul>
+                <p>引擎与资源来自社区前辈的逆向与移植（fmj.kt、iBaye、gam4980），在此一并致谢。游戏版权归各自作者所有，本站仅作学习与怀旧用途。</p>
+            </div>
+
+            <footer class="about-actions">
+                <a class="device-button" href="#close-about">关闭</a>
+            </footer>
+        </section>
+    </div>
 </body>
 </html>

@@ -350,6 +350,7 @@ button { color: inherit; }
         align-self: flex-end;
     }
     .dialog-overlay:not([hidden]) { align-items: center; }
+    .about-overlay:target { align-items: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -459,3 +460,88 @@ button { color: inherit; }
     white-space: nowrap;
 }
 .key-map-item span:last-child { opacity: .65; }
+
+/* 首页「关于本站」弹层：纯 CSS :target 开关，保持首页零脚本 */
+.about-overlay {
+    position: fixed;
+    z-index: 20;
+    inset: 0;
+    padding: 14px;
+    display: none;
+    background: rgba(25, 31, 24, .6);
+    backdrop-filter: blur(3px);
+}
+
+.about-overlay:target {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.about-dialog {
+    width: min(100%, 620px);
+    max-height: calc(100vh - 28px);
+    padding: 18px;
+    border: 1px solid var(--shell-edge);
+    border-radius: 24px 24px 38px 24px;
+    background: var(--shell);
+    box-shadow: 0 26px 80px rgba(20, 25, 19, .42), inset 0 1px 0 rgba(255, 255, 255, .65);
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.about-display {
+    padding: 19px 18px 17px;
+    border-width: 5px;
+}
+
+.about-display h2 {
+    margin: 5px 0 7px;
+    font: 800 20px/1.15 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.about-body {
+    margin-top: 14px;
+    padding: 14px 16px 15px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--paper);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45);
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.about-body p {
+    margin: 0 0 10px;
+}
+
+.about-body p:last-child {
+    margin: 0;
+}
+
+.about-body ul {
+    margin: 0 0 12px;
+    padding-left: 18px;
+}
+
+.about-body li {
+    margin: 5px 0;
+}
+
+.about-actions {
+    margin-top: 14px;
+}
+
+.about-actions .device-button {
+    display: block;
+    width: 100%;
+    border: 0;
+}
+
+.footer-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: right;
+}
