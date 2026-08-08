@@ -50512,14 +50512,16 @@ if (game.rom["GAME.ROM"]) {
     OperateSale$SaleGoodsScreen.prototype.onKeyDown_za3lpa$ = function(key) {
       if (key === Global_getInstance().KEY_UP && this.saleCnt_0 > 0) {
         this.saleCnt_0 = this.saleCnt_0 - 1 | 0;
-        this.money_0 = this.money_0 - this.goods_0.sellPrice | 0;
       } else if (key === Global_getInstance().KEY_DOWN && this.goods_0.goodsNum > this.saleCnt_0) {
         this.saleCnt_0 = this.saleCnt_0 + 1 | 0;
-        this.money_0 = this.money_0 + this.goods_0.sellPrice | 0;
-        if (this.money_0 > 99999) {
-          this.money_0 = 99999;
-        }
+      } else {
+        return;
       }
+      // money_0 必须是卖出数量 saleCnt_0 的纯函数，不能增量累加：否则一旦碰到 99999
+      // 上限，增加时被 clamp 抹掉的溢出在减少时无法找回，金额会错乱甚至变成负数。
+      // 下限不低于当前 sMoney，避免持有 >99999 金钱进店、未改数量就确认反而被扣钱。
+      var base = Player$Companion_getInstance().sMoney;
+      this.money_0 = Math.max(base, Math.min(base + (this.saleCnt_0 * this.goods_0.sellPrice | 0) | 0, 99999));
     };
     function OperateSale$SaleGoodsScreen$bmpBg$lambda() {
       return Util_getInstance().getFrameBitmap_vux9f0$(136, 55);
