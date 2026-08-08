@@ -47396,7 +47396,7 @@ if (game.rom["GAME.ROM"]) {
       this.addGoods_vux9f0$(goods.type, goods.index);
     };
     GoodsManage.prototype.deleteGoods_6xxg66$ = function(goods) {
-      this.deleteGoods_vux9f0$(goods.type, goods.index);
+      return this.deleteGoods_vux9f0$(goods.type, goods.index);
     };
     GoodsManage.prototype.addGoods_0 = function(list, type, index, num) {
       var tmp$;
