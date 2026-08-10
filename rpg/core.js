@@ -49094,7 +49094,11 @@ if (game.rom["GAME.ROM"]) {
       this.index = buf[offset + 1 | 0] & 255;
       this.roundNum = buf[offset + 3 | 0] & 127;
       this.isForAll = (buf[offset + 3 | 0] & 128) !== 0;
-      this.costMp = buf[offset + 4 | 0];
+      // costMp 与同记录内的 type/index/magicAni 一样是单字节字段；Kotlin ByteArray
+      // 在 JS 里编译成有符号 Int8Array，故须 & 255 按无符号读取，否则费用字节
+      // >= 128（如伏魔记「百火炼金术」0xA0）会被读成负数（-96），导致该技能
+      // 既判定为永远放得起，施放时还会反过来增加 MP。
+      this.costMp = buf[offset + 4 | 0] & 255;
       this.magicAni = Typescript.isType(tmp$ = DatLib$Companion_getInstance().getRes_2et8c9$(DatLib$ResType$SRS_getInstance(), 2, buf[offset + 5 | 0] & 255), ResSrs) ? tmp$ : throwCCE();
       this.magicName = ResBase$Companion_getInstance().getString_ir89t6$(buf, offset + 6 | 0);
       if ((buf[offset + 2 | 0] & 255) > 112) {
