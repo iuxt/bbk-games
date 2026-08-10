@@ -43128,9 +43128,13 @@ if (game.rom["GAME.ROM"]) {
       tmp$_2 = $receiver.iterator();
       while (tmp$_2.hasNext()) {
         var item = tmp$_2.next();
-        if (item.isAlive) {
-          destination.add_11rb$(item.diffToAnimation_6taknv$());
-        }
+        // An all-target attack spell may itself kill a combatant. Still raise
+        // the damage number over them so the player sees the REAL damage dealt
+        // (diffToAnimation uses the unclamped delta, e.g. -500 on a 100-hp foe),
+        // not just a silent disappearance. Already-dead corpses are skipped
+        // inside MagicAttack.use, so their delta is 0 and RaiseAnimation no-ops —
+        // matching ActionPhysicalAttackAll / ActionThrowItemAll / ActionCoopMagic.
+        destination.add_11rb$(item.diffToAnimation_6taknv$());
       }
       tmp$_1.addAll_brywnq$(destination);
     };

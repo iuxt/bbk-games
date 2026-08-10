@@ -377,13 +377,18 @@ test("all-target attack magic skips dead enemies", () => {
     );
     assert.match(multiAttack, /var fc = tmp\$\.next\(\);\s*\/\/ Dead combatants[\s\S]*?if \(!fc\.isAlive\) \{\s*continue;\s*\}/);
 
-    // ActionMagicAttackAll also only raises a number animation for living
-    // targets, so a dead enemy shows no popup.
+    // Corpses still show no popup, but the guarantee moved to the damage step:
+    // MagicAttack.use skips already-dead combatants (asserted above), so their
+    // delta is 0 and RaiseAnimation no-ops. The preproccess loop must therefore
+    // raise a number for EVERY target — including one killed by this very spell,
+    // so the player sees the real damage dealt rather than a silent vanish.
     const attackAction = source.slice(
         source.indexOf("ActionMagicAttackAll.prototype.preproccess"),
         source.indexOf("ActionMagicAttackAll.prototype.update_s8cxhz$")
     );
-    assert.match(attackAction, /while \(tmp\$_2\.hasNext\(\)\) \{\s*var item = tmp\$_2\.next\(\);\s*if \(item\.isAlive\) \{\s*destination\.add_11rb/);
+    const targetLoop = attackAction.match(/while\s*\([^)]*\.hasNext\(\)\)\s*\{[\s\S]*?item\.diffToAnimation_6taknv\$\(\)[\s\S]*?\}/);
+    assert.ok(targetLoop, "per-target raise-animation loop found in ActionMagicAttackAll.preproccess");
+    assert.doesNotMatch(targetLoop[0], /isAlive/, "must not gate the damage number on isAlive (hides a freshly-killed enemy's damage)");
 });
 
 test("ordinary healing skips the dead but revive magic raises them", () => {
