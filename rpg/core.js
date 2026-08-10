@@ -41483,6 +41483,16 @@ if (game.rom["GAME.ROM"]) {
           return true;
         }
         this.postAction_0 = null;
+        // 所有敌人已死亡（最后一个被本回合更快的行动击杀）：不再弹出/执行队列中
+        // 剩余的技能、招式、攻击、回血等，交由 Combat 进入胜利结算。当前正在执行
+        // 的那一招（致胜的一击）及其 AwardAndPunish 后续动画已在到达此处前完成，保持自然。
+        // cancelRemainingActions_0 会逐个 cancel() 剩余行动以退还投掷武器/使用道具
+        // （数量在选择行动时已通过 deleteGoods 扣减）；普通攻击/法术的 cancel() 为空操作，
+        // 法术 MP 在执行时才扣除（此处永不执行），故无需退还。
+        if (this.mCombat_0.isAllMonsterDead_0) {
+          this.cancelRemainingActions_0();
+          return false;
+        }
         this.mCurrentAction_0 = this.mActionQueue_0.pop();
         if (this.mCurrentAction_0 == null) {
           return false;
@@ -41491,6 +41501,10 @@ if (game.rom["GAME.ROM"]) {
         return true;
       }
       if (this.mCurrentAction_0 == null) {
+        if (this.mCombat_0.isAllMonsterDead_0) {
+          this.cancelRemainingActions_0();
+          return false;
+        }
         this.mCurrentAction_0 = this.mActionQueue_0.pop();
         if (this.mCurrentAction_0 == null) {
           return false;
@@ -41506,6 +41520,12 @@ if (game.rom["GAME.ROM"]) {
         this.postAction_1();
       }
       return true;
+    };
+    ActionExecutor.prototype.cancelRemainingActions_0 = function() {
+      var a;
+      while ((a = this.mActionQueue_0.pop()) != null) {
+        a.cancel();
+      }
     };
     ActionExecutor.prototype.postAction_1 = function() {
       this.postAction_0 = ensureNotNull(this.mCurrentAction_0).postAction();
