@@ -41848,6 +41848,7 @@ if (game.rom["GAME.ROM"]) {
       var tmp$, tmp$_0, tmp$_1, tmp$_2;
       this.mActionQueue_0.clear();
       this.mIsAutoAttack_0 = false;
+      this.mPressedKeys_0 = {};
       this.mCombatState_0 = Combat$CombatState$SelectAction_getInstance();
       this.mCurSelActionPlayerIndex_0 = 0;
       this.mPlayerList_0 = this.game.playerList;
@@ -42098,6 +42099,7 @@ if (game.rom["GAME.ROM"]) {
     };
     Combat.prototype.onKeyDown_za3lpa$ = function(key) {
       var tmp$;
+      this.mPressedKeys_0[key] = true;
       if (this.mCombatState_0 === Combat$CombatState$SelectAction_getInstance()) {
         if (!this.mIsAutoAttack_0) {
           this.mCombatUI_0.onKeyDown_za3lpa$(key);
@@ -42108,6 +42110,13 @@ if (game.rom["GAME.ROM"]) {
     };
     Combat.prototype.onKeyUp_za3lpa$ = function(key) {
       var tmp$;
+      if (!this.mPressedKeys_0[key]) {
+        if (this.mIsAutoAttack_0 && key === Global_getInstance().KEY_CANCEL) {
+          this.mIsAutoAttack_0 = false;
+        }
+        return;
+      }
+      this.mPressedKeys_0[key] = false;
       if (this.mCombatState_0 === Combat$CombatState$SelectAction_getInstance()) {
         if (!this.mIsAutoAttack_0) {
           this.mCombatUI_0.onKeyUp_za3lpa$(key);
