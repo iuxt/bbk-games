@@ -46321,7 +46321,23 @@ if (game.rom["GAME.ROM"]) {
     }
     ScreenGameMainMenu$getScreenMagic$ObjectLiteral.prototype.onItemSelected_3fncnk$ = function(magic) {
       if (Typescript.isType(magic, MagicRestore)) {
-        this.this$ScreenGameMainMenu.pushScreen_2o7n0o$(new ScreenUseMagic(this.this$ScreenGameMainMenu, magic, this.this$ScreenGameMainMenu.game.playerList.get_za3lpa$(this.closure$id)));
+        var caster = this.this$ScreenGameMainMenu.game.playerList.get_za3lpa$(this.closure$id);
+        if (magic.isForAll) {
+          // Party-wide restore: deduct MP once and apply to every alive member,
+          // matching the in-battle ActionMagicHelpAll.preproccess pattern.
+          if (caster.mp >= magic.costMp) {
+            caster.mp = caster.mp - magic.costMp | 0;
+            var $receiver = this.this$ScreenGameMainMenu.game.playerList;
+            var tmp$ = $receiver.iterator();
+            while (tmp$.hasNext()) {
+              var element = tmp$.next();
+              magic.applyToTarget_qpjxya$(element);
+            }
+          }
+          this.this$ScreenGameMainMenu.popScreen();
+        } else {
+          this.this$ScreenGameMainMenu.pushScreen_2o7n0o$(new ScreenUseMagic(this.this$ScreenGameMainMenu, magic, caster));
+        }
       } else {
         this.this$ScreenGameMainMenu.showMessage_4wgjuj$("此处无法使用!", L1000);
       }
