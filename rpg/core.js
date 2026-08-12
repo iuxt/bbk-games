@@ -48588,7 +48588,13 @@ if (game.rom["GAME.ROM"]) {
       return toShort(i);
     };
     ResBase$Companion.prototype.get1ByteSInt_ir89t6$ = function(buf, start) {
-      return buf[start];
+      // 伏魔记 .lib 中装备/药品的单字节属性增量（mMpMax/mHpMax/mdf/mlingli/
+      // mSpeed/mLuck）按「原码(sign-magnitude)」存放：bit7 为符号位，bit0..6 为
+      // 数值。例如 金缕衣「身法-10」字节 0x8a -> -10。Kotlin ByteArray 编译为 JS
+      // 有符号 Int8Array（补码），直接返回 buf[start] 会把 0x8a 读成 -118，于是
+      // 99 身法装备后变 -19。先 &255 转无符号再按原码拆符号/数值。
+      var b = buf[start] & 255;
+      return (b & 128) !== 0 ? -(b & 127) : b;
     };
     ResBase$Companion.$metadata$ = {
       kind: Kind_OBJECT,
