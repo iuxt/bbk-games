@@ -49348,6 +49348,15 @@ if (game.rom["GAME.ROM"]) {
       if (dst.hp > dst.maxHP) {
         dst.hp = dst.maxHP;
       }
+      // The hp setter accumulates the UNCLAMPED heal into deltaSinceBackup so
+      // overkill DAMAGE displays honestly. For healing that's wrong: an ally at
+      // full HP gains nothing and should float no number, and a near-full ally
+      // should float only what was actually restored — not the whole spell
+      // amount. The all-target restore (ActionMagicHelpAll) reads this field via
+      // diffToAnimation, so overwrite the accumulated delta with the real
+      // (clamped) gain. Single-target restore (ActionMagicHelpOne) ignores this
+      // field and computes its own hp diff, so it is unaffected.
+      dst.deltaSinceBackup_12x06j$_0 = dst.hp - currentHp | 0;
       health(this.mBuff_0, dst.debuff);
     };
     MagicRestore.prototype.use_qwqr58$ = function(src, dst) {
