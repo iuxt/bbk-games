@@ -41092,6 +41092,12 @@ if (game.rom["GAME.ROM"]) {
       (tmp$_2 = this.magicChain) != null ? tmp$_2.learnNum = coder.readInt() : null;
       this.name = coder.readString();
       this.level = coder.readInt();
+      // [patch] 防御: 修复前(bug)的存档可能已把 magicChain.learnNum 存成 0, 读档时按当前
+      // 等级用 levelupChain 的峰值校正, 避免损坏存档读档后仍无法术(否则要再升一级才恢复)
+      if (this.magicChain != null) {
+        var _ln = this.levelupChain.getLearnMagicNum_za3lpa$(this.level);
+        if (_ln > this.magicChain.learnNum) this.magicChain.learnNum = _ln;
+      }
       this.maxHP = coder.readInt();
       this.hp = coder.readInt();
       this.maxMP = coder.readInt();
@@ -41242,6 +41248,20 @@ if (game.rom["GAME.ROM"]) {
       this.maxLevel = buf[offset + 2 | 0] & 255;
       this.mLevelData_0 = new Int8Array(Typescript.imul(this.maxLevel, ResLevelupChain$Companion_getInstance().LEVEL_BYTES_0));
       System_getInstance().arraycopy_nlwz52$(buf, offset + 4 | 0, this.mLevelData_0, 0, this.mLevelData_0.length);
+      // [patch] 伏魔记 rom 中角色法术学满(累计达到 magicSum)后, 剩余级别的"已学法术数"(byte19)
+      // 被填 0, 而 getLearnMagicNum 直接读取并赋给 magicChain.learnNum, 导致升级越过学满级别时
+      // learnNum 归零、getAllLearntMagics() 返回空, 已学法术全失(柳清风36级只剩脚本授予的妙手空空)。
+      // 加载 levelupChain 时把 byte19 列单调非递减化(学满后保持峰值), 根因修复且能救已损坏存档。
+      {
+        var lb = ResLevelupChain$Companion_getInstance().LEVEL_BYTES_0;
+        for (var lv = 2; lv <= this.maxLevel; lv++) {
+          var prev = (lv - 2) * lb + 19 | 0;
+          var cur = (lv - 1) * lb + 19 | 0;
+          if ((this.mLevelData_0[cur] & 255) < (this.mLevelData_0[prev] & 255)) {
+            this.mLevelData_0[cur] = this.mLevelData_0[prev];
+          }
+        }
+      }
     };
     ResLevelupChain.prototype.getMaxHP_za3lpa$ = function(level) {
       var tmp$;
