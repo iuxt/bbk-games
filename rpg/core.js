@@ -40084,7 +40084,8 @@ if (game.rom["GAME.ROM"]) {
         return this.maxMP_aqiiql$_0;
       },
       set: function(maxMP) {
-        this.maxMP_aqiiql$_0 = Math_0.min(999, maxMP);
+        // No cap — see the speed setter; same equip/unequip reversibility fix.
+        this.maxMP_aqiiql$_0 = maxMP;
       }
     });
     Object.defineProperty(FightingCharacter.prototype, "hp", {
@@ -40121,7 +40122,8 @@ if (game.rom["GAME.ROM"]) {
         return this.attack_2swbku$_0;
       },
       set: function(at) {
-        this.attack_2swbku$_0 = Math_0.min(999, at);
+        // No cap — see the speed setter; same equip/unequip reversibility fix.
+        this.attack_2swbku$_0 = at;
       }
     });
     Object.defineProperty(FightingCharacter.prototype, "defend", {
@@ -40129,7 +40131,8 @@ if (game.rom["GAME.ROM"]) {
         return this.defend_xwzut0$_0;
       },
       set: function(d) {
-        this.defend_xwzut0$_0 = Math_0.min(999, d);
+        // No cap — see the speed setter; same equip/unequip reversibility fix.
+        this.defend_xwzut0$_0 = d;
       }
     });
     Object.defineProperty(FightingCharacter.prototype, "speed", {
@@ -40137,7 +40140,13 @@ if (game.rom["GAME.ROM"]) {
         return this.speed_7obhy5$_0;
       },
       set: function(s) {
-        this.speed_7obhy5$_0 = Math_0.min(99, s);
+        // No upper clamp: gear wear/remove (GoodsEquipment.putOn/takeOff) is a
+        // symmetric ±bonus delta routed through this setter. A one-sided
+        // Math.min(99, ·) clamp made equip/unequip non-reversible at the cap —
+        // swapping gear while sitting at 99 permanently eroded the stat. Lifting
+        // the cap lets equipment bonuses take full effect and makes wear/remove
+        // exact inverses. See tests/test_rpg_equip_stat_cap_reversible.test.mjs.
+        this.speed_7obhy5$_0 = s;
       }
     });
     Object.defineProperty(FightingCharacter.prototype, "lingli", {
@@ -40145,7 +40154,8 @@ if (game.rom["GAME.ROM"]) {
         return this.lingli_bak3kn$_0;
       },
       set: function(l) {
-        this.lingli_bak3kn$_0 = Math_0.min(99, l);
+        // No cap — see the speed setter; same equip/unequip reversibility fix.
+        this.lingli_bak3kn$_0 = l;
       }
     });
     Object.defineProperty(FightingCharacter.prototype, "luck", {
@@ -40153,7 +40163,8 @@ if (game.rom["GAME.ROM"]) {
         return this.luck_ge355z$_0;
       },
       set: function(l) {
-        this.luck_ge355z$_0 = Math_0.min(99, l);
+        // No cap — see the speed setter; same equip/unequip reversibility fix.
+        this.luck_ge355z$_0 = l;
       }
     });
     Object.defineProperty(FightingCharacter.prototype, "computedSpeed", {
