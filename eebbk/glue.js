@@ -102,9 +102,31 @@
     isSystem: true
   };
 
+  /* 置顶推荐系列：紧跟「电子词典系统」之后展示，便于快速进入经典 RPG/策略。
+     命中即置顶；组间按 PINNED_KEYS 给定顺序，组内保持 catalog 原相对顺序。
+     其余游戏仍按 catalog（拼音）序排在最后。 */
+  const PINNED_KEYS = ["伏魔", "三国霸业", "魔塔"];
+
+  function pinnedKeyIndex(name) {
+    if (!name) return -1;
+    for (let i = 0; i < PINNED_KEYS.length; i++) {
+      if (name.indexOf(PINNED_KEYS[i]) !== -1) return i;
+    }
+    return -1;
+  }
+
   function buildPickerGames(catalogGames) {
     const list = Array.isArray(catalogGames) ? catalogGames : [];
-    return [HOME_ROM].concat(list);
+    const buckets = PINNED_KEYS.map(function () { return []; });
+    const rest = [];
+    list.forEach(function (g) {
+      const idx = pinnedKeyIndex(g && g.name);
+      if (idx >= 0) buckets[idx].push(g);
+      else rest.push(g);
+    });
+    const pinned = [];
+    buckets.forEach(function (b) { Array.prototype.push.apply(pinned, b); });
+    return [HOME_ROM].concat(pinned, rest);
   }
 
   /* 启动决策：pending（关机态热切换指令）优先；否则按记住的 currentRomId。
@@ -447,8 +469,9 @@
     gamePicker.hidden = false;
     gamePickerOpen.setAttribute('aria-expanded', 'true');
     document.body.classList.add('dialog-open');
-    if (gamePickerSearch) gamePickerSearch.focus();
-    else gamePicker.querySelector('.game-picker-dialog').focus();
+    /* 不自动聚焦搜索框：移动端一打开 picker 就弹软键盘会遮挡游戏列表。
+       焦点落到对话框容器（tabindex=-1），保留 dialog 焦点管理；键盘用户按 Tab 即进入搜索框。 */
+    gamePicker.querySelector('.game-picker-dialog').focus();
   }
   function closePicker() {
     gamePicker.hidden = true;

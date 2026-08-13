@@ -116,11 +116,39 @@ test("HOME_ROM 与 buildPickerGames：词典条目恒居首位", () => {
     const list = G.buildPickerGames(catalog);
     assert.equal(list.length, 3);
     assert.equal(list[0].id, "__home__", "home 必须第一");
-    assert.equal(list[1].id, "魔塔");
+    // 伏魔记系列置顶，故排在魔塔之前
+    assert.equal(list[1].id, "伏魔记");
+    assert.equal(list[2].id, "魔塔");
 
     // 空目录也要有词典条目
     assert.equal(G.buildPickerGames([]).length, 1);
     assert.equal(G.buildPickerGames().length, 1);
+});
+
+test("buildPickerGames：伏魔记/三国霸业/魔塔系列紧跟电子词典系统置顶", () => {
+    const catalog = [
+        { id: "澳游", name: "澳游" },                 // 拼音靠前但不置顶
+        { id: "魔塔", name: "魔塔" },
+        { id: "伏魔记", name: "伏魔记" },
+        { id: "三国霸业", name: "三国霸业" },
+        { id: "魔塔超级版", name: "魔塔超级版" },
+        { id: "新伏魔记", name: "新伏魔记" },
+        { id: "伏魔记 加秘籍", name: "伏魔记 加秘籍" },
+        { id: "封魔录", name: "封魔录" },             // 含「魔」但非魔塔，不置顶
+        { id: "屠魔", name: "屠魔" }                  // 同上
+    ];
+    const list = G.buildPickerGames(catalog);
+    assert.equal(list[0].id, "__home__");
+
+    // 伏魔记系列聚为一组，组内保持 catalog 原相对顺序
+    assert.deepEqual(list.slice(1, 4).map((g) => g.id),
+        ["伏魔记", "新伏魔记", "伏魔记 加秘籍"]);
+    // 三国霸业
+    assert.equal(list[4].id, "三国霸业");
+    // 魔塔系列
+    assert.deepEqual(list.slice(5, 7).map((g) => g.id), ["魔塔", "魔塔超级版"]);
+    // 其余游戏保持原序（含未命中的封魔录、屠魔）
+    assert.deepEqual(list.slice(7).map((g) => g.id), ["澳游", "封魔录", "屠魔"]);
 });
 
 test("decideLaunch：pending 优先", () => {
