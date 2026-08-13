@@ -949,6 +949,14 @@
     },
   }).then(function(mod) {
     Module = mod;
+    /* 暴露运行时调节：残影强度 setGhosting(0=关闭，最锐利) 与底色 setLcdBg(r,g,b)，
+       便于在 console 微调；默认值见 web_main.c 的 vars。 */
+    global.BBK4980Glue.setGhosting = function (n) {
+      if (Module && Module._web_set_lcd_ghosting) Module._web_set_lcd_ghosting((n | 0) & 0xff);
+    };
+    global.BBK4980Glue.setLcdBg = function (r, g, b) {
+      if (Module && Module._web_set_lcd_bg) Module._web_set_lcd_bg((r | 0) & 0xff, (g | 0) & 0xff, (b | 0) & 0xff);
+    };
     if (Module._web_init() !== 0) {
       fatalError('初始化失败', '缺少 8.BIN / E.BIN 固件文件，无法启动模拟器。');
       return;

@@ -113,7 +113,7 @@ static struct {
     uint16_t lcd_bg;
     uint16_t lcd_fg;
     uint8_t  lcd_ghosting;
-} vars = { 1.0, 1.0, 0xd6da, 0x0000, 10 };  /* lcd_ghosting=10：保留约 5 成残影（原 20 帧过渡 → 10 帧） */
+} vars = { 1.0, 1.0, 0x7C6D, 0x0000, 0 };  /* lcd_bg=0x7C6D 深灰绿底（替代偏淡的 0xd6da）；lcd_ghosting=0 关残影=锐利无拖影。均可经 web_set_lcd_bg / web_set_lcd_ghosting 运行时调 */
 
 static void s6502_push(uint8_t val)
 {
@@ -640,7 +640,7 @@ static void blend_frame(void)
     for (int i = 0; i < LCD_HEIGHT; i += 1) {
         for (int j = 0; j < LCD_WIDTH; j += 1) {
             int z = i * (LCD_WIDTH + 1) + j;
-            float a = (float)fa[z] / vars.lcd_ghosting;
+            float a = (float)fa[z] / (vars.lcd_ghosting - 1);
             uint8_t mix_r = 0x1f & (uint8_t)((1 - a) * bg_r + a * fg_r);
             uint8_t mix_g = 0x3f & (uint8_t)((1 - a) * bg_g + a * fg_g);
             uint8_t mix_b = 0x1f & (uint8_t)((1 - a) * bg_b + a * fg_b);
@@ -804,7 +804,7 @@ void web_run_frame(void)
     }
     pp8(65, 0, sys.ram[0x0ff3]);
 
-    if (vars.lcd_ghosting > 0)
+    if (vars.lcd_ghosting > 1)
         blend_frame();
 }
 
@@ -812,6 +812,23 @@ EMSCRIPTEN_KEEPALIVE
 void web_keydown(uint8_t key)
 {
     sys_keydown(key);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void web_set_lcd_ghosting(uint8_t v)
+{
+    vars.lcd_ghosting = v;
+    /* 切换残影强度时清空残影计数器，避免旧值超出新上限导致短暂过曝闪烁 */
+    memset(fa, 0, sizeof(fa));
+}
+
+EMSCRIPTEN_KEEPALIVE
+void web_set_lcd_bg(uint8_t r, uint8_t g, uint8_t b)
+{
+    /* RGB888 → RGB565：R[15:11] G[10:5] B[4:0] */
+    vars.lcd_bg = (uint16_t)(((uint16_t)(r >> 3) << 11) |
+                             ((uint16_t)(g >> 2) << 5)  |
+                             (uint16_t)(b >> 3));
 }
 
 EMSCRIPTEN_KEEPALIVE
