@@ -44472,6 +44472,17 @@ if (game.rom["GAME.ROM"]) {
               element.affect_qpjxya$(attacker);
             }
             this.animations.add_11rb$(attacker.diffToAnimation_6taknv$());
+            // diffToAnimation -> toAnimation renders only the HP delta; the MP
+            // delta (diff.mp) is computed but discarded. So an ornament that
+            // restores 真气 each turn (GoodsDecorations.affect adding mMp_0)
+            // actually recovers MP yet floats no "+N". Float the MP delta too.
+            // The MP setter clamps to maxMP, so mp - backup.mp is the *real*
+            // (clamped) gain: a full-MP character shows nothing, a near-full
+            // one shows only what was restored — same rule as 6ac171d.
+            var mpDelta = attacker.mp - attacker.backup_2mheeg$_0.mp | 0;
+            if (mpDelta !== 0) {
+              this.animations.add_11rb$(new RaiseAnimation(attacker.combatX, attacker.combatTop, mpDelta, 0));
+            }
           }
         }
         if (attacker.isPoisoned) {
