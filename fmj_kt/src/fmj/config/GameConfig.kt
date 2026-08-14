@@ -32,10 +32,11 @@ object GameConfig {
     
     /**
      * 生成存档位置数组（用于UI显示）
+     * 与 ROM 存档背景图的三个槽位行对齐：y = 28/51/74（行距 23）
      */
     fun getSaveSlotPositions(): Array<IntArray> {
-        val startY = 20
-        val itemHeight = 20
+        val startY = 28
+        val itemHeight = 23
         return Array(saveSlotCount) { index ->
             intArrayOf(68, startY + index * itemHeight)
         }
