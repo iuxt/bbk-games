@@ -202,62 +202,27 @@ class Combat private constructor(override val parent: GameNode) : BaseScreen, Co
         mScrb = scrb
         mScrl = scrl
         mScrR = scrr
-        
+
+        // 160×96 设备原生的三层战斗背景：scrb 整张背景画铺满 +
+        // scrl 左下角、scrr 右上角装饰层。上游 H5 改屏时改成单图拉伸
+        // 填充并把两个装饰层注释掉了，画面因此变单调。
         mBackground = Bitmap.createBitmap(Global.SCREEN_WIDTH, Global.SCREEN_HEIGHT)
         val canvas = Canvas(mBackground)
-        val currentGame = sysGetChoiceLibName().uppercase()
-        if (currentGame == "XJQXZSHYMYX") {
-            // 如果背景图片完全获取失败，使用纯色背景
-            canvas.drawColor(Global.COLOR_WHITE)
-            return
-        }
-
-        // 获取背景图片
-        val bgImgRes = DatLib.getRes(DatLib.ResType.PIC, 4, scrb, true)
-        val bgImg = if (bgImgRes is ResImage) bgImgRes else null
-
-        // 获取原始图片的 bitmap
-        val originalBitmap = bgImg?.getBitmap(0)
-        
-        if (originalBitmap != null) {
-            // 使用单张图片放大填充整个屏幕，避免多图拼接造成的不连续问题
-            // 这样在不同游戏中背景图案会保持连续性，提供更好的视觉体验
-            val scaledBitmap = scaleBitmap(originalBitmap, Global.SCREEN_WIDTH, Global.SCREEN_HEIGHT)
-            
-            // 绘制放大后的背景
-            canvas.drawBitmap(scaledBitmap, 0, 0)
-        } else if (bgImg != null) {
-            // 如果获取失败，使用原来的平铺方式作为后备方案
-            val tileW = bgImg.width
-            val tileH = bgImg.height
-
-            // 计算需要多少个完整的瓦片来覆盖屏幕
-            val tilesX = (Global.SCREEN_WIDTH) / (tileW + 1)  // 向上取整
-            val tilesY = (Global.SCREEN_HEIGHT) / tileH // 向上取整
-
-            for (tileY in 0 until tilesY) {
-                for (tileX in 0 until tilesX) {
-                    val x = tileX * tileW
-                    val y = tileY * tileH
-                    if (tileX > 0) {
-                        bgImg.draw(canvas, 1, x - 4, y)
-                    }
-                    else {
-                        bgImg.draw(canvas, 1, x + 4, y)
-                    }
-                }
-            }
+        val bg = DatLib.getRes(DatLib.ResType.PIC, 4, scrb, true) as? ResImage
+        if (bg != null) {
+            bg.draw(canvas, 1, 0, 0)
         } else {
-            // 如果背景图片完全获取失败，使用纯色背景
-            canvas.drawColor(Global.COLOR_BLACK)
-            println("Warning: Failed to load background image for combat, using black background")
+            canvas.drawColor(Global.COLOR_WHITE)
+            println("Warning: Failed to load combat background PIC 4/$scrb")
         }
-
-        // var img: ResImage? 
-        // img = DatLib.getRes(DatLib.ResType.PIC, 4, scrl) as ResImage
-        // img.draw(canvas, 1, 0, 192 - img.height) // 左下角
-        // img = DatLib.getRes(DatLib.ResType.PIC, 4, scrr) as ResImage
-        // img.draw(canvas, 1, 320 - img.width, 0) // 右上角
+        val bl = DatLib.getRes(DatLib.ResType.PIC, 4, scrl, true) as? ResImage
+        if (bl != null) {
+            bl.draw(canvas, 1, 0, Global.SCREEN_HEIGHT - bl.height) // 左下角
+        }
+        val tr = DatLib.getRes(DatLib.ResType.PIC, 4, scrr, true) as? ResImage
+        if (tr != null) {
+            tr.draw(canvas, 1, Global.SCREEN_WIDTH - tr.width, 0) // 右上角
+        }
     }
 
     private fun prepareForNewCombat() {
