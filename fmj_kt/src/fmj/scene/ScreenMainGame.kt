@@ -276,65 +276,6 @@ class ScreenMainGame(
             player!!.drawWalkingSprite(canvas, mMapScreenPos)
         }
         Util.drawSideFrame(canvas)
-        
-        // 在左上角显示地图名称和玩家坐标
-        drawMapInfo(canvas)
-    }
-    
-    /**
-     * 绘制地图信息和玩家坐标
-     */
-    private fun drawMapInfo(canvas: Canvas) {
-        if (player == null) return
-        
-        // 检查坐标显示开关 - 同时控制地图名称和坐标
-        if (!GameSettings.showCoordinates) return
-        
-        // 保存当前颜色设置
-        val oldFg = Global.fgColor
-        val oldBg = Global.bgColor
-        
-        try {
-            // 设置显示颜色（半透明效果 - 灰色文字）
-            Global.bgColor = Global.COLOR_WHITE  // 使用白色背景（透明效果）
-            Global.fgColor = Global.COLOR_BLACK  // 使用黑色文字（系统只支持黑白）
-            
-            // 获取地图名称 - 按优先级获取
-            val mapName = when {
-                SaveLoadGame.SceneName.isNotEmpty() -> SaveLoadGame.SceneName
-                sceneName.isNotEmpty() -> sceneName
-                currentMap?.mapName?.isNotEmpty() == true -> currentMap!!.mapName!!
-                else -> "Map"
-            }
-            
-            // 获取玩家坐标
-            val px = player!!.posInMap.x
-            val py = player!!.posInMap.y
-            
-            // 绘制地图名称（左上角，非常贴边）
-            try {
-                TextRender.drawText(canvas, mapName, 2, 2)
-            } catch (e: Exception) {
-                try {
-                    TextRender.drawText(canvas, "Map", 2, 2)
-                } catch (ex: Exception) {
-                    // 忽略错误
-                }
-            }
-            
-            // 绘制坐标（紧凑格式，在地图名称下方）
-            val coordText = "$px,$py"
-            try {
-                TextRender.drawText(canvas, coordText, 2, 18)  // 减小行间距
-            } catch (e: Exception) {
-                // 忽略坐标显示错误
-            }
-            
-        } finally {
-            // 恢复原始颜色设置
-            Global.fgColor = oldFg
-            Global.bgColor = oldBg
-        }
     }
 
     override fun onKeyDown(key: Int) {

@@ -74,18 +74,10 @@ object Util {
         bmpChuandai.setPixels(pixels, 0, 0, 0, 22, 39)
     }
 
-    // 用于showscenename
+    // 用于showscenename（160×96 设备原生布局）
     fun showInformation(canvas: Canvas, msg: String) {
-        // 居中显示在320x192的屏幕上
-        val boxWidth = 240
-        val boxX = (Global.SCREEN_WIDTH - boxWidth) / 2  // (320 - 240) / 2 = 40
-        val boxY = (Global.SCREEN_HEIGHT - 23) / 2  // 单行消息框高度为23
-        
-        canvas.drawBitmap(bmpInformationBg[0], boxX, boxY)
-        // 文字居中在框内
-        val textWidth = msg.gbkBytes().size * 8  // 估算文字宽度
-        val textX = boxX + (boxWidth - textWidth) / 2
-        TextRender.drawText(canvas, msg, textX, boxY + 2)
+        canvas.drawBitmap(bmpInformationBg[0], 11, 37)
+        TextRender.drawText(canvas, msg, 16, 39)
     }
 
     // 显示message,每行最多显示8个汉字，最多可显示5行
@@ -93,29 +85,14 @@ object Util {
         showMessage(canvas, msg.gbkBytes())
     }
 
-    // 显示message,适配320x192屏幕，每行最多显示14个汉字，最多可显示5行
+    // 显示message（160×96 设备原生布局；上游 H5 改屏时曾按 320×192
+    // 重排：240 宽的框在 160 屏幕上算出 -40 的起点，消息文字被画出屏幕）
     fun showMessage(canvas: Canvas, msg: ByteArray) {
-        // 每个汉字16像素宽，240像素可以显示15个汉字，留出边距显示14个
-        val charsPerLine = 28  // 14个汉字 = 28字节
-        var lineNum = msg.size / charsPerLine
-        if (msg.size % charsPerLine != 0) lineNum++
+        var lineNum = msg.size / 16
         if (lineNum >= 5) lineNum = 4
-        
-        // 居中显示在320x192的屏幕上
-        // 消息框宽度为240像素 (背景框)
-        val boxWidth = 240
-        val boxX = (Global.SCREEN_WIDTH - boxWidth) / 2  // (320 - 240) / 2 = 40
-        
-        // 垂直居中，考虑行数
-        val boxHeight = lineNum * 16 + 20  // 每行16像素高，加上边框
-        val boxY = (Global.SCREEN_HEIGHT - boxHeight) / 2  // 垂直居中
-        val textY = boxY + 2  // 文字相对于框的偏移
-        
-        canvas.drawBitmap(bmpInformationBg[lineNum], boxX, boxY - 2)
-        // 文字区域宽度: 14个汉字 * 16像素 = 224像素，居中在240宽的框内
-        val textWidth = 224
-        val textX = boxX + (boxWidth - textWidth) / 2  // 文字在框内居中
-        TextRender.drawText(canvas, msg, 0, Rect(textX, textY, textX + textWidth, textY + 16 * lineNum + 16))
+        val textY = 39 - lineNum * 8
+        canvas.drawBitmap(bmpInformationBg[lineNum], 11, textY - 2)
+        TextRender.drawText(canvas, msg, 0, Rect(16, textY, 144, textY + 16 * lineNum + 16))
     }
 
     fun drawSideFrame(canvas: Canvas) {
