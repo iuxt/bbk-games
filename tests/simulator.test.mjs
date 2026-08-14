@@ -170,14 +170,14 @@ test("magic screen shows the MP cost of the selected spell", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
     const loader = readFileSync(new URL("../rpg/app.js", import.meta.url), "utf8");
 
-    // The Kotlin source (ScreenMagic.draw) binds the currently selected spell
-    // into `val hlMagic = magics[mCurItemIndex]` and renders its cost as
-    // "耗真气:<costMp>" (the GBK string literal compiles to \u escapes). The
-    // binding proves the shown cost belongs to the selected spell, not a
-    // stale list entry.
+    // The Kotlin source (ScreenMagic.draw) renders the cost of the spell at
+    // mCurItemIndex as "耗真气:<costMp>" (the GBK literal compiles to \u
+    // escapes) at the fixed 耗真气 position (mTextPos). Indexing the cost
+    // draw by mCurItemIndex proves the shown cost belongs to the selected
+    // spell, not a stale list entry.
     assert.match(
         source,
-        /var hlMagic = this\.magics_0\[this\.mCurItemIndex_0\];\s*TextRender_getInstance\(\)\.drawText_kkuqvh\$\(canvas, '\\u8017\\u771F\\u6C14:' \+ toString\(hlMagic\.costMp\)/
+        /drawText_kkuqvh\$\(canvas, '\\u8017\\u771F\\u6C14:' \+ toString\(this\.magics_0\[this\.mCurItemIndex_0\]\.costMp\), this\.mTextPos_0\.x, this\.mTextPos_0\.y\)/
     );
     // The loader must reference core.js through a cache-busting version
     // parameter (currently v=22) — a bare unversioned reference is rejected.

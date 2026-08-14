@@ -14,12 +14,14 @@ import java.sysGetChoiceLibName
 
 /** 游戏设置菜单屏幕 */
 class ScreenGameSettings(override val parent: GameNode) : BaseScreen {
-    private val frameWidth = 240
-    private val frameHeight = 160
+    // 上游按 320×192 设计（240×160 框），收敛到 160×96 设备屏内：
+    // 宽 160 全幅（最长项 "查找键（功能键1）" 达 136px），高 94 留 1px 上下边
+    private val frameWidth = 160
+    private val frameHeight = 94
     private val bmpFrame = Util.getFrameBitmap(frameWidth, frameHeight)
-    // 居中显示在320x192的屏幕上
-    private val frameX = (320 - frameWidth) / 2
-    private val frameY = (192 - frameHeight) / 2
+    // 居中显示在 160×96 屏幕上
+    private val frameX = (Global.SCREEN_WIDTH - frameWidth) / 2
+    private val frameY = (Global.SCREEN_HEIGHT - frameHeight) / 2
     private val frameRect = Rect(frameX, frameY, frameX + frameWidth, frameY + frameHeight)
 
     // 动态菜单项列表
@@ -79,10 +81,9 @@ class ScreenGameSettings(override val parent: GameNode) : BaseScreen {
     private var scrollOffset = 0 // 滚动偏移量
 
     // 可见菜单项数量（根据框架高度计算）
-    // frameHeight = 160, 标题占用 28px, 每个菜单项 16px
-    // 可用高度 = 160 - 28 - 8(底部边距) = 124px
-    // 可见项数 = 124 / 16 = 7 项（向下取整保留完整显示）
-    private val visibleItemCount = 7
+    // frameHeight = 94, 标题占用 28px, 每个菜单项 16px
+    // 最后一行底部 = top + 28 + 4*16 = 92，恰在框内（底边框 93）
+    private val visibleItemCount = 4
 
     override val isPopup: Boolean
         get() = true
@@ -136,7 +137,8 @@ class ScreenGameSettings(override val parent: GameNode) : BaseScreen {
             }
         }
 
-        // 绘制滚动指示器
+        // 绘制滚动指示器（160×96 下箭头画在右侧空白列：菜单文字最宽 144px，
+        // 指示列在 right-12=148px 处，不会与文字重叠）
         if (menuItems.size > visibleItemCount) {
             val indicatorX = frameRect.right - 12
             val indicatorStartY = frameRect.top + 28
@@ -147,9 +149,9 @@ class ScreenGameSettings(override val parent: GameNode) : BaseScreen {
                 TextRender.drawText(canvas, "↑", indicatorX, indicatorStartY - 4)
             }
 
-            // 显示下箭头（如果不在底部）
+            // 显示下箭头（如果不在底部）：与最后一行右对齐画，避免越出 96px 屏底
             if (scrollOffset + visibleItemCount < menuItems.size) {
-                TextRender.drawText(canvas, "↓", indicatorX, indicatorStartY + indicatorHeight + 4)
+                TextRender.drawText(canvas, "↓", indicatorX, indicatorStartY + indicatorHeight - 16)
             }
         }
     }

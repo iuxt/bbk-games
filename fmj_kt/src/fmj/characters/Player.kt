@@ -437,60 +437,32 @@ class Player : FightingCharacter(), Coder {
     }
 
     fun drawState(canvas: Canvas, page: Int) {
-        // 只在第一次查看状态时打印Player对应的最大可以升级的数量
-        if (!hasLoggedStateInfo) {
-            println("[PlayerInfo] ${this.name} 最大升级数量: ${levelupChain.maxLevel}级")
-            hasLoggedStateInfo = true
-        }
-        
-        // 统一展示所有属性和魔法信息
-        val startY = 4
-        val lineHeight = 19
-        var y = startY
-        canvas.drawLine(37, y - 4, 37, y - 4 + lineHeight * 10, Util.sBlackPaint)
-        TextRender.drawText(canvas, "等级   $level", 41, y)
-        y += lineHeight
-        TextRender.drawText(canvas, "生命   $hp/$maxHP", 41, y)
-        y += lineHeight
-        TextRender.drawText(canvas, "真气   $mp/$maxMP", 41, y)
-        y += lineHeight
-        TextRender.drawText(canvas, "攻击力 $attack", 41, y)
-        y += lineHeight
-        TextRender.drawText(canvas, "防御力 $defend", 41, y)
-        y += lineHeight
-        TextRender.drawText(canvas, "身法   $speed", 41, y)
-        y += lineHeight
-        TextRender.drawText(canvas, "灵力   $lingli", 41, y)
-        y += lineHeight
-        TextRender.drawText(canvas, "幸运   $luck", 41, y)
-        y += lineHeight
-        // 经验值
-        TextRender.drawText(canvas, "经验值", 41, y)
-        val w = Util.drawSmallNum(canvas, currentExp, 97, y)
-        TextRender.drawText(canvas, "/", 97 + w + 2, y)
-        Util.drawSmallNum(canvas, levelupChain.getNextLevelExp(level), 97 + w + 9, y + 6)
-        y += lineHeight
-        // 免疫
-        val sb = StringBuilder("免疫   ")
-        val tmp = StringBuilder()
-        if (hasBuff(FightingCharacter.BUFF_MASK_DU)) tmp.append('毒')
-        if (hasBuff(FightingCharacter.BUFF_MASK_LUAN)) tmp.append('乱')
-        if (hasBuff(FightingCharacter.BUFF_MASK_FENG)) tmp.append('封')
-        if (hasBuff(FightingCharacter.BUFF_MASK_MIAN)) tmp.append('眠')
-        if (tmp.isNotEmpty()) sb.append(tmp) else sb.append('无')
-        TextRender.drawText(canvas, sb.toString(), 41, y)
-        y += lineHeight
-        // 魔法信息
-        TextRender.drawText(canvas, "已学魔法:", 41, y)
-        val magicList = if (magicChain != null) magicChain!!.getAllLearntMagics() else privateLearntMagics
-        val maxDisplay = minOf(4, magicList.size)
-        for (i in 0 until maxDisplay) {
-            val magic = magicList.elementAt(i)
-            val magicText = try { magic.magicName } catch (e: Exception) { "未知" }
-            TextRender.drawText(canvas, "${i + 1}. $magicText", 41, y + lineHeight * (i + 1))
-        }
-        if (magicList.size > 4) {
-            TextRender.drawText(canvas, "... 还有${magicList.size - 4}个", 41, y + lineHeight * (maxDisplay + 1))
+        // 160×96 设备原生的两页属性面板（上游 H5 改屏时重设计成单页
+        // 10+ 行、行距 19，内容画到 y=194 超出屏幕；PAGEUP/PAGEDOWN
+        // 翻页由各界面处理）。
+        canvas.drawLine(37, 10, 37, 87, Util.sBlackPaint)
+        if (page == 0) {
+            TextRender.drawText(canvas, "等级   $level", 41, 4)
+            TextRender.drawText(canvas, "生命   $hp/$maxHP", 41, 23)
+            TextRender.drawText(canvas, "真气   $mp/$maxMP", 41, 41)
+            TextRender.drawText(canvas, "攻击力 $attack", 41, 59)
+            TextRender.drawText(canvas, "防御力 $defend", 41, 77)
+        } else if (page == 1) {
+            TextRender.drawText(canvas, "经验值", 41, 4)
+            val w = Util.drawSmallNum(canvas, currentExp, 97, 4)
+            TextRender.drawText(canvas, "/", 97 + w + 2, 4)
+            Util.drawSmallNum(canvas, levelupChain.getNextLevelExp(level), 97 + w + 9, 10)
+            TextRender.drawText(canvas, "身法   $speed", 41, 23)
+            TextRender.drawText(canvas, "灵力   $lingli", 41, 41)
+            TextRender.drawText(canvas, "幸运   $luck", 41, 59)
+            val sb = StringBuilder("免疫   ")
+            val tmp = StringBuilder()
+            if (hasBuff(FightingCharacter.BUFF_MASK_DU)) tmp.append('毒')
+            if (hasBuff(FightingCharacter.BUFF_MASK_LUAN)) tmp.append('乱')
+            if (hasBuff(FightingCharacter.BUFF_MASK_FENG)) tmp.append('封')
+            if (hasBuff(FightingCharacter.BUFF_MASK_MIAN)) tmp.append('眠')
+            if (tmp.isNotEmpty()) sb.append(tmp) else sb.append('无')
+            TextRender.drawText(canvas, sb.toString(), 41, 77)
         }
     }
 

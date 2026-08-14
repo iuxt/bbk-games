@@ -34,7 +34,6 @@ import graphics.Rect
 
 import java.System
 import java.gbkBytes
-import fmj.combat.Combat
 
 class CombatUI(override val parent: GameNode,
                private val mCallBack: CallBack?,
@@ -201,9 +200,9 @@ class CombatUI(override val parent: GameNode,
                 mHeadsImg[headIndex].draw(canvas, 1, 50 + centerOffsetX, 63 + centerOffsetY) // 角色头像
             }
             Util.drawSmallNum(canvas, p.hp, 79 + centerOffsetX, 72 + centerOffsetY) // hp
-            Util.drawSmallNum(canvas, p.maxHP, 108 + centerOffsetX, 72 + centerOffsetY) // maxhp
+            Util.drawSmallNum(canvas, p.maxHP, 104 + centerOffsetX, 72 + centerOffsetY) // maxhp 还原老实现 104（上游 320 宽时误扩到 108）
             Util.drawSmallNum(canvas, p.mp, 79 + centerOffsetX, 83 + centerOffsetY) // mp
-            Util.drawSmallNum(canvas, p.maxMP, 108 + centerOffsetX, 83 + centerOffsetY) // maxmp
+            Util.drawSmallNum(canvas, p.maxMP, 104 + centerOffsetX, 83 + centerOffsetY) // maxmp 同上还原 104
             if (mCurPlayerIndex < sPlayerIndicatorPos.size) {
                 mPlayerIndicator.draw(canvas, sPlayerIndicatorPos[mCurPlayerIndex].x, sPlayerIndicatorPos[mCurPlayerIndex].y)
             }
@@ -376,6 +375,9 @@ class CombatUI(override val parent: GameNode,
 
         private var mCurSel: Int = 0
 
+        /** 显示角色HP MP的背景图（选择玩家目标时绘制目标信息面板用） */
+        private val mPlayerInfoBg = loadSafeResImage(2, 2)
+
         init {
             if (mIgnoreDead) {
                 // 如果需要忽略阵亡角色，找第一个存活的
@@ -399,7 +401,21 @@ class CombatUI(override val parent: GameNode,
 
         override fun draw(canvas: Canvas) {
             mIndicator.draw(canvas, mIndicatorPos[mCurSel].x, mIndicatorPos[mCurSel].y)
-            // 移除重复的玩家信息绘制，因为MainMenu已经在绘制这些信息了
+            // 还原老实现（old-core.js 45513-45521）：选择玩家目标（目标指示器）时，
+            // 用"当前选中目标"的信息面板覆盖 MainMenu 下面"当前行动角色"的面板，
+            // 方便浏览目标的 HP/MP。坐标均为 160×96 老值，仅绘制、不含逻辑。
+            if (mIndicator === this@CombatUI.mTargetIndicator && mCurSel < this@CombatUI.mPlayerList.size) {
+                val p = this@CombatUI.mPlayerList[mCurSel]
+                mPlayerInfoBg.draw(canvas, 1, 49, 66)
+                val headIndex = p.index - 1
+                if (headIndex >= 0 && headIndex < this@CombatUI.mHeadsImg.size) {
+                    this@CombatUI.mHeadsImg[headIndex].draw(canvas, 1, 50, 63) // 目标头像
+                }
+                Util.drawSmallNum(canvas, p.hp, 79, 72) // hp
+                Util.drawSmallNum(canvas, p.maxHP, 104, 72) // maxhp
+                Util.drawSmallNum(canvas, p.mp, 79, 83) // mp
+                Util.drawSmallNum(canvas, p.maxMP, 104, 83) // maxmp
+            }
         }
 
         private fun selectNextTarget() {
@@ -787,10 +803,16 @@ class CombatUI(override val parent: GameNode,
     }
 
     companion object {
-        // 指示器位置直接引用角色实际坐标，保证光标和角色对齐
-        private val sPlayerIndicatorPos: Array<Point>
-            get() = Combat.sPlayerPos
-        private val sMonsterIndicatorPos: Array<Point>
-            get() = Monster.arr.map { Point(it[0], it[1]) }.toTypedArray()
+        // 还原老实现（old-core.js 45975-45976）160×96 原生指示器坐标。
+        // 指示器画在角色头顶上方，与角色槽位中心坐标（Combat.sPlayerPos/Monster.arr）
+        // 是两套独立常量，不能互相推导，否则光标会画到角色身体中央。
+        private val sPlayerIndicatorPos = arrayOf(
+                Point(69, 45),
+                Point(101, 41),
+                Point(133, 33))
+        private val sMonsterIndicatorPos = arrayOf(
+                Point(16, 14),
+                Point(48, 3),
+                Point(86, 0))
     }
 }

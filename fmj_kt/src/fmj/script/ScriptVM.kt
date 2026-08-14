@@ -308,6 +308,10 @@ class ScriptVM(override val parent: GameNode): Control {
                             paint.style = Paint.Style.STROKE
                             paint.strokeWidth = 1
                             canvas.drawRect(rWithPic, paint)
+                            // 老实现的头像区斜线与横线分隔（old-core 53530-53531，
+                            // 上游重排 320×192 时被丢弃）
+                            canvas.drawLine(38, 50, 44, 56, paint)
+                            canvas.drawLine(43.5f, 56f, 151f, 56f, paint)
                             // 计算居中偏移量
                             val centerOffsetX = 0
                             val centerOffsetY = (Global.SCREEN_HEIGHT - 96) / 2
@@ -1555,7 +1559,9 @@ class ScriptVM(override val parent: GameNode): Control {
 
                     override fun draw(canvas: Canvas) {
                         canvas.drawColor(Global.COLOR_WHITE)
-                        val e = TextRender.drawText(canvas, text, rect, curY, true)
+                        // 老实现调用不含 partialBottom 的重载：
+                        // 文字行只在完整位于底图之上时才绘制
+                        val e = TextRender.drawText(canvas, text, rect, curY)
                         if (e != 1 && e != 2) {
                             goon = false
                         }

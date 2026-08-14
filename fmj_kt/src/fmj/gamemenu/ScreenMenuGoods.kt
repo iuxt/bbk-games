@@ -179,7 +179,9 @@ class ScreenMenuGoods(override val parent: GameNode): BaseScreen, OnItemSelected
     private fun discardSelected(goods: BaseGoods) {
         pushScreen(object : BaseScreen {
             override val parent = this@ScreenMenuGoods
-            private val confirmBmp = Util.getFrameBitmap(16 * 8, 16 * 4)
+            // 上游新增界面（无老参考）：收敛到 160×96 屏内，144 宽框居中，
+            // 底边 16+64=80 < 96，两个选项各 4 汉字（64px）均在线框内
+            private val confirmBmp = Util.getFrameBitmap(16 * 9, 16 * 4)
             private var curSel = 0
 
             override val isPopup: Boolean
@@ -188,15 +190,15 @@ class ScreenMenuGoods(override val parent: GameNode): BaseScreen, OnItemSelected
             override fun update(delta: Long) {}
 
             override fun draw(canvas: Canvas) {
-                canvas.drawBitmap(confirmBmp, 25, 35)
-                TextRender.drawText(canvas, "确认丢弃?", 28, 38)
-                TextRender.drawText(canvas, "数量:${goods.goodsNum}", 28, 54)
+                canvas.drawBitmap(confirmBmp, 8, 16)
+                TextRender.drawText(canvas, "确认丢弃?", 11, 19)
+                TextRender.drawText(canvas, "数量:${goods.goodsNum}", 11, 35)
                 if (curSel == 0) {
-                    TextRender.drawSelText(canvas, "全部丢弃", 28, 70)
-                    TextRender.drawText(canvas, "丢弃1个", 95, 70)
+                    TextRender.drawSelText(canvas, "全部丢弃", 11, 51)
+                    TextRender.drawText(canvas, "丢弃1个", 78, 51)
                 } else {
-                    TextRender.drawText(canvas, "全部丢弃", 28, 70)
-                    TextRender.drawSelText(canvas, "丢弃1个", 95, 70)
+                    TextRender.drawText(canvas, "全部丢弃", 11, 51)
+                    TextRender.drawSelText(canvas, "丢弃1个", 78, 51)
                 }
             }
 

@@ -57,10 +57,11 @@ class ScreenMagic(override val parent: GameNode,
     private val mBmpMarker = Bitmap.createBitmap(5, 8)
     private val mBmpMarker2 = Bitmap.createBitmap(5, 8)
 
-    // 适配大屏幕，扩大区域
-    private val mRectTop = Rect(10, 10, 300, 10 + 20 * ITEM_NUM)
-    private val mRectDsp = Rect(12, 24 + 20 * ITEM_NUM, 298, 160)
-    private val mTextPos = Point(10, 165)
+    // 160×96 设备原生布局（上游 H5 改屏时曾按 320×192 大屏重排并丢掉右侧箭头标记）
+    private val mRectTop = Rect(10, 4, 147, 39)   // 法术列表区
+    private val mRectBtm = Rect(10, 41, 147, 76)  // 描述区边框
+    private val mRectDsp = Rect(11, 42, 146, 75)  // 描述文字区
+    private val mTextPos = Point(10, 77)          // "耗真气"提示位置
     private val mFramePaint = Paint()
     private var description = PageText(this.magics[mCurItemIndex].magicDescription, mRectDsp)
 
@@ -108,25 +109,27 @@ class ScreenMagic(override val parent: GameNode,
 
     override fun draw(canvas: Canvas) {
         canvas.drawColor(Global.COLOR_WHITE)
-        // 列表区域
-        val showCount = minOf(ITEM_NUM, magics.size - mFirstItemIndex)
-        for (i in 0 until showCount) {
-            val idx = mFirstItemIndex + i
-            val y = mRectTop.top + 4 + i * 20
-            TextRender.drawText(canvas, magics[idx].magicName, mRectTop.left + 20, y)
-            // 高亮当前项
-            if (idx == mCurItemIndex) {
-                canvas.drawBitmap(mBmpCursor, mRectTop.left + 4, y + 2)
-            }
+        // 160×96 原生绘制：一屏两条法术，右侧箭头标记指示列表位置（old-core 49646-49662）
+        val hlMagic = magics[mFirstItemIndex]
+        TextRender.drawText(canvas, hlMagic.magicName, mRectTop.left + 1, mRectTop.top + 1)
+        if (mFirstItemIndex + 1 < magics.size) {
+            TextRender.drawText(canvas, magics[mFirstItemIndex + 1].magicName,
+                    mRectTop.left + 1, mRectTop.top + 1 + 16)
         }
         // 描述区域
         description.draw(canvas)
         // 消耗
-        val hlMagic = magics[mCurItemIndex]
-        TextRender.drawText(canvas, "耗真气:" + hlMagic.costMp, mTextPos.x, mTextPos.y)
-        // 边框
+        TextRender.drawText(canvas, "耗真气:" + magics[mCurItemIndex].costMp, mTextPos.x, mTextPos.y)
+        // 光标在条目行尾，指向当前选中项（第二条时下移 16 像素）
+        canvas.drawBitmap(mBmpCursor, 100, if (mFirstItemIndex == mCurItemIndex) 10 else 26)
+        // 右侧一列箭头标记：上方是否还有法术 / 当前列表位置 / 下方是否还有
+        canvas.drawBitmap(if (mFirstItemIndex == 0) mBmpMarker else mBmpMarker2, 135, 6)
+        canvas.drawBitmap(mBmpMarker, 135, 14)
+        canvas.drawBitmap(mBmpMarker, 135, 22)
+        canvas.drawBitmap(if (mFirstItemIndex + 2 < magics.size) mBmpMarker2 else mBmpMarker, 135, 30)
+        // 边框（列表区 + 描述区外框）
         canvas.drawRect(mRectTop, mFramePaint)
-        canvas.drawRect(mRectDsp, mFramePaint)
+        canvas.drawRect(mRectBtm, mFramePaint)
     }
 
     override fun onKeyDown(key: Int) {
@@ -163,7 +166,7 @@ class ScreenMagic(override val parent: GameNode,
 
     companion object {
 
-        private val ITEM_NUM = 5 // 320x192大屏显示5条
+        private val ITEM_NUM = 2 // 160×96 原生一屏显示 2 条（320 大屏版曾改为 5）
     }
 
 }

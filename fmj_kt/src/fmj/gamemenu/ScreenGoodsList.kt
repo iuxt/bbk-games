@@ -45,7 +45,8 @@ class ScreenGoodsList(
 
     private fun resetDescription() {
         description = if (goodsList.isNotEmpty()) {
-            "说明:${goodsList[curItemIndex].description}".gbkBytes()
+            // 老实现直接显示描述原文，无 "说明:" 前缀（160×96 下前缀会挤占两行描述区）
+            goodsList[curItemIndex].description.gbkBytes()
         } else {
             "".gbkBytes()
         }
@@ -79,30 +80,26 @@ class ScreenGoodsList(
     }
 
     override fun draw(canvas: Canvas) {
-        // 320x192大屏适配，充分利用屏幕空间
-        canvas.drawBitmap(bgImage, 10, 10)
+        // 还原 160×96 老布局：底图全屏，左侧 4 行物品列表（行距 23），右侧信息/描述
+        canvas.drawBitmap(bgImage, 0, 0)
         if (goodsList.isEmpty()) return
 
         while (curItemIndex >= goodsList.size) showPreItem()
 
         val g = goodsList[curItemIndex]
 
-        // 右侧显示物品详细信息，确保在线框内
-        TextRender.drawText(canvas, if (mode == Mode.Buy) "金钱:" + Player.sMoney else "数量:" + g.goodsNum, 85, 20)
-        TextRender.drawText(canvas, "名称:${g.name}", 85, 38)
-        TextRender.drawText(canvas, "价格:" + if (mode == Mode.Buy) g.buyPrice else g.sellPrice, 85, 55)
-        
-        // 光标位置调整，在左侧物品列表区域内
-        Util.drawTriangleCursor(canvas, 20, 25 + 30 * (curItemIndex - firstDisplayItemIndex))
+        TextRender.drawText(canvas, if (mode == Mode.Buy) "金钱:" + Player.sMoney else "数量:" + g.goodsNum, 60, 2)
+        TextRender.drawText(canvas, g.name, 69, 23)
+        TextRender.drawText(canvas, "" + if (mode == Mode.Buy) g.buyPrice else g.sellPrice, 69, 40)
 
-        // 物品列表显示在左侧框内，调整间距
+        Util.drawTriangleCursor(canvas, 4, 8 + 23 * (curItemIndex - firstDisplayItemIndex))
+
         var i = firstDisplayItemIndex
         while (i < firstDisplayItemIndex + itemNumberPerPage && i < goodsList.size) {
-            goodsList[i].draw(canvas, 40, 25 + 30 * (i - firstDisplayItemIndex))
+            goodsList[i].draw(canvas, 14, 2 + 23 * (i - firstDisplayItemIndex))
             i++
         }
 
-        // 描述区域在右下方框内
         nextToDraw = TextRender.drawText(canvas, description, toDraw, displayRect)
     }
 
@@ -151,28 +148,27 @@ class ScreenGoodsList(
 
     companion object {
 
+        // 还原 160×96 老实现的底图：全屏 160×96 线框（左侧物品栏 + 右侧名/价/描述栏）
         private val bgImage by lazy {
-            val bmp = Bitmap.createBitmap(300, 172)
+            val bmp = Bitmap.createBitmap(160, 96)
+            // 老实现的线段表；两端超界的 160/96 端点（JS 版越界写不生效）收敛到 159/95
+            val pts = floatArrayOf(
+                40f, 21f, 40f, 95f, 40f, 95f, 0f, 95f, 0f, 95f, 0f, 5f, 0f, 5f, 5f, 0f,
+                5f, 0f, 39f, 0f, 39f, 0f, 58f, 19f, 38f, 0f, 57f, 19f, 57f, 19f, 140f, 19f,
+                41f, 20f, 140f, 20f, 41f, 21f, 159f, 21f, 54f, 0f, 140f, 0f, 40f, 95f, 159f, 95f,
+                40f, 57f, 159f, 57f, 40f, 58f, 140f, 58f, 40f, 59f, 159f, 59f, 41f, 20f, 41f, 95f,
+                42f, 20f, 42f, 95f, 159f, 21f, 159f, 57f, 159f, 59f, 159f, 95f)
             val c = Canvas(bmp)
             c.drawColor(Global.COLOR_WHITE)
-            
-            // 绘制外边框
-            c.drawRect(0, 0, 299, 172, Util.sBlackPaint)
-            
-            // 左侧物品列表区域框线
-            c.drawRect(5, 5, 65, 165, Util.sBlackPaint)
-            
-            // 右侧信息区域框线  
-            c.drawRect(70, 5, 294, 65, Util.sBlackPaint)
-            
-            // 下方描述区域框线 - 扩大高度
-            c.drawRect(70, 70, 294, 165, Util.sBlackPaint)
-            
+            c.drawLines(pts, Util.sBlackPaint)
+            TextRender.drawText(c, "名:", 45, 23)
+            TextRender.drawText(c, "价:", 45, 40)
             bmp
         }
 
-        private val displayRect = Rect(85, 85, 295, 175)
+        // 描述区域（160×96 老值）
+        private val displayRect = Rect(44, 61, 156, 94)
 
-        private val itemNumberPerPage = 5 // 界面上显示的条目数
+        private val itemNumberPerPage = 4 // 界面上显示的条目数（老值 4，行距 23）
     }
 }

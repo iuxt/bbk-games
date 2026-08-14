@@ -75,15 +75,14 @@ object TextRender {
         // 比r.top高的不画
         while (tmpY <= r.top - 16 && i < buf.size) {
             var tmpX = r.left
-            while (tmpX <= r.right-16 && i < buf.size) {
+            // 老实现按字符实际宽度换行：半角字符只要完整放下就排入本行
+            // （上游曾统一要求 16px 余量，导致半角字符提前折行）
+            while (i < buf.size) {
                 val t = buf[i].toInt() and 0xFF
-                if (t >= 0xa1) {
-                    i += 2
-                    tmpX += 16
-                } else {
-                    ++i
-                    tmpX += 8
-                }
+                val cw = if (t >= 0xa1) 16 else 8
+                if (tmpX + cw > r.right) break
+                if (t >= 0xa1) i += 2 else ++i
+                tmpX += cw
             }
             tmpY += 16
         }
@@ -100,20 +99,20 @@ object TextRender {
         // 比r.bottom低的不画
         while (tmpY <= bottom && i < buf.size) {
             var tmpX = r.left
-            while (tmpX <= r.right-16 && i < buf.size) {
+            // 老实现按字符实际宽度换行（同上）
+            while (i < buf.size) {
                 val t = buf[i].toInt() and 0xFF
+                val cw = if (t >= 0xa1) 16 else 8
+                if (tmpX + cw > r.right) break
                 if (t >= 0xa1) {
                     ++i
                     val offset = (94 * (t - 0xa1) + (buf[i].toInt() and 0xFF) - 0xa1) * 32
                     canvas.drawBitmap(getHzk(offset), tmpX, tmpY)
-                    tmpX += 16
                 } else if (t < 128) {
                     val offset = t * 16
                     canvas.drawBitmap(getAsc(offset), tmpX, tmpY)
-                    tmpX += 8
-                } else {
-                    tmpX += 8
                 }
+                tmpX += cw
                 ++i
             }
             tmpY += 16
@@ -172,20 +171,20 @@ object TextRender {
         // 比r.bottom低的不画
         while (y <= r.bottom - 16 && i < buf.size) {
             var x = r.left
-            while (x <= r.right - 16 && i < buf.size) {
+            // 老实现按字符实际宽度换行（同上）
+            while (i < buf.size) {
                 val t = buf[i].toInt() and 0xFF
+                val cw = if (t >= 0xa1) 16 else 8
+                if (x + cw > r.right) break
                 if (t >= 0xa1) {
                     ++i
                     val offset = (94 * (t - 0xa1) + (buf[i].toInt() and 0xFF) - 0xa1) * 32
                     canvas.drawBitmap(getHzk(offset), x, y)
-                    x += 16
                 } else if (t < 128) {
                     val offset = t * 16
                     canvas.drawBitmap(getAsc(offset), x, y)
-                    x += 8
-                } else {
-                    x += 8
                 }
+                x += cw
                 ++i
             }
             y += 16

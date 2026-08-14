@@ -37,12 +37,14 @@ object Util {
         paint.style = Style.FILL_AND_STROKE
 
         var ind = 0
+        // 160×96 原生尺寸：框宽 138、内框右边 135、右上角标签 136..138
+        // （上游 H5 改屏时曾放大到 240 宽，在 160 屏上画出界）
         bmpInformationBg = Array(5) {
-            val bmp = Bitmap.createBitmap(240, 23 + 16 * ind)
+            val bmp = Bitmap.createBitmap(138, 23 + 16 * ind)
             canvas.setBitmap(bmp)
             canvas.drawColor(Global.COLOR_BLACK)
-            canvas.drawRect(1, 1, 237, 20 + 16 * ind, paint)
-            canvas.drawRect(238, 0, 240, 3, paint)
+            canvas.drawRect(1, 1, 135, 20 + 16 * ind, paint)
+            canvas.drawRect(136, 0, 138, 3, paint)
             canvas.drawLine(0, 21 + 16 * ind, 3, 21 + 16 * ind, paint)
             canvas.drawLine(0, 22 + 16 * ind, 3, 22 + 16 * ind, paint)
             ind++
