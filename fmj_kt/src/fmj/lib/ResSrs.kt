@@ -191,13 +191,46 @@ class ResSrs : ResBase() {
      * SRS 按 3 槽满员编队绘制，人数不足时按占用跨度比例缩放，使各列
      * 特效落在实际角色身上而不是空槽位。
      */
-    fun drawAtTargetScaled(canvas: Canvas, x: Int, y: Int, sx: Double, sy: Double) {
+    private fun isThreeSlotGroupAnimation(frameHeaders: Array<IntArray>): Boolean {
+        if (frameHeaders.size < 3 || frameHeaders.size % 3 != 0) return false
+
+        for (group in frameHeaders.indices step 3) {
+            val imageIndex = frameHeaders[group][4]
+            val show = frameHeaders[group][2]
+            val leftX = frameHeaders[group][0]
+            val rightX = frameHeaders[group + 1][0]
+            val middleX = frameHeaders[group + 2][0]
+
+            if (frameHeaders[group + 1][4] != imageIndex ||
+                frameHeaders[group + 2][4] != imageIndex ||
+                frameHeaders[group + 1][2] != show ||
+                frameHeaders[group + 2][2] != show ||
+                middleX <= minOf(leftX, rightX) ||
+                middleX >= maxOf(leftX, rightX)) {
+                return false
+            }
+        }
+        return true
+    }
+
+    fun drawAtTargetScaled(
+        canvas: Canvas, x: Int, y: Int, sx: Double, sy: Double, targetCount: Int) {
         val images = mImage ?: return
         val frameHeaders = mFrameHeader ?: return
+        val suppressEmptyMember = (targetCount == 1 || targetCount == 2) &&
+            isThreeSlotGroupAnimation(frameHeaders)
 
         for (i in mShowList) {
             val frameIndex = i.index
             if (frameIndex >= 0 && frameIndex < frameHeaders.size) {
+                // Three-slot group SRS files store simultaneous sprites as
+                // [left, right, middle]. Scaling maps left/right onto the two
+                // occupied slots, so the empty middle sprite must be skipped.
+                if (suppressEmptyMember &&
+                    ((targetCount == 2 && frameIndex % 3 == 2) ||
+                        (targetCount == 1 && frameIndex % 3 != 0))) {
+                    continue
+                }
                 val imageIndex = frameHeaders[frameIndex][4]
                 if (imageIndex >= 0 && imageIndex < images.size) {
                     images[imageIndex].draw(canvas, 1,

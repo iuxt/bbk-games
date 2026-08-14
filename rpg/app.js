@@ -601,7 +601,7 @@
         var script = global.document.createElement("script");
 
         global.renderPeixel = [1, 1, 1];
-        script.src = "core.js?v=29";
+        script.src = "core.js?v=31";
         script.addEventListener("load", function () {
             if (global.game && global.game.rom && global.game.rom["GAME.ROM"]) {
                 status.hidden = true;

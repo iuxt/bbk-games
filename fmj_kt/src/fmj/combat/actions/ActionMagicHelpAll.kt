@@ -142,7 +142,8 @@ class ActionMagicHelpAll(attacker: FightingCharacter,
             println("ActionMagicHelpAll: 绘制动画 at ($mAnix, $mAniy)")
             // 多目标 SRS 按 3 槽满员编队绘制：以特效视觉锚点对准编队质心，
             // 并按实际人数压缩各列偏移，使每列落在角色身上。
-            animation.drawAtTargetScaled(canvas, mAnix, mAniy, animationScaleX, animationScaleY)
+            animation.drawAtTargetScaled(
+                canvas, mAnix, mAniy, animationScaleX, animationScaleY, mTargets.size)
         } else if (state == STATE_AFT) {
             drawRaiseAnimation(canvas)
         }

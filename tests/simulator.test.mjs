@@ -424,11 +424,107 @@ test("multi-target healing still aligns via the shared SRS anchor", () => {
     // The draw itself anchors and scales through the shared mechanism.
     assert.match(
         draw,
-        /this\.animation_0\.drawAtTargetScaled_eamxi9\$\((canvas, )?this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$, this\.animationScaleX_8be2vx\$, this\.animationScaleY_8be2vx\$\)/
+        /this\.animation_0\.drawAtTargetScaled_[a-z0-9]+\$\((canvas, )?this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$, this\.animationScaleX_8be2vx\$, this\.animationScaleY_8be2vx\$, this\.mTargets\.size\)/
     );
     assert.match(
         source,
-        /ResSrs\.prototype\.drawAtTargetScaled_eamxi9\$ = function \(canvas, x, y, sx, sy\) \{[\s\S]{0,900}?var imageIndex = frameHeaders\[frameIndex\]\[4\];\s*if \(imageIndex >= 0 && imageIndex < images\.length\) \{[\s\S]{0,300}?numberToInt\(\(frameHeaders\[frameIndex\]\[0\] - this\.mImpactAnchorX_0 \| 0\) \* sx \+ x\)[\s\S]{0,80}?numberToInt\(\(frameHeaders\[frameIndex\]\[1\] - this\.mImpactAnchorY_0 \| 0\) \* sy \+ y\)/
+        /ResSrs\.prototype\.drawAtTargetScaled_[a-z0-9]+\$ = function \(canvas, x, y, sx, sy, targetCount\) \{[\s\S]{0,900}?var imageIndex = frameHeaders\[frameIndex\]\[4\];\s*if \(imageIndex >= 0 && imageIndex < images\.length\) \{[\s\S]{0,300}?numberToInt\(\(frameHeaders\[frameIndex\]\[0\] - this\.mImpactAnchorX_0 \| 0\) \* sx \+ x\)[\s\S]{0,80}?numberToInt\(\(frameHeaders\[frameIndex\]\[1\] - this\.mImpactAnchorY_0 \| 0\) \* sy \+ y\)/
+    );
+});
+
+test("fewer-target healing crops only authored three-column SRS groups", () => {
+    const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+    const groupAnimation = readSrs("fmj_zsb.lib", 2, 11);
+    const temporalAnimation = readSrs("fl.lib", 2, 5);
+
+    // 佛光普照 stores simultaneous target sprites in [left, right, middle]
+    // triples. With two occupied formation slots, scaling maps the left/right
+    // sprites onto those characters; the middle sprite must be omitted rather
+    // than drawn between them.
+    function isThreeColumnGroup(animation) {
+        if (animation.frameHeaders.length < 3 ||
+                animation.frameHeaders.length % 3 !== 0) {
+            return false;
+        }
+
+        for (let group = 0; group < animation.frameHeaders.length; group += 3) {
+            const [leftX, , show, , imageIndex] = animation.frameHeaders[group];
+            const [rightX, , rightShow, , rightImageIndex] =
+                animation.frameHeaders[group + 1];
+            const [middleX, , middleShow, , middleImageIndex] =
+                animation.frameHeaders[group + 2];
+
+            if (rightImageIndex !== imageIndex ||
+                    middleImageIndex !== imageIndex ||
+                    rightShow !== show || middleShow !== show ||
+                    middleX <= Math.min(leftX, rightX) ||
+                    middleX >= Math.max(leftX, rightX)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function renderedFrameIndices(animation, targetCount) {
+        if (targetCount === 3 ||
+                !isThreeColumnGroup(animation) ||
+                (targetCount !== 1 && targetCount !== 2)) {
+            return animation.frameHeaders.map((_, index) => index);
+        }
+        const retainedRemainder = targetCount === 2
+            ? (remainder) => remainder !== 2
+            : (remainder) => remainder === 0;
+        return animation.frameHeaders
+            .map((_, index) => index)
+            .filter((index) => retainedRemainder(index % 3));
+    }
+
+    assert.equal(isThreeColumnGroup(groupAnimation), true);
+    assert.equal(isThreeColumnGroup(temporalAnimation), false);
+    assert.deepEqual(
+        renderedFrameIndices(groupAnimation, 2),
+        groupAnimation.frameHeaders.map((_, index) => index)
+            .filter((index) => index % 3 !== 2)
+    );
+    assert.deepEqual(
+        renderedFrameIndices(groupAnimation, 1),
+        groupAnimation.frameHeaders.map((_, index) => index)
+            .filter((index) => index % 3 === 0)
+    );
+    assert.deepEqual(
+        renderedFrameIndices(temporalAnimation, 1),
+        temporalAnimation.frameHeaders.map((_, index) => index)
+    );
+    assert.deepEqual(
+        renderedFrameIndices(temporalAnimation, 2),
+        temporalAnimation.frameHeaders.map((_, index) => index)
+    );
+
+    const actionDraw = source.slice(
+        source.indexOf("ActionMagicHelpAll.prototype.draw_9in0vv$"),
+        source.indexOf("ActionMagicHelpAll.prototype.rollbackToPhysical")
+    );
+    assert.match(
+        actionDraw,
+        /drawAtTargetScaled_[a-z0-9]+\$\((canvas, )?this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$, this\.animationScaleX_8be2vx\$, this\.animationScaleY_8be2vx\$, this\.mTargets\.size\)/
+    );
+
+    const drawStart = source.search(/ResSrs\.prototype\.drawAtTargetScaled_[a-z0-9]+\$/);
+    const draw = source.slice(
+        drawStart,
+        source.indexOf("ResSrs.prototype.setIteratorNum_za3lpa$")
+    );
+    assert.match(
+        source,
+        /ResSrs\.prototype\.isThreeSlotGroupAnimation(?:_0)? = function \(frameHeaders\) \{[\s\S]{0,900}?frameHeaders\[group \+ 2(?: \| 0)?\]\[4\] !== imageIndex[\s\S]{0,500}?middleX <= (?:Math|JsMath)\.min\(leftX, rightX\)/
+    );
+    assert.match(
+        draw,
+        /var suppressEmptyMember = \(targetCount === 1 \|\| targetCount === 2\) && this\.isThreeSlotGroupAnimation(?:_0)?\(frameHeaders\);/
+    );
+    assert.match(
+        draw,
+        /suppressEmptyMember &&[\s\S]{0,120}?targetCount === 2[\s\S]{0,80}?frameIndex % 3 === 2[\s\S]{0,120}?targetCount === 1[\s\S]{0,80}?frameIndex % 3 !== 0/
     );
 });
 
@@ -681,11 +777,11 @@ test("佛光普照 aligns its authored group with the current player formation",
     // BBKSrsAnchor.compute) inside the draw routine.
     assert.match(
         source,
-        /ActionMagicHelpAll\.prototype\.draw_9in0vv\$[\s\S]{0,600}?drawAtTargetScaled_eamxi9\$\((canvas, )?this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$, this\.animationScaleX_8be2vx\$, this\.animationScaleY_8be2vx\$\)/
+        /ActionMagicHelpAll\.prototype\.draw_9in0vv\$[\s\S]{0,600}?drawAtTargetScaled_[a-z0-9]+\$\((canvas, )?this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$, this\.animationScaleX_8be2vx\$, this\.animationScaleY_8be2vx\$, this\.mTargets\.size\)/
     );
     assert.match(
         source,
-        /ResSrs\.prototype\.drawAtTargetScaled_eamxi9\$[\s\S]{0,900}?frameHeaders\[frameIndex\]\[0\] - this\.mImpactAnchorX_0 \| 0\) \* sx \+ x/
+        /ResSrs\.prototype\.drawAtTargetScaled_[a-z0-9]+\$[\s\S]{0,1600}?frameHeaders\[frameIndex\]\[0\] - this\.mImpactAnchorX_0 \| 0\) \* sx \+ x/
     );
 });
 
