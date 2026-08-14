@@ -7,7 +7,6 @@ import fmj.lib.ResSrs
 import fmj.scene.SaveLoadGame
 import graphics.Canvas
 import java.sysExit
-import java.sysGetChoiceLibName
 
 class ScreenMenu(override val parent: GameNode): BaseScreen {
     override val screenName: String = "ScreenMenu"
@@ -37,15 +36,10 @@ class ScreenMenu(override val parent: GameNode): BaseScreen {
     override fun draw(canvas: Canvas) {
         canvas.drawColor(Global.COLOR_WHITE)
         mImgMenu.draw(canvas, 1, mLeft, mTop)
-        val currentGame = sysGetChoiceLibName().uppercase()
-        if (currentGame == "FMJ" || currentGame == "FMJWMB" || 
-        currentGame == "JYQXZ" || currentGame == "FMJLL" ||
-        currentGame == "FMJFYJ") {
-            mSrsSelector[mCurSelect].draw(canvas, mLeft - 22, mTop/2 + 12)
-            return    
-        }
-
-        mSrsSelector[mCurSelect].draw(canvas, mLeft - 0, mTop/2 + 24)
+        // 160×96 设备原生：选择箭头 SRS 的帧头自带 authored 坐标，相对
+        // (0,0) 绘制即可对准菜单项。上游 H5 改屏时按 320×192 与游戏名
+        // 硬调过偏移（如 mLeft-22 在 160 下为负、mTop/2+24 整体下移错位）。
+        mSrsSelector[mCurSelect].draw(canvas, 0, 0)
     }
 
     override fun onKeyDown(key: Int) {
