@@ -43445,6 +43445,8 @@ if (game.rom["GAME.ROM"]) {
       this.oy_8be2vx$ = 0;
       this.animationX_0 = 0;
       this.animationY_0 = 0;
+      this.animationScaleX_0 = 1;
+      this.animationScaleY_0 = 1;
       this.isMagic_r9fu64$_0 = true;
     }
     Object.defineProperty(ActionMagicHelpAll.prototype, "isMagic", {
@@ -43474,6 +43476,34 @@ if (game.rom["GAME.ROM"]) {
       if (targetCount > 0) {
         this.animationX_0 = targetX / targetCount | 0;
         this.animationY_0 = targetY / targetCount | 0;
+      }
+      // The SRS sprite's visual elements are authored at the full 3-slot
+      // formation coordinates. A party with fewer members occupies only the
+      // first N slots, so the authored spread is too wide — the outer columns
+      // miss the characters. Compress the frame spread proportionally to the
+      // ratio of occupied-span to full-slot-span on each axis.
+      this.animationScaleX_0 = 1;
+      this.animationScaleY_0 = 1;
+      if (targetCount > 1) {
+        var formationSlots = Typescript.isType(this.mTargets.get_za3lpa$(0), Player) ? Combat$Companion_getInstance().sPlayerPos : Monster$Companion_getInstance().arr_0;
+        var slotTotal = formationSlots.length;
+        if (targetCount < slotTotal) {
+          var sFirst = formationSlots[0];
+          var sLastUsed = formationSlots[targetCount - 1];
+          var sEnd = formationSlots[slotTotal - 1];
+          var fx0 = sFirst.x !== undefined ? sFirst.x : sFirst[0];
+          var fxN = sLastUsed.x !== undefined ? sLastUsed.x : sLastUsed[0];
+          var fxE = sEnd.x !== undefined ? sEnd.x : sEnd[0];
+          var fy0 = sFirst.y !== undefined ? sFirst.y : sFirst[1];
+          var fyN = sLastUsed.y !== undefined ? sLastUsed.y : sLastUsed[1];
+          var fyE = sEnd.y !== undefined ? sEnd.y : sEnd[1];
+          if (fxE !== fx0) {
+            this.animationScaleX_0 = Math.abs(fxN - fx0) / Math.abs(fxE - fx0);
+          }
+          if (fyE !== fy0) {
+            this.animationScaleY_0 = Math.abs(fyN - fy0) / Math.abs(fyE - fy0);
+          }
+        }
       }
       this.ox_8be2vx$ = attacker.combatX;
       this.oy_8be2vx$ = attacker.combatY;
@@ -43546,10 +43576,11 @@ if (game.rom["GAME.ROM"]) {
     };
     ActionMagicHelpAll.prototype.draw_9in0vv$ = function(canvas) {
       if (this.state_0 === ActionMagicHelpAll$Companion_getInstance().STATE_ANI_0) {
-        // Multi-target SRS files contain an authored group layout. Align the
-        // layout's visual center with the current targets instead of assuming
-        // the ROM's original hard-coded combat positions.
-        this.animation_0.drawAtTarget_2g4tob$(canvas, this.animationX_0, this.animationY_0);
+        // Multi-target SRS files contain an authored group layout for the full
+        // 3-slot formation. drawAtTargetScaled compresses that layout to fit
+        // the actual number of targets so the visual columns land on each
+        // character instead of spreading into empty formation slots.
+        this.animation_0.drawAtTargetScaled(canvas, this.animationX_0, this.animationY_0, this.animationScaleX_0, this.animationScaleY_0);
       } else if (this.state_0 === ActionMagicHelpAll$Companion_getInstance().STATE_AFT_0) {
         this.drawRaiseAnimation_9in0vv$(canvas);
       }
@@ -49124,6 +49155,16 @@ if (game.rom["GAME.ROM"]) {
         image = this.getFrameImage_0(i.index_8be2vx$);
         if (image == null) continue;
         image.draw_tj1hu5$(canvas, 1, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][0] - this.mImpactAnchorX_0 + x | 0, ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][1] - this.mImpactAnchorY_0 + y | 0);
+      }
+    };
+    ResSrs.prototype.drawAtTargetScaled = function(canvas, x, y, sx, sy) {
+      var tmp$, image;
+      tmp$ = this.mShowList_0.iterator();
+      while (tmp$.hasNext()) {
+        var i = tmp$.next();
+        image = this.getFrameImage_0(i.index_8be2vx$);
+        if (image == null) continue;
+        image.draw_tj1hu5$(canvas, 1, (ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][0] - this.mImpactAnchorX_0) * sx + x | 0, (ensureNotNull(this.mFrameHeader_0)[i.index_8be2vx$][1] - this.mImpactAnchorY_0) * sy + y | 0);
       }
     };
     ResSrs.prototype.setIteratorNum_za3lpa$ = function(n) {

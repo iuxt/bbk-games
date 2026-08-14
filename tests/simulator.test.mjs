@@ -345,20 +345,21 @@ test("single-target help, throw and use-item effects render at the target anchor
 test("multi-target healing still aligns via the shared SRS anchor", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
 
-    // The SRS anchor module stays wired for the all-target heal effect, which
-    // centres its authored group on the current party formation.
-    assert.match(
-        source,
-        /BBKSrsAnchor\.compute\(this\.mFrameHeader_0, this\.mImage_0\)/
-    );
-    assert.match(
-        source,
-        /BBKSrsAnchor\.imageFor\(this\.mFrameHeader_0\[index\], this\.mImage_0\)/
-    );
-    assert.match(
-        source,
-        /ActionMagicHelpAll[\s\S]*?drawAtTarget_2g4tob\$\(canvas, this\.animationX_0, this\.animationY_0\)/
-    );
+   // The SRS anchor module stays wired for the all-target heal effect, which
+   // centres its authored group on the current party formation and scales the
+   // spread to fit the actual number of targets.
+   assert.match(
+       source,
+       /BBKSrsAnchor\.compute\(this\.mFrameHeader_0, this\.mImage_0\)/
+   );
+   assert.match(
+       source,
+       /BBKSrsAnchor\.imageFor\(this\.mFrameHeader_0\[index\], this\.mImage_0\)/
+   );
+  assert.match(
+      source,
+      /ActionMagicHelpAll[\s\S]*?drawAtTargetScaled\(canvas, this\.animationX_0, this\.animationY_0, this\.animationScaleX_0, this\.animationScaleY_0\)/
+  );
 });
 
 test("all-target attack magic skips dead enemies", () => {
