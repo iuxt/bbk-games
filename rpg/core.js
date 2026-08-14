@@ -40114,7 +40114,9 @@ if (game.rom["GAME.ROM"]) {
       },
       set: function(mp) {
         var a = this.maxMP;
-        this.mp_oo4f3b$_0 = Math_0.min(a, mp);
+        // 与 hp setter（钳制 [0, maxHP]）对齐：吸真气法术/投掷暗器的
+        // mp -= X 写入在真气不足时会得到负值，渲染成乱码。
+        this.mp_oo4f3b$_0 = Math_0.max(0, Math_0.min(a, mp));
       }
     });
     Object.defineProperty(FightingCharacter.prototype, "attack", {
@@ -40976,14 +40978,19 @@ if (game.rom["GAME.ROM"]) {
     Player.prototype.hasEquipt_vux9f0$ = function(type, id) {
       var tmp$;
       if (type === 6) {
+        // 装饰有两个槽位（equipmentsArray[0..1]），必须两槽都查：
+        // 原实现循环体内无条件 return，只检查了 0 号槽，戴在 1 号槽的
+        // 装饰查不到"已装备"，导致同一装饰可以双戴、属性加成翻倍。
         var $receiver = [ this.equipmentsArray[0], this.equipmentsArray[1] ];
         var tmp$_0;
         for (tmp$_0 = 0; tmp$_0 !== $receiver.length; ++tmp$_0) {
           var element = $receiver[tmp$_0];
           var tmp$_1;
-          return (tmp$_1 = element != null ? element.type === type && element.index === id : null) != null ? tmp$_1 : false;
+          if ((tmp$_1 = element != null ? element.type === type && element.index === id : null) != null ? tmp$_1 : false) {
+            return true;
+          }
         }
-        return true;
+        return false;
       }
       for (var i = 2; i <= 7; i++) {
         if ((tmp$ = this.equipmentsArray[i]) != null) {
@@ -41601,6 +41608,13 @@ if (game.rom["GAME.ROM"]) {
               ensureNotNull(this.mCurrentAction_0).cancel();
               this.postAction_1();
               return;
+            } else if (Typescript.isType(this.mCurrentAction_0, ActionCoopMagic)) {
+              // 合击行动虽标记 isSingleTarget=true，但它不是 ActionSingleTarget
+              // 的子类（$metadata$.interfaces 只有 [Action]），走 setTarget 的
+              // 强转分支会抛 ClassCastException 直接崩溃。合击目标统一存放
+              // 在 mMonsters_0[0]，通过 mMonster_0 属性 setter 整体替换，
+              // 即可把目标转移到新存活的怪物上。
+              this.mCurrentAction_0.mMonster_0 = newTarget;
             } else if (!Typescript.isType(this.mCurrentAction_0, ActionFlee)) {
               (Typescript.isType(tmp$_0 = this.mCurrentAction_0, ActionSingleTarget) ? tmp$_0 : throwCCE()).setTarget_qpjxya$(newTarget);
             }
@@ -42011,7 +42025,9 @@ if (game.rom["GAME.ROM"]) {
             while (tmp$_1.hasNext()) {
               var p = tmp$_1.next();
               if (p.isAlive) {
-                if (p.level >= p.levelupChain.maxLevel) break;
+                // 满级的成员只是自己不再吃经验，不能 break 终止整个循环——
+                // 否则排在他后面的队友从此一场战斗也拿不到经验。
+                if (p.level >= p.levelupChain.maxLevel) continue;
                 var nextExp = p.levelupChain.getNextLevelExp_za3lpa$(p.level);
                 var exp = this.mWinExp_0 + p.currentExp | 0;
                 if (exp < nextExp) {
@@ -42323,8 +42339,16 @@ if (game.rom["GAME.ROM"]) {
       this.mCombatUI_0.reset();
       var go = Combat$onActionSelected$go(this);
       if (Typescript.isType(action, ActionCoopMagic)) {
-        this.mActionQueue_0.clear();
-        this.mActionQueue_0.add_11rb$(action);
+        // 合击取代本轮已排队的其他行动。投掷/使用道具在选择时已经
+        // deleteGoods 扣减，直接 clear() 会吞掉道具；必须逐个 cancel()
+        // 退还（同 b30469e 的 cancelRemainingActions_0）。刚入队的合击
+        // 行动排在队尾，保留它，只取消之前的行动。
+        var a;
+        while (this.mActionQueue_0.size > 1) {
+          if ((a = this.mActionQueue_0.pop()) != null) {
+            a.cancel();
+          }
+        }
         go();
       } else if (this.mCurSelActionPlayerIndex_0 >= (this.mPlayerList_0.size - 1 | 0) || this.isPlayerBehindDead_0(this.mCurSelActionPlayerIndex_0)) {
         go();
@@ -42337,7 +42361,12 @@ if (game.rom["GAME.ROM"]) {
     Combat.prototype.onAutoAttack = function() {
       this.mCombatUI_0.repeatStore_0()[this.mCurSelActionPlayerIndex_0] = { kind: 11, item: null, target: null };
       this.mCombatUI_0.reset();
-      this.mActionQueue_0.clear();
+      // 围攻同样取代已排队的行动：清空前先 cancel() 退还已扣减的投掷/
+      // 使用道具（clear() 会吞道具，见 onActionSelected 合击分支）。
+      var a;
+      while ((a = this.mActionQueue_0.pop()) != null) {
+        a.cancel();
+      }
       this.mIsAutoAttack_0 = true;
       this.mCombatState_0 = Combat$CombatState$SelectAction_getInstance();
     };
@@ -44068,7 +44097,12 @@ if (game.rom["GAME.ROM"]) {
       tmp$_1 = this.mTargets.iterator();
       while (tmp$_1.hasNext()) {
         var element_0 = tmp$_1.next();
-        this.weapon_8be2vx$.attack_qpjxya$(element_0);
+        // 与 ActionPhysicalAttackAll / MagicAttack 一致（f2e4eec 同族）：
+        // 跳过已阵亡的目标——对尸体结算伤害既无意义，还会在尸体上
+        // 飘出伤害数字。
+        if (element_0.isAlive) {
+          this.weapon_8be2vx$.attack_qpjxya$(element_0);
+        }
       }
       var tmp$_2 = this.mRaiseAnimations;
       var $receiver = this.mTargets;
@@ -44316,7 +44350,11 @@ if (game.rom["GAME.ROM"]) {
         while (tmp$_4.hasNext()) {
           var element_0 = tmp$_4.next();
           var tmp$_5;
-          this.goods_8be2vx$.eat_xa4yhy$(Typescript.isType(tmp$_5 = element_0, Player) ? tmp$_5 : throwCCE());
+          // 与 MagicRestore.applyToTarget（f2e4eec）同规则：普通药品不能把
+          // hp=0 的阵亡队友奶活——复活只属于起死回生类法术。
+          if (element_0.isAlive) {
+            this.goods_8be2vx$.eat_xa4yhy$(Typescript.isType(tmp$_5 = element_0, Player) ? tmp$_5 : throwCCE());
+          }
         }
       } else {
         this.mAni_0 = Typescript.isType(tmp$_0 = DatLib$Companion_getInstance().getRes_2et8c9$(DatLib$ResType$SRS_getInstance(), 2, 1), ResSrs) ? tmp$_0 : throwCCE();
@@ -44327,10 +44365,13 @@ if (game.rom["GAME.ROM"]) {
       var $receiver = this.mTargets;
       var destination = ArrayList_init_0(collectionSizeOrDefault($receiver, 10));
       var tmp$_7;
-      tmp$_7 = $receiver.iterator();
+      tmp$_7 = this.mTargets.iterator();
       while (tmp$_7.hasNext()) {
         var item = tmp$_7.next();
-        destination.add_11rb$(item.diffToAnimation_6taknv$());
+        // 阵亡的队友不参与结算，也不飘字（同 ActionMagicHelpAll 的守卫）。
+        if (item.isAlive) {
+          destination.add_11rb$(item.diffToAnimation_6taknv$());
+        }
       }
       tmp$_6.addAll_brywnq$(destination);
     };
@@ -44511,7 +44552,13 @@ if (game.rom["GAME.ROM"]) {
               var element = tmp$_0.next();
               element.affect_qpjxya$(attacker);
             }
-            this.animations.add_11rb$(attacker.diffToAnimation_6taknv$());
+            // HP 侧与 MP 侧同规则（见下）：hp setter 会把生命钳制到 [0, maxHP]，
+            // 因此 hp - backup.hp 才是实际恢复量；diffToAnimation 的
+            // deltaSinceBackup 是未钳制的名义值，满血时仍会飘出 "+N"。
+            var hpDelta = attacker.hp - attacker.backup_2mheeg$_0.hp | 0;
+            if (hpDelta !== 0) {
+              this.animations.add_11rb$(new RaiseAnimation(attacker.combatX, attacker.combatTop, hpDelta, 0));
+            }
             // diffToAnimation -> toAnimation renders only the HP delta; the MP
             // delta (diff.mp) is computed but discarded. So an ornament that
             // restores 真气 each turn (GoodsDecorations.affect adding mMp_0)
@@ -46088,6 +46135,18 @@ if (game.rom["GAME.ROM"]) {
     ScreenActorWearing$onKeyUp$ObjectLiteral.prototype.onItemSelected_6xxg66$ = function(goods) {
       var tmp$, tmp$_0;
       var actor = this.this$ScreenActorWearing.game.playerList.get_za3lpa$(this.this$ScreenActorWearing.mActorIndex_0);
+      // 装备选择列表是打开列表时的快照：穿戴确认后该装备已被
+      // deleteGoods 移出背包，但列表仍显示旧条目。这里校验背包确实
+      // 还持有该装备，防止对已穿上的装备重复穿戴（配合下方
+      // ScreenChgEquipment 的回滚，堵死装备复制）。
+      if (Player$Companion_getInstance().sGoodsList.getGoodsNum_vux9f0$(goods.type, goods.index) < 1) {
+        this.this$ScreenActorWearing.showMessage_4wgjuj$("没有该装备!", L1000);
+        return;
+      }
+      if (actor.hasEquipt_vux9f0$(goods.type, goods.index)) {
+        this.this$ScreenActorWearing.showMessage_4wgjuj$("已装备!", L1000);
+        return;
+      }
       if (goods.canPlayerUse_za3lpa$(actor.index)) {
         this.this$ScreenActorWearing.popScreen();
         tmp$_0 = new ScreenChgEquipment(this.this$ScreenActorWearing, actor, Typescript.isType(tmp$ = goods, GoodsEquipment) ? tmp$ : throwCCE(), this.this$ScreenActorWearing.mCurItem_0);
@@ -46218,9 +46277,19 @@ if (game.rom["GAME.ROM"]) {
         this.popScreen();
       } else if (key === Global_getInstance().KEY_ENTER) {
         if (this.mSelIndex_0 === (this.mGoods_0.length - 1 | 0)) {
-          Player$Companion_getInstance().sGoodsList.deleteGoods_vux9f0$(this.mGoods_0[this.mGoods_0.length - 1 | 0].type, this.mGoods_0[this.mGoods_0.length - 1 | 0].index);
-          if (this.mGoods_0.length > 1) {
-            Player$Companion_getInstance().sGoodsList.addGoods_vux9f0$(this.mGoods_0[0].type, this.mGoods_0[0].index);
+          if (Player$Companion_getInstance().sGoodsList.deleteGoods_vux9f0$(this.mGoods_0[this.mGoods_0.length - 1 | 0].type, this.mGoods_0[this.mGoods_0.length - 1 | 0].index)) {
+            if (this.mGoods_0.length > 1) {
+              Player$Companion_getInstance().sGoodsList.addGoods_vux9f0$(this.mGoods_0[0].type, this.mGoods_0[0].index);
+            }
+          } else {
+            // 背包里已没有要穿的装备（选择列表是打开时的快照，条目可能
+            // 早已被 deleteGoods 消耗）：若继续归还旧装备会凭空复制。
+            // 撤销本次换装——脱下新装备、穿回旧装备，恢复进界面前的
+            // 状态（与 KEY_CANCEL 的恢复路径一致）。
+            this.mActor_0.takeOff_6sxnot$(this.mGoods_0[0].type, this.itemIndex);
+            if (this.mGoods_0.length > 1) {
+              this.mActor_0.putOn_sp4jd8$(this.mGoods_0[0], this.itemIndex);
+            }
           }
         }
         this.popScreen();
@@ -50529,6 +50598,15 @@ if (game.rom["GAME.ROM"]) {
     });
     OperateBuy$BuyGoodsScreen.prototype.init_6xxg66$ = function(goods) {
       this.goods_0 = goods;
+      // 商店列表只在进店时构建一次（OperateBuy 构造器）：未持有的商品是
+      // goodsNum=0 的临时对象，购买确认后 goodsNum 残留为已购数量且不与
+      // 背包同步。同一进店期间再次购买同一商品时，ENTER 的
+      // buyCnt === goodsNum 判定失败，addGoods 被跳过而金钱照扣（钱货
+      // 两空）。这里把非背包实体的临时对象数量归零，使每次购买都走
+      // 首次购买的路径（addGoods 会合并进背包现有条目）。
+      if (Player$Companion_getInstance().sGoodsList.getGoods_vux9f0$(goods.type, goods.index) !== goods) {
+        goods.goodsNum = 0;
+      }
       this.buyCnt_0 = 0;
       this.money_0 = Player$Companion_getInstance().sMoney;
     };
