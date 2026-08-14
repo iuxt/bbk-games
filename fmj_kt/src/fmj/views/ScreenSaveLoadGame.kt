@@ -25,10 +25,6 @@ class ScreenSaveLoadGame(override val parent: GameNode, private val mOperate: Op
     private val mHeadImgs = ArrayList<ArrayList<ResImage>>()
 
     private val mFileNames = GameConfig.saveFileNames
-    
-    // 滚动相关变量
-    private val maxVisibleItems = 5  // 屏幕最多显示5个存档
-    private var scrollOffset = 0     // 滚动偏移量（第一个显示的存档索引）
 
     private val mImgBg: ResImage    // 背景图片
 
@@ -76,81 +72,20 @@ class ScreenSaveLoadGame(override val parent: GameNode, private val mOperate: Op
     }
 
     override fun update(delta: Long) {}
-    
-    /**
-     * 更新滚动偏移量，确保当前选中的存档可见
-     */
-    private fun updateScrollOffset() {
-        if (saveSlotCount <= maxVisibleItems) {
-            // 如果存档数量不超过最大可见数量，不需要滚动
-            scrollOffset = 0
-            return
-        }
-        
-        // 确保当前选中项在可见范围内
-        if (index < scrollOffset) {
-            // 当前项在可见区域上方，向上滚动
-            scrollOffset = index
-        } else if (index >= scrollOffset + maxVisibleItems) {
-            // 当前项在可见区域下方，向下滚动
-            scrollOffset = index - maxVisibleItems + 1
-        }
-        
-        // 确保滚动偏移量在有效范围内
-        scrollOffset = maxOf(0, minOf(scrollOffset, saveSlotCount - maxVisibleItems))
-    }
 
     override fun draw(canvas: Canvas) {
-        // 320x192大屏适配：重新设计存档界面布局
-        
-        // 1. 绘制标题背景和标题文本
-        val titleHeight = 25
-        val titleBg = Util.getFrameBitmap(Global.SCREEN_WIDTH - 40, titleHeight)
-        canvas.drawBitmap(titleBg, 20, 10)
-        val titleText = if (mOperate == Operate.LOAD) "读取进度" else "保存进度"
-        TextRender.drawText(canvas, titleText, 25, 18)
-        
-        // 2. 计算存档列表区域
-        val listStartY = 40
-        val itemHeight = 25
-        val itemSpacing = 0
-        
-        // 3. 更新滚动偏移量
-        updateScrollOffset()
-        
-        // 4. 绘制可见的存档槽
-        val endIndex = minOf(scrollOffset + maxVisibleItems, saveSlotCount)
-        for (i in scrollOffset until endIndex) {
-            val displayIndex = i - scrollOffset  // 在屏幕上的显示位置
-            val itemY = listStartY + displayIndex * (itemHeight + itemSpacing)
-            
-            // 绘制存档槽背景框
-            val itemBg = Util.getFrameBitmap(Global.SCREEN_WIDTH - 40, itemHeight)
-            canvas.drawBitmap(itemBg, 20, itemY)
-            
-            // 绘制选中高亮
-            if (i == index) {
-                val selectBg = Util.getFrameBitmap(Global.SCREEN_WIDTH - 44, itemHeight - 4)
-                canvas.drawBitmap(selectBg, 22, itemY + 2)
-            }
-            
-            // 绘制存档序号
-            TextRender.drawText(canvas, "${i + 1}.", 25, itemY + 8)
-            
-            // 绘制角色头像
+        // 160×96 设备原生布局：ROM 背景图 + 头像 + 每槽一行文案。
+        // （上游 H5 改屏时重设计过：25px 高的条目 ×5 在 96 高的屏幕上
+        // 只能显示不到两行，头像/文本也被推到屏幕外。）
+        mImgBg.draw(canvas, 1, 0, 0)
+        for (i in 0 until saveSlotCount) {
             for (j in 0 until mHeadImgs[i].size) {
                 val img = mHeadImgs[i][j]
-                img.draw(canvas, 7, 50 + 20 * j, itemY + 4)
+                img.draw(canvas, 7, 8 + 20 * j, mTextPos[i][1] - 6)
             }
-            
-            // 绘制存档信息文本
-            val textX = 50 + mHeadImgs[i].size * 20 + 10
-            if (i == index) {
-                TextRender.drawSelText(canvas, mText[i], textX, itemY + 8)
-            } else {
-                TextRender.drawText(canvas, mText[i], textX, itemY + 8)
-            }
+            TextRender.drawText(canvas, mText[i], mTextPos[i][0], mTextPos[i][1])
         }
+        TextRender.drawSelText(canvas, mText[index], mTextPos[index][0], mTextPos[index][1])
     }
 
     override fun onKeyDown(key: Int) {

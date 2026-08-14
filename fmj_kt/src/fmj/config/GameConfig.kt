@@ -23,9 +23,11 @@ object GameConfig {
     
     /**
      * 生成存档文件名列表
+     * 与 bbk 宿主约定一致：sav/gamesave{slot}-{romId}（app.js 存档管理器
+     * 与胶水层的旧存档迁移都按 gamesave 命名；上游 H5 版曾改名 fmjsave）
      */
     val saveFileNames: Array<String> by lazy {
-        Array(saveSlotCount) { "fmjsave$it" }
+        Array(saveSlotCount) { "gamesave$it" }
     }
     
     /**
