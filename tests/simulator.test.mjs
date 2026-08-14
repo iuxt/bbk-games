@@ -274,17 +274,14 @@ test("all-target attack magic anchors its effect on the target formation", () =>
         source.indexOf("ActionMagicAttackAll.prototype.rollbackToPhysical")
     );
 
-    // The group effect must be centred on the current enemy formation (mean
-    // combat position of the targets), not drawn at the ROM's raw coordinates
-    // which sit over the player party.
-    assert.match(
-        action,
-        /targetX\s*=\s*targetX\s*\+\s*element\.combatX\s*\|\s*0;/
-    );
-    assert.match(
-        action,
-        /this\.animationX_0\s*=\s*targetX\s*\/\s*targetCount\s*\|\s*0;/
-    );
+    // The group effect must be centred on the enemy formation's GEOMETRIC
+    // centre (formationCenter over the full Monster.arr_0 / sPlayerPos slot
+    // table), not on the living targets' centroid — so a lone survivor in the
+    // top/bottom slot no longer drags the burst off-centre — and never at the
+    // ROM's raw coordinates which sit over the player party.
+    assert.match(action, /window\.BBKSrsAnchor\.formationCenter\(/);
+    assert.match(action, /Monster\$Companion_getInstance\(\)\.arr_0/);
+    assert.match(action, /Combat\$Companion_getInstance\(\)\.sPlayerPos/);
     assert.match(
         draw,
         /drawAtTarget_2g4tob\$\(canvas, this\.animationX_0, this\.animationY_0\)/

@@ -43129,21 +43129,30 @@ if (game.rom["GAME.ROM"]) {
       }
       var attacker = tmp$;
       attacker.backupStatus();
-      var targetX = 0;
-      var targetY = 0;
-      var targetCount = 0;
+      // 全体攻击特效锚定在目标阵营的几何中心（上/中/下三槽位中点），
+      // 与当前存活数量无关——否则只剩 1 个站在上/下槽位的目标时，
+      // 特效会跟着它偏离中心。阵营按首个目标类型选取槽位表：玩家
+      // 目标用 Combat.sPlayerPos，怪物目标用 Monster.arr_0。
+      var slots = this.mTargets.size > 0 && Typescript.isType(this.mTargets.get_za3lpa$(0), Player) ? Combat$Companion_getInstance().sPlayerPos : Monster$Companion_getInstance().arr_0;
+      var sumW = 0;
+      var sumH = 0;
+      var sampled = 0;
       var tmp$_0;
       tmp$_0 = this.mTargets.iterator();
       while (tmp$_0.hasNext()) {
         var element = tmp$_0.next();
         element.backupStatus();
-        targetX = targetX + element.combatX | 0;
-        targetY = targetY + element.combatY | 0;
-        targetCount = targetCount + 1 | 0;
+        var fs = element.fightingSprite;
+        if (fs != null) {
+          sumW = sumW + fs.width | 0;
+          sumH = sumH + fs.height | 0;
+          sampled = sampled + 1 | 0;
+        }
       }
-      if (targetCount > 0) {
-        this.animationX_0 = targetX / targetCount | 0;
-        this.animationY_0 = targetY / targetCount | 0;
+      if (sampled > 0) {
+        var center = window.BBKSrsAnchor.formationCenter(slots, sumW / sampled | 0, sumH / sampled | 0);
+        this.animationX_0 = center.x;
+        this.animationY_0 = center.y;
       }
       this.ox_0 = attacker.combatX;
       this.oy_0 = attacker.combatY;

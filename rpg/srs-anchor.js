@@ -107,8 +107,40 @@
             : { x: 0, y: 0 };
     }
 
+    // Geometric centre of a combat formation (Monster$Companion.arr_0 for the
+    // enemy side, Combat$Companion.sPlayerPos for the player side). Unlike
+    // averaging the *living* targets' positions, this stays put as combatants
+    // die: an all-target spell still lands mid-formation whether one or three
+    // foes remain. `slots` may be [x,y] arrays (Int32Array) or {x,y} points.
+    // The sprite-size adjustment mirrors Monster.setOriginalCombatPos so the
+    // anchor lands mid-body; with the full formation alive it is pixel-identical
+    // to the old living-centroid, so nothing changes at 3-vs-3.
+    function formationCenter(slots, width, height) {
+        if (!slots || slots.length === 0) {
+            return { x: 0, y: 0 };
+        }
+
+        var sumX = 0;
+        var sumY = 0;
+
+        for (var i = 0; i < slots.length; i += 1) {
+            var slot = slots[i];
+            var baseX = (slot && typeof slot.x === "number") ? slot.x : slot[0];
+            var baseY = (slot && typeof slot.y === "number") ? slot.y : slot[1];
+
+            sumX += baseX - (width / 6 | 0) + (width / 2 | 0);
+            sumY += baseY - (height / 10 | 0) + (height / 2 | 0);
+        }
+
+        return {
+            x: (sumX / slots.length) | 0,
+            y: (sumY / slots.length) | 0,
+        };
+    }
+
     global.BBKSrsAnchor = {
         compute: compute,
         imageFor: imageFor,
+        formationCenter: formationCenter,
     };
 })(typeof window !== "undefined" ? window : globalThis);
