@@ -60,7 +60,8 @@ class ActionUseItemOne(attacker: FightingCharacter, target: FightingCharacter, i
         mAni.start()
         mAni.setIteratorNum(2)
         mAnix = mTarget.combatX
-        mAniy = mTarget.combatY
+        // 特效锚定目标顶部中心（与攻击/法术/投掷类行动一致），不再贴脚。
+        mAniy = mTarget.combatY - (mTarget.fightingSprite?.height ?: 16) / 2
         mRaiseAnimations.add(mTarget.diffToAnimation())
     }
 

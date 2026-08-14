@@ -44,7 +44,13 @@ class ActionThrowItemAll(attacker: FightingCharacter,
             println("ActionThrowItemAll: 动画位置计算完成（第一个目标位置） -> ($mAnix, $mAniy)")
         }
         
-        mTargets.forEach { weapon.attack(it) }
+        mTargets.forEach {
+            // 跳过尸体：对死者结算伤害会把 hp 打成负数并飘出无意义的
+            // 伤害数字（死者的 diff 为 0，不会飘字）。
+            if (it.isAlive) {
+                weapon.attack(it)
+            }
+        }
         mRaiseAnimations.addAll(mTargets.map { it.diffToAnimation() })
     }
 

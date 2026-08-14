@@ -25,8 +25,13 @@ import { fileURLToPath } from "node:url";
 //   faster ally still takes the hit and floats a damage number.
 //
 // THE FIX
-//   Skip non-alive targets in the eat loop / attack loop (and in the medicine
-//   animation loop, mirroring ActionMagicHelpAll's `if (item.isAlive)` guard).
+//   The throw path guards its attack loop (`if (element_0.isAlive)` before
+//   weapon.attack). The medicine path moved the guard INTO GoodsMedicine.eat:
+//   it snapshots `wasAlive = player.hp > 0` / `wasDead = player.hp <= 0` up
+//   front, only writes hp/mp/debuff under wasAlive, and makes the wasDead
+//   branch a pure no-op. A corpse therefore keeps hp=0 AND deltaSinceBackup=0,
+//   so the raise animation built from diffToAnimation floats nothing
+//   (RaiseAnimation draws its "+N" only when the diff is non-zero).
 
 const CORE_JS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "rpg", "core.js");
 
@@ -133,21 +138,38 @@ function functionBody(src, name) {
     assert.fail(`unterminated function body for ${name}`);
 }
 
-test("core.js: ActionUseItemAll skips dead targets in the eat loop", () => {
+test("core.js: GoodsMedicine.eat no-ops for the dead, so ActionUseItemAll cannot revive corpses", () => {
     const src = fs.readFileSync(CORE_JS, "utf8");
-    const body = functionBody(src, "ActionUseItemAll.prototype.preproccess");
-    // The eat loop must guard on isAlive before calling eat (f2e4eec family).
+    const body = functionBody(src, "GoodsMedicine.prototype.eat_xa4yhy$");
+    // The dead check lives inside GoodsMedicine.eat (f2e4eec family): living /
+    // dead is snapshotted before any state is touched...
+    assert.match(body, /var wasAlive = player\.hp > 0;/,
+        "eat must snapshot wasAlive = player.hp > 0 before healing");
+    assert.match(body, /var wasDead = player\.hp <= 0;/,
+        "eat must snapshot wasDead = player.hp <= 0 before healing");
+    // ...the heal write only runs under the wasAlive guard (plus mHp > 0)...
     assert.match(
         body,
-        /if \(element_0\.isAlive\) \{\s*this\.goods_8be2vx\$\.eat_xa4yhy\$/,
-        "eat() must only run for living targets — ordinary medicine must not revive"
+        /if \(wasAlive && this\.mHp_0 > 0\) \{[^{}]*player\.hp = player\.hp \+ this\.mHp_0 \| 0;/,
+        "the hp write must be guarded by wasAlive — ordinary medicine must not revive"
     );
-    // And the raise-animation loop must skip corpses (mirrors ActionMagicHelpAll).
-    assert.match(
-        body,
-        /if \(item\.isAlive\) \{\s*destination\.add_11rb\$/,
-        "no raise animation over a KO'd ally"
-    );
+    // ...and the wasDead branch is a pure no-op: no hp/mp/debuff writes at all,
+    // so a corpse keeps hp=0 and deltaSinceBackup=0.
+    const deadBranch = body.match(/else if \(wasDead\) \{([\s\S]*?)\}/);
+    assert.ok(deadBranch, "eat must have a dedicated wasDead branch");
+    assert.doesNotMatch(deadBranch[1], /player\s*\.\s*[\w$]+\s*=/,
+        "the wasDead branch must not write any player state (no revival, no delta)");
+    // Supplementary: ActionUseItemAll's eat loop routes every target through
+    // this guarded GoodsMedicine.eat instead of poking hp directly.
+    const loop = functionBody(src, "ActionUseItemAll.prototype.preproccess");
+    assert.match(loop, /this\.goods_8be2vx\$\.eat_xa4yhy\$\(/,
+        "the all-target eat loop must go through the guarded GoodsMedicine.eat");
+    // With the corpse's deltaSinceBackup left at 0, the raise animation the
+    // loop builds from diffToAnimation floats nothing: RaiseAnimation only
+    // shows a number for a non-zero diff.
+    const raise = functionBody(src, "function RaiseAnimation(");
+    assert.match(raise, /this\.bShowNum_0 = hitpoint !== 0;/,
+        "a zero diff must not float a number over the corpse");
 });
 
 test("core.js: ActionThrowItemAll skips dead targets in the attack loop", () => {

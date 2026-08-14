@@ -224,38 +224,36 @@ abstract class FightingCharacter : Character() {
 
     var maxHP: Int = 0
         set(maxHP) {
-            // Monster类不设置上限，Player类才限制
-            if (this is Monster) {
-                field = maxHP
-                if (maxHP > 9999) {
-                    println("[FightingCharacter] Monster '$name' has maxHP: $maxHP (no limit applied)")
-                }
-            } else {
-                val limit = if (GameSettings.enableEnhancedLimits) 9999 else 999
-                field = min(limit, maxHP)
+            // 不设 999/9999 人为上限：ROM 后期角色的原始血量可以超过 999
+            // （af0a660 恢复 ROM 原始数值），上限交给 ROM 数据自己表达。
+            field = maxHP
+            // HP can never exceed maxHP. The hp setter enforces this on every
+            // hp write, but a maxHP decrease (unequipping gear, a debuff) can
+            // otherwise leave the stored HP floating above the new ceiling.
+            if (field < hp) {
+                hp = field
             }
         }
 
     var maxMP: Int = 0
         set(maxMP) {
-            // Monster类不设置上限，Player类才限制
-            if (this is Monster) {
-                field = maxMP
-                if (maxMP > 9999) {
-                    println("[FightingCharacter] Monster '$name' has maxMP: $maxMP (no limit applied)")
-                }
-            } else {
-                val limit = if (GameSettings.enableEnhancedLimits) 9999 else 999
-                field = min(limit, maxMP)
-            }
+            // 同 maxHP：不设人为上限（af0a660）。不回拉 mp——真气存量浮在
+            // 上限之上会在下一次 mp 写入时自然被钳制，而回拉会凭空扣真气。
+            field = maxMP
         }
+
+    /** 自上次 backupStatus 以来未钳制的名义 HP 增量（伤害/治疗飘字用）。 */
+    var deltaSinceBackup: Int = 0
 
     var hp: Int = 0
         set(hp) {
             if (field != hp && this is Player) {
                 println("[HP_CHANGE] ${name} HP: $field -> $hp (变化: ${hp - field}) maxHP: $maxHP")
             }
-            field = min(maxHP, hp)
+            // 记录未钳制的名义增量：战斗飘字要显示真实伤害/治疗量（100 血
+            // 吃 500 伤害仍飘 -500），而 field 只存 [0, maxHP] 的钳制值。
+            deltaSinceBackup += hp - field
+            field = max(0, min(maxHP, hp))
         }
 
     val isAlive: Boolean
@@ -265,7 +263,9 @@ abstract class FightingCharacter : Character() {
 
     var mp: Int = 0
         set(mp) {
-            field = min(maxMP, mp)
+            // 钳制到 [0, maxMP]：吸真气法术/投掷暗器在真气不足时会写出负值，
+            // 渲染成乱码。
+            field = max(0, min(maxMP, mp))
         }
 
     var attack: Int = 0
@@ -356,7 +356,7 @@ abstract class FightingCharacter : Character() {
     val computedDefend: Int
         get() = defend + defend*debuff.getBuffs(BUFF_MASK_FANG).first().value / 100
 
-    private val backup = Diff()
+    internal val backup = Diff()
 
     val isPoisoned: Boolean
         get() = hasDebuff(BUFF_MASK_DU)
@@ -474,12 +474,15 @@ abstract class FightingCharacter : Character() {
         backup.mp = mp
         debuff.fill(backup.debuff)
         missed = false
+        deltaSinceBackup = 0
     }
 
     fun diff(withBuff: Boolean): Diff {
         val diff = Diff()
         diff.mp = mp - backup.mp
-        diff.hp = hp - backup.hp
+        // 用累计的未钳制增量作飘字依据：hp field 已被钳制到 [0, maxHP]，
+        // 直接相减会把过量伤害截成剩余血量（100 血吃 500 伤害只飘 -100）。
+        diff.hp = deltaSinceBackup
         if (withBuff)
             diff.debuff = debuff.diffFrom(backup.debuff)
         return diff

@@ -48,7 +48,7 @@ abstract class BaseMagic : ResBase() {
         index = buf[offset + 1].toInt() and 0xFF
         roundNum = buf[offset + 3].toInt() and 0x7f
         isForAll = buf[offset + 3].toInt() and 0x80 != 0
-        costMp = buf[offset + 4].toInt()
+        costMp = buf[offset + 4].toInt() and 0xFF // 无符号：百火炼金术等高耗蓝读成负数会反向回蓝
         val aniRes = DatLib.getRes(DatLib.ResType.SRS, 2, buf[offset + 5].toInt() and 0xFF, false)
         magicAni = if (aniRes is ResSrs) aniRes else {
             println("Warning: Failed to load magic animation SRS for magic ${buf[offset + 5].toInt() and 0xFF}")

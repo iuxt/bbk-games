@@ -62,13 +62,13 @@ abstract class ResBase {
         }
 
         fun get1ByteSInt(buf: ByteArray, start: Int): Int {
-            val unsigned = buf[start].toInt() and 0xFF
-            return if (unsigned >= 128) {
-                // 截断异常高值，保持在有符号字节正数范围
-                127
-            } else {
-                unsigned        // 0-127 stays positive
-            }
+            // 伏魔记 .lib 中装备/药品的单字节属性增量（mMp/mHp/mdf/mlingli/
+            // mSpeed/mLuck 等）按原码(sign-magnitude)存放：bit7 为符号位，
+            // bit0..6 为数值（如金缕衣「身法-10」= 0x8a）。Kotlin ByteArray
+            // 在 JS 侧是补码 Int8Array，直接读 0x8a 会得到 -118；先 &0xFF
+            // 转无符号再按原码拆符号/数值。
+            val b = buf[start].toInt() and 0xFF
+            return if (b and 0x80 != 0) -(b and 0x7F) else b
         }
     }
 }

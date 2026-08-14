@@ -12,8 +12,8 @@ import { fileURLToPath } from "node:url";
 //   When an action's target died mid-round, prepareAction_0 redirects it to
 //   another living monster:
 //
-//       } else if (!isType(this.mCurrentAction_0, ActionFlee)) {
-//         (isType(tmp$_0 = this.mCurrentAction_0, ActionSingleTarget) ? tmp$_0 : throwCCE())
+//       } else if (!Typescript.isType(this.mCurrentAction_0, ActionFlee)) {
+//         (Typescript.isType(tmp$_0 = this.mCurrentAction_0, ActionSingleTarget) ? tmp$_0 : throwCCE())
 //             .setTarget_qpjxya$(newTarget);
 //       }
 //
@@ -25,15 +25,16 @@ import { fileURLToPath } from "node:url";
 //   Trigger: queue 合击 on monster A; before the (defend-priority, slow) coop
 //   action runs, a faster ally kills A while monster B still lives ->
 //   newTarget = B != null -> cast fails -> crash. (When ALL monsters are dead
-//   the b30469e early-exit saves it; the crash needs exactly "target dead,
-//   another alive". The 41588 revive exemption covers ActionMagicHelpOne only.)
+//   the early-exit saves it; the crash needs exactly "target dead,
+//   another alive". The revive exemption covers ActionMagicHelpOne only.)
 //
 // THE FIX
 //   Give ActionCoopMagic its own branch BEFORE the cast: its targets live in
-//   mMonsters_0, and the mMonster_0 property setter replaces the whole list
-//   (`this.mCurrentAction_0.mMonster_0 = newTarget`), which is exactly the
-//   retarget coop magic needs. targetIsMonster() is true for coop actions, so
-//   newTarget is a Monster from firstAliveMonster.
+//   mMonsters_0, and the mMonster property setter (compiled as
+//   mMonster_8be2vx$; suffixes are mangled per build) replaces the whole list
+//   (`mMonster = newTarget` -> mMonsters_0 = mutableListOf([value])), which is
+//   exactly the retarget coop magic needs. targetIsMonster() is true for coop
+//   actions, so newTarget is a Monster from firstAliveMonster.
 
 const CORE_JS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "rpg", "core.js");
 
@@ -117,20 +118,25 @@ function functionBody(src, name) {
     assert.fail(`unterminated function body for ${name}`);
 }
 
-test("core.js: prepareAction_0 retargets coop magic via mMonster_0, not a setTarget cast", () => {
+test("core.js: prepareAction_0 retargets coop magic via mMonster, not a setTarget cast", () => {
     const src = fs.readFileSync(CORE_JS, "utf8");
     const body = functionBody(src, "ActionExecutor.prototype.prepareAction_0");
-    assert.match(
-        body,
-        /isType\(this\.mCurrentAction_0, ActionCoopMagic\)\) \{[\s\S]*?this\.mCurrentAction_0\.mMonster_0 = newTarget;/,
-        "coop magic must be redirected by assigning mMonster_0 (its property setter replaces the monster list)"
+    // The coop branch: `else if (Typescript.isType(this.mCurrentAction_0,
+    // ActionCoopMagic)) { ...cast... .mMonster_8be2vx$ = newTarget; }` —
+    // assigning mMonster (NOT mMonsters, and NOT setTarget) lets the property
+    // setter replace the whole monster list. Mangled suffixes vary per build.
+    const coopMatch = body.match(
+        /Typescript\.isType\(this\.mCurrentAction_0,\s*ActionCoopMagic\)\)\s*\{[\s\S]*?mMonster(?!s)[A-Za-z0-9$_]*\s*=\s*newTarget\s*;/
+    );
+    assert.ok(
+        coopMatch,
+        "coop magic must be redirected by assigning mMonster (its property setter replaces the monster list)"
     );
     // And the coop branch must come before / instead of reaching the cast for coop.
-    const coopIdx = body.indexOf("ActionCoopMagic");
-    const castIdx = body.indexOf("ActionSingleTarget) ? tmp$_0 : throwCCE()");
-    assert.ok(coopIdx !== -1 && castIdx !== -1, "both branches present");
+    const castMatch = body.match(/ActionSingleTarget\)\s*\?\s*[A-Za-z0-9$_]+\s*:\s*throwCCE\(\)/);
+    assert.ok(castMatch, "the ActionSingleTarget cast branch is present");
     assert.ok(
-        coopIdx < castIdx,
+        coopMatch.index < castMatch.index,
         "the coop exemption must be checked before the ActionSingleTarget cast"
     );
 });

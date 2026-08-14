@@ -83,31 +83,42 @@ function methodBody(src, name) {
 test("core.js: Combat.onKeyDown records keys pressed during combat", () => {
     const src = fs.readFileSync(CORE_JS, "utf8");
     const body = methodBody(src, "Combat.prototype.onKeyDown_za3lpa$");
-    assert.match(
-        body,
-        /this\.mPressedKeys_0\[key\]\s*=\s*true/,
+    const putIdx = body.search(/this\.mPressedKeys_0\.put_[A-Za-z0-9$_]+\(\s*key\s*,\s*true\s*\)/);
+    assert.ok(
+        putIdx !== -1,
         "onKeyDown must mark the key as pressed so its release can be told apart from a phantom"
+    );
+    // ...and it must mark BEFORE dispatching the key into the combat state
+    // machine, so no early dispatch path can skip the marking.
+    const dispatchIdx = body.search(/this\.mCombatState_0/);
+    assert.ok(
+        dispatchIdx !== -1 && putIdx < dispatchIdx,
+        "the pressed-key marking must be the first thing onKeyDown does"
     );
 });
 
 test("core.js: Combat.onKeyUp swallows phantom releases (no matching keydown in this combat)", () => {
     const src = fs.readFileSync(CORE_JS, "utf8");
     const body = methodBody(src, "Combat.prototype.onKeyUp_za3lpa$");
-    assert.match(
-        body,
-        /if\s*\(\s*!this\.mPressedKeys_0\[key\]\s*\)/,
-        "onKeyUp must detect releases whose keydown was never seen in this combat"
+    // A release whose key was never seen down in this combat (get !== true)
+    // must be detected and bailed out on BEFORE any dispatch, so the menu is
+    // not confirmed:
+    const guardIdx = body.search(
+        /if\s*\(\s*this\.mPressedKeys_0\.get_[A-Za-z0-9$_]+\(\s*key\s*\)\s*!==\s*true\s*\)\s*\{[^{}]*return/
     );
-    // ...and bail out early on that path so the menu is not confirmed:
-    assert.match(
-        body,
-        /!this\.mPressedKeys_0\[key\][\s\S]*?return/,
+    assert.ok(
+        guardIdx !== -1,
         "onKeyUp must return early for a phantom release instead of dispatching it"
+    );
+    const dispatchIdx = body.search(/this\.mCombatState_0/);
+    assert.ok(
+        dispatchIdx !== -1 && guardIdx < dispatchIdx,
+        "the phantom guard must run before any combat-state dispatch"
     );
     // A genuine release must still clear the flag so the key can be re-pressed:
     assert.match(
         body,
-        /this\.mPressedKeys_0\[key\]\s*=\s*false/,
+        /this\.mPressedKeys_0\.put_[A-Za-z0-9$_]+\(\s*key\s*,\s*false\s*\)/,
         "onKeyUp must clear the press flag for a real release"
     );
 });
@@ -116,11 +127,12 @@ test("core.js: the press tracker is reset at the start of every combat", () => {
     const src = fs.readFileSync(CORE_JS, "utf8");
     // prepareForNewCombat_0 is reached for both scripted (EnterFight) and random
     // (StartNewRandomCombat) battles via Combat$Companion.prepareForNewCombat_0,
-    // so resetting here covers every entry point.
+    // so resetting here covers every entry point. The tracker is a
+    // mutableMapOf (LinkedHashMap), so the reset is clear(), not a fresh `{}`.
     const body = methodBody(src, "Combat.prototype.prepareForNewCombat_0");
     assert.match(
         body,
-        /this\.mPressedKeys_0\s*=\s*\{\}/,
+        /this\.mPressedKeys_0\.clear\(\)/,
         "prepareForNewCombat must reset the press tracker for the new combat"
     );
 });

@@ -32,6 +32,25 @@ const CORE_JS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "r
 const ROM = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "rpg", "roms", "fmj_rpg.lib");
 const LEVEL_BYTES = 20;
 
+// Extract a prototype-method body by brace matching so the pins survive
+// formatting churn (indentation, minified vs pretty) and don't bleed into
+// neighbouring functions.
+function methodBody(src, name) {
+    const start = src.indexOf(name);
+    assert.ok(start !== -1, `could not find ${name} in rpg/core.js`);
+    const open = src.indexOf("{", start);
+    let depth = 0;
+    for (let i = open; i < src.length; i++) {
+        const c = src[i];
+        if (c === "{") depth++;
+        else if (c === "}") {
+            depth--;
+            if (depth === 0) return src.slice(start, i + 1);
+        }
+    }
+    assert.fail(`unterminated method body for ${name}`);
+}
+
 // Parse a fmj .lib: index table @0x10, offset table @0x2000.
 function parseLib(u) {
     const offsets = new Map(); // (resType<<16 | type<<8 | index) -> file offset
@@ -117,16 +136,19 @@ test("ROM: 慕容小梅 / 袁萍芷 hit the same drop (bug is global, not 柳清
 test("core.js: setData_ir89t6$ monotizes the learnNum column (pins the production fix)", () => {
     // Fails until the patch is applied to rpg/core.js.
     const src = fs.readFileSync(CORE_JS, "utf8");
-    const m = src.match(/ResLevelupChain\.prototype\.setData_ir89t6\$\s*=\s*function\(buf,\s*offset\)\s*\{([\s\S]*?)\n    \};/);
-    assert.ok(m, "could not locate setData_ir89t6$ body in rpg/core.js");
-    const body = m[1];
+    const body = methodBody(src, "ResLevelupChain.prototype.setData_ir89t6$");
     // must iterate level records and propagate byte19 forward when it would decrease
-    assert.match(body, /LEVEL_BYTES/, "fix must reference LEVEL_BYTES stride");
-    assert.match(body, /\+\s*19/, "fix must address the byte19 column (offset +19)");
-    assert.match(body, /<=\s*this\.maxLevel/, "fix must walk every level up to maxLevel");
-    // the propagation: when current < previous, set current = previous
-    assert.match(body, /mLevelData_0\[[\w$]+\]\s*=\s*this\.mLevelData_0\[[\w$]+\]/,
-        "fix must copy the previous peak into the current byte19 slot");
+    assert.match(body, /LEVEL_BYTES_0/, "fix must use the LEVEL_BYTES record stride");
+    assert.match(body, /\+ 19 \| 0;/, "fix must address the byte19 column (offset +19)");
+    assert.match(body, /[\w$]+\s*=\s*this\.maxLevel;\s*for \(var lv = 2; lv <= [\w$]+; lv\+\+\) \{/,
+        "fix must walk every level record from 2 up to maxLevel");
+    // the propagation, as compiled JS (unsigned byte compare, then assign):
+    // when (mLevelData[cur] & 255) < (mLevelData[prev] & 255), cur = prev.
+    assert.match(
+        body,
+        /if \(\(this\.mLevelData_0\[[\w$]+\] & 255\) < \(this\.mLevelData_0\[[\w$]+\] & 255\)\) \{[^{}]*this\.mLevelData_0\[[\w$]+\] = this\.mLevelData_0\[[\w$]+\];/,
+        "fix must copy the previous peak into the current byte19 slot"
+    );
 });
 
 test("scenario: learnNum at lvl36 stays 18 (fixed) instead of becoming 0 (buggy)", () => {
@@ -157,14 +179,14 @@ test("core.js: readArchive (decode_setnfj$) clamps a corrupted learnNum back up 
     // On load it must be corrected using levelupChain so the player doesn't have
     // to gain yet another level just to see their magics return.
     const src = fs.readFileSync(CORE_JS, "utf8");
-    const m = src.match(/Player\.prototype\.decode_setnfj\$\s*=\s*function\(coder\)\s*\{([\s\S]*?)\n    \};/);
-    assert.ok(m, "could not locate decode_setnfj$ body in rpg/core.js");
-    const body = m[1];
-    assert.match(body, /getLearnMagicNum_za3lpa\$\([^)]*this\.level/,
+    const body = methodBody(src, "Player.prototype.decode_setnfj$");
+    assert.match(body, /= this\.magicChain\) != null/,
+        "the clamp must operate on the decoded magicChain (null-safe)");
+    assert.match(body, /var peak = this\.levelupChain\.getLearnMagicNum_za3lpa\$\(this\.level\);/,
         "decode must recompute the peak via getLearnMagicNum(this.level)");
-    assert.match(body, />\s*this\.magicChain\.learnNum/,
+    assert.match(body, /if \(peak > [\w$]+\.learnNum\) \{/,
         "decode must guard with (peak > current learnNum)");
-    assert.match(body, /this\.magicChain\.learnNum\s*=/,
+    assert.match(body, /[\w$]+\.learnNum = peak;/,
         "decode must write the corrected value back into magicChain.learnNum");
 });
 

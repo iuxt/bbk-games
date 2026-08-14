@@ -18,22 +18,34 @@ import { fileURLToPath } from "node:url";
 //   floats "-N" / "+N" over the combatant. RaiseAnimation shows a number iff the
 //   delta is non-zero, otherwise it no-ops (no "0" ever appears).
 //
-// THE BUG
-//   ActionMagicAttackAll.preproccess applies the spell's damage to every target,
-//   THEN builds the per-target raise animations — but guarded each one with
+// THE BUG (pre-rebuild hand-patched core.js)
+//   ActionMagicAttackAll.preproccess applied the spell's damage to every target,
+//   THEN built the per-target raise animations — but guarded each one with
 //   `if (item.isAlive)`. Because damage was applied first, a target killed by
-//   THIS spell already has isAlive === false and is skipped: no number floats,
-//   the enemy simply disappears. (The sibling group actions —
+//   THIS spell already had isAlive === false and was skipped: no number floated,
+//   the enemy simply vanished. (The sibling group actions —
 //   ActionPhysicalAttackAll, ActionThrowItemAll, ActionCoopMagic — add the
 //   animation for every target unconditionally, so they never had this bug.)
 //
-// WHY SIMPLY REMOVING THE GUARD IS SAFE
-//   MagicAttack.use already skips combatants that were dead BEFORE the spell
-//   (`if (!fc.isAlive) continue;`), so an untouched corpse keeps delta 0 and its
-//   RaiseAnimation no-ops — no spurious number appears over a KO'd body. Only a
-//   target that was alive and actually took the hit has a non-zero delta, so only
-//   those raise a number. And because the delta is unclamped, an overkill hit
-//   (e.g. 500 damage on a 100-hp enemy) floats "-500", the real damage, not "-100".
+// THE FIX (current shape, recompiled from fmj_kt/src)
+//   ActionMagicAttackAll.preproccess now filters the target list down to the
+//   LIVING targets FIRST (`aliveTargets = mTargets.filter { it.isAlive }`), then
+//   casts the spell on that filtered list (`magic.use(attacker, aliveTargets)`),
+//   and finally raises a damage number for EVERY entry of that same list
+//   (`mRaiseAnimations.addAll(aliveTargets.map { it.diffToAnimation() })`).
+//   A monster killed by this very spell was alive at filter time, so it is still
+//   in aliveTargets when the numbers are built and floats its real damage; a
+//   corpse that was dead before the spell never enters the list, keeps delta 0,
+//   and RaiseAnimation no-ops (no "0" ever appears).
+//
+// WHY THE LIST-FORM MagicAttack.use NEEDS NO isAlive GUARD OF ITS OWN
+//   Both callers of the list-form use pass a pre-filtered target list:
+//   ActionMagicAttackAll's isAlive filter (above) and ActionCoopMagic's
+//   `mMonsters.removeAll { !it.isAlive }`. So the list-form use never sees a
+//   pre-dead combatant in the first place, and an untouched corpse keeps delta 0
+//   and shows no number. And because the delta is unclamped, an overkill hit
+//   (e.g. 500 damage on a 100-hp enemy) floats "-500", the real damage, not
+//   "-100".
 //
 // We can't instantiate the 2.9MB browser bundle in Node, so — per the project's
 // established pattern (test_rpg_combat_stop_on_victory / test_rpg_magic_cost) —
@@ -48,7 +60,7 @@ function makeCharacter(maxHP, hp) {
     return { maxHP, hpStored: hp, deltaSinceBackup: 0 };
 }
 
-// Mirrors FightingCharacter.prototype hp setter (rpg/core.js ~40094): clamp the
+// Mirrors FightingCharacter.prototype hp setter (rpg/core.js ~70225): clamp the
 // stored hp to [0, maxHP], but accumulate the raw delta for display.
 function setHp(ch, hp) {
     const delta = (hp - ch.hpStored) | 0;
@@ -132,15 +144,46 @@ function methodBody(src, name) {
 test("core.js: ActionMagicAttackAll raises the damage number over a killed target", () => {
     const src = fs.readFileSync(CORE_JS, "utf8");
     const body = methodBody(src, "ActionMagicAttackAll.prototype.preproccess");
-    // Locate the per-target loop that pushes each target's diffToAnimation.
-    const loopMatch = body.match(
-        /while\s*\([^)]*\.hasNext\(\)\)\s*\{[\s\S]*?item\.diffToAnimation_6taknv\$\(\)[\s\S]*?\}/
+    // Step 1 of the fix: the target list is filtered down to the ALIVE ones
+    // before anything is cast (`filter { it.isAlive }` compiled to a
+    // while/destination loop; temp identifiers and mangled suffixes vary).
+    const filterMatch = body.match(
+        /while\s*\([^)]*\.hasNext\(\)\)\s*\{[^{}]*if\s*\(\s*[A-Za-z0-9$_]+\.isAlive\s*\)[^{}]*destination\.add_11rb\$\(\s*[A-Za-z0-9$_]+\s*\)\s*;?\s*\}/
     );
-    assert.ok(loopMatch, "found the per-target raise-animation loop in ActionMagicAttackAll.preproccess");
-    // The loop must NOT gate the animation on isAlive — that hides the number of
-    // an enemy killed by this very spell.
+    assert.ok(
+        filterMatch,
+        "found the isAlive filter loop building the alive target list in ActionMagicAttackAll.preproccess"
+    );
+    const aliveDeclIdx = body.indexOf("var aliveTargets = destination;");
+    assert.ok(aliveDeclIdx !== -1, "the filtered list must be captured as aliveTargets");
+    assert.ok(
+        filterMatch.index < aliveDeclIdx,
+        "the isAlive filter must run BEFORE the filtered list is captured"
+    );
+    // Step 2: the spell is cast on the alive-filtered list (not the raw target
+    // list), so every entry of it — including whoever this spell is about to
+    // kill — takes the hit and records a delta.
+    const castMatch = body.match(/\.use[A-Za-z0-9$_]*\$\(\s*attacker\s*,\s*aliveTargets\s*\)/);
+    assert.ok(castMatch, "the spell must be cast on the alive-filtered list");
+    assert.ok(
+        castMatch.index > aliveDeclIdx,
+        "the cast must happen after the isAlive filter (a target killed by this spell stays in the list)"
+    );
+    // Step 3: the raise animations are built from that SAME aliveTargets list,
+    // with no further isAlive gate — that late gate is exactly what used to
+    // hide the number of an enemy killed by the spell (dead by then).
+    const aliveIterIdx = body.indexOf("aliveTargets.iterator()", castMatch.index);
+    assert.ok(aliveIterIdx !== -1, "the raise animations must be built from aliveTargets");
+    const addAllIdx = body.indexOf("addAll", aliveIterIdx);
+    assert.ok(addAllIdx !== -1, "the raise animations must be added to mRaiseAnimations");
+    const animLoop = body.slice(aliveIterIdx, addAllIdx);
+    assert.match(
+        animLoop,
+        /diffToAnimation[A-Za-z0-9$_]*\$\(\)/,
+        "every entry of aliveTargets must contribute a diffToAnimation raise"
+    );
     assert.doesNotMatch(
-        loopMatch[0],
+        animLoop,
         /isAlive/,
         "the per-target damage loop must not gate on isAlive (it would hide a killed enemy's damage number)"
     );
@@ -148,17 +191,75 @@ test("core.js: ActionMagicAttackAll raises the damage number over a killed targe
 
 test("core.js: hp setter tracks the unclamped delta (real damage, not remaining HP)", () => {
     const src = fs.readFileSync(CORE_JS, "utf8");
-    const body = methodBody(src, "Object.defineProperty(FightingCharacter.prototype, \"hp\"");
-    assert.match(body, /deltaSinceBackup/, "the hp setter must accumulate the unclamped delta for display");
-    assert.match(body, /Math_0\.max\(\s*0/, "the stored hp must still be clamped to 0 (death/revive correctness)");
-});
-
-test("core.js: MagicAttack.use skips already-dead corpses (so removing the guard is safe)", () => {
-    const src = fs.readFileSync(CORE_JS, "utf8");
-    const body = methodBody(src, "MagicAttack.prototype.use_h32lzv$");
+    const body = methodBody(src, "Object.defineProperty(FightingCharacter.prototype, 'hp'");
+    // The setter accumulates the RAW (unclamped) delta into deltaSinceBackup
+    // BEFORE clamping the stored backing field, so an overkill hit records the
+    // real damage (e.g. -500 on a 100-hp enemy), not the remaining-HP delta.
     assert.match(
         body,
-        /!fc\.isAlive[\s\S]{0,40}continue/,
-        "MagicAttack.use must skip pre-dead combatants so an untouched corpse keeps delta 0 and shows no number"
+        /this\.deltaSinceBackup\s*=\s*this\.deltaSinceBackup\s*\+\s*\(hp\s*-\s*this\.hp[A-Za-z0-9$_]*\)\s*\|\s*0/,
+        "the hp setter must accumulate the unclamped delta for display"
+    );
+    // The stored hp must still be clamped to [0, maxHP] (death/revive
+    // correctness) — compiled as JsMath min/max (temp names vary).
+    const minIdx = body.search(/JsMath\.min\(\s*[A-Za-z0-9$_]+\s*,\s*hp\s*\)/);
+    assert.ok(minIdx !== -1, "the setter must clamp hp down to maxHP (JsMath.min)");
+    const maxIdx = body.search(/JsMath\.max\(\s*0\s*,\s*[A-Za-z0-9$_]+\s*\)/);
+    assert.ok(
+        maxIdx !== -1 && maxIdx > minIdx,
+        "the stored hp must still be clamped to 0 (death/revive correctness)"
+    );
+    // And diff() must report that accumulated delta as the displayed hp change
+    // (diff.hp = deltaSinceBackup, NOT currentHp - backupHp, which is clamped).
+    const diffBody = methodBody(src, "FightingCharacter.prototype.diff_6taknv$");
+    assert.match(
+        diffBody,
+        /diff\.hp\s*=\s*this\.deltaSinceBackup\s*;/,
+        "diff() must expose the accumulated unclamped delta as diff.hp"
+    );
+});
+
+test("core.js: list-form MagicAttack.use callers pre-filter corpses (guardless use is safe)", () => {
+    const src = fs.readFileSync(CORE_JS, "utf8");
+    // The isAlive guard lives in the CALLERS of the list-form use: every list
+    // passed to use_h32lzv$ has already had corpses stripped from it.
+    // Caller 1 — ActionMagicAttackAll filters mTargets to the alive ones before
+    // casting (the full filter -> cast -> raise chain is pinned above):
+    const allBody = methodBody(src, "ActionMagicAttackAll.prototype.preproccess");
+    assert.match(
+        allBody,
+        /if\s*\(\s*[A-Za-z0-9$_]+\.isAlive\s*\)[^{}]*destination\.add_11rb\$\(\s*[A-Za-z0-9$_]+\s*\)/,
+        "ActionMagicAttackAll must pre-filter its target list to the alive ones before casting"
+    );
+    // Caller 2 — ActionCoopMagic strips dead monsters from mMonsters first:
+    const coopBody = methodBody(src, "ActionCoopMagic.prototype.preproccess");
+    assert.match(
+        coopBody,
+        /removeAll\(\s*this\.mMonsters[A-Za-z0-9$_]*\s*,\s*ActionCoopMagic\$preproccess\$lambda\s*\)/,
+        "ActionCoopMagic must strip dead monsters from its target list before casting"
+    );
+    const coopRemoveAllIdx = coopBody.search(/removeAll\(\s*this\.mMonsters/);
+    assert.ok(
+        coopRemoveAllIdx !== -1 && coopRemoveAllIdx < coopBody.indexOf(".use", coopRemoveAllIdx),
+        "the corpse strip must happen before coop magic casts on mMonsters"
+    );
+    // ...and that removeAll predicate is exactly the corpse test !isAlive:
+    const lambdaBody = methodBody(src, "function ActionCoopMagic$preproccess$lambda");
+    assert.match(
+        lambdaBody,
+        /return\s+!it\.isAlive\s*;/,
+        "the removeAll predicate must be !isAlive (remove exactly the corpses)"
+    );
+    // With both callers pre-filtering, the list-form use itself carries no
+    // per-target isAlive guard and is still safe: it never receives a
+    // pre-dead combatant, so an untouched corpse keeps delta 0 and its
+    // RaiseAnimation no-ops — no spurious number over a KO'd body. Only a
+    // target that was alive at filter time and actually took the hit has a
+    // non-zero delta, so only those raise a number.
+    const useBody = methodBody(src, "MagicAttack.prototype.use_h32lzv$");
+    assert.doesNotMatch(
+        useBody,
+        /isAlive/,
+        "the list-form use must not re-gate on isAlive — the callers already excluded corpses"
     );
 });

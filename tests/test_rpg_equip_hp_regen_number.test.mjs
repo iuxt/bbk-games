@@ -126,7 +126,7 @@ test("core.js: AwardAndPunishPostAction floats the CLAMPED HP gain from the back
     // backup snapshot (clamped real gain)…
     assert.match(
         body,
-        /attacker\.hp - attacker\.backup_2mheeg\$_0\.hp/,
+        /attacker\.hp - attacker\.backup_8be2vx\$\.hp/,
         "the HP float must use hp - backup.hp (actual clamped gain), like the MP branch"
     );
     // …and gate the RaiseAnimation on a non-zero delta (full HP -> no number).

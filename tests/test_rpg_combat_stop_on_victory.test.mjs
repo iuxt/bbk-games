@@ -12,12 +12,14 @@ import { fileURLToPath } from "node:url";
 //   sorted descending by speed (priority = computedSpeed). ActionExecutor.update
 //   then drains that queue one action at a time, frame by frame, returning
 //   `false` ONLY when the queue is empty. Combat.update (PerformAction case) is
-//   the sole place that checks the victory condition `isAllMonsterDead_0`, and
-//   it does so ONLY after the executor reports the queue drained:
+//   the sole place that checks the victory condition `isAllMonsterDead` (the
+//   property getter is compiled with a mangled suffix, e.g.
+//   isAllMonsterDead_8be2vx$), and it does so ONLY after the executor reports
+//   the queue drained:
 //
 //       case "PerformAction":
 //         if (!this.mActionExecutor_0.update_s8cxhz$(delta)) {   // queue empty?
-//           if (this.isAllMonsterDead_0) { ... -> Win }           // victory check
+//           if (this.isAllMonsterDead_8be2vx$) { ... -> Win }     // victory check
 //           ...
 //
 // THE BUG
@@ -30,11 +32,11 @@ import { fileURLToPath } from "node:url";
 //
 // THE FIX
 //   At the two pop sites inside ActionExecutor.update_s8cxhz$, check
-//   mCombat_0.isAllMonsterDead_0 BEFORE popping the next action. If every enemy
-//   is dead, stop draining: the in-flight killing action (and its AwardAndPunish
-//   post-action) already resolved before we reach a pop, so it finishes
-//   naturally; we then cancel() every action still queued and return false so
-//   Combat runs its existing victory transition.
+//   mCombat_0.isAllMonsterDead_8be2vx$ BEFORE popping the next action. If every
+//   enemy is dead, stop draining: the in-flight killing action (and its
+//   AwardAndPunish post-action) already resolved before we reach a pop, so it
+//   finishes naturally; we then cancel() every action still queued and return
+//   false so Combat runs its existing victory transition.
 //
 // WHY cancel() AND NOT queue.clear()
 //   Thrown-weapon / consumable quantities are deducted at SELECTION time
@@ -116,18 +118,36 @@ function methodBody(src, name) {
 test("core.js: ActionExecutor.update_s8cxhz$ stops when all monsters are dead", () => {
     const src = fs.readFileSync(CORE_JS, "utf8");
     const body = methodBody(src, "ActionExecutor.prototype.update_s8cxhz$");
-    // The drain loop must consult the victory condition before popping the next action.
-    assert.match(
-        body,
-        /isAllMonsterDead_0/,
-        "ActionExecutor.update must check isAllMonsterDead_0 before popping the next action"
+    // Each pop site must be preceded by the victory check: if all monsters are
+    // dead, cancel what's left and return false (signal Combat to evaluate
+    // victory). The isAllMonsterDead getter carries a mangled suffix, so match
+    // any isAllMonsterDead_* identifier.
+    const guards = [
+        ...body.matchAll(
+            /if\s*\(\s*this\.mCombat_0\.isAllMonsterDead[A-Za-z0-9$_]*\s*\)\s*\{[^{}]*this\.cancelRemainingActions_0\(\)\s*;[^{}]*return\s+false\s*;\s*\}/g
+        ),
+    ];
+    const pops = [...body.matchAll(/this\.mActionQueue_0\.pop\(\)/g)];
+    assert.equal(
+        pops.length,
+        2,
+        "expected the two pop sites (post-action path and idle path) in update"
     );
-    // And it must return false (signal Combat to evaluate victory) on that path.
-    assert.match(
-        body,
-        /isAllMonsterDead_0[^}]*return\s+false/,
-        "when all monsters are dead the executor must return false so Combat transitions to Win"
+    assert.equal(
+        guards.length,
+        pops.length,
+        "every pop site must check isAllMonsterDead before popping the next action"
     );
+    // And each guard must sit immediately BEFORE its pop — checking after the
+    // pop would run one action too many.
+    for (const g of guards) {
+        const after = body.slice(g.index + g[0].length);
+        assert.match(
+            after,
+            /^\s*this\.mCurrentAction_0\s*=\s*this\.mActionQueue_0\.pop\(\)/,
+            "the isAllMonsterDead guard must run BEFORE the queue pop, cancel the rest, and return false so Combat transitions to Win"
+        );
+    }
 });
 
 test("core.js: remaining actions are cancel()'d (refunds items), not silently dropped", () => {

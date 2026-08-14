@@ -79,6 +79,12 @@ class OperateBuy(override val parent: GameNode, data: ByteArray)
             this.goods = goods
             buyCnt = 0
             money = Player.sMoney
+            // 同一进店重复购买"未持有"的商品：goods.goodsNum 是上次购买残留
+            // 的计数，ENTER 的 buyCnt == goodsNum 判定会失配，导致钱扣了、
+            // 货没进包。非背包持有的商店对象一律归零计数。
+            if (Player.sGoodsList.getGoods(goods.type, goods.index) !== goods) {
+                goods.goodsNum = 0
+            }
         }
 
         override fun update(delta: Long) {}

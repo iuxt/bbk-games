@@ -29,6 +29,10 @@ class ResSrs : ResBase() {
     private var ITERATOR = 1 // update 迭代次数
     private val mShowList = mutableListOf<Key>()
 
+    /** 特效视觉锚点（各可见帧按面积加权的几何中心，由 BBKSrsAnchor 计算） */
+    private var mImpactAnchorX = 0
+    private var mImpactAnchorY = 0
+
     override fun setData(buf: ByteArray, offset: Int) {
         type = buf[offset].toInt()
         index = buf[offset + 1].toInt() and 0xFF
@@ -53,6 +57,24 @@ class ResSrs : ResBase() {
             img.setData(buf, ptr)
             ptr += img.bytesCount
             img
+        }
+
+        updateImpactAnchor()
+    }
+
+    private fun updateImpactAnchor() {
+        val frameHeaders = mFrameHeader ?: return
+        val images = mImage ?: return
+        // 宿主页面提供的 srs-anchor.js；缺失（如测试沙箱）时退回首帧坐标，
+        // drawAtTarget 退化为 drawAbsolutely 的语义。
+        val anchor = js("typeof window.BBKSrsAnchor !== 'undefined'" +
+                " ? window.BBKSrsAnchor.compute(frameHeaders, images) : null")
+        if (anchor != null) {
+            mImpactAnchorX = anchor.x
+            mImpactAnchorY = anchor.y
+        } else if (frameHeaders.isNotEmpty()) {
+            mImpactAnchorX = frameHeaders[0][0]
+            mImpactAnchorY = frameHeaders[0][1]
         }
     }
 
@@ -126,9 +148,9 @@ class ResSrs : ResBase() {
     fun drawAbsolutely(canvas: Canvas, x: Int, y: Int) {
         val images = mImage ?: return
         val frameHeaders = mFrameHeader ?: return
-        
+
         if (frameHeaders.isEmpty()) return
-        
+
         for (i in mShowList) {
             val frameIndex = i.index
             if (frameIndex >= 0 && frameIndex < frameHeaders.size) {
@@ -137,6 +159,50 @@ class ResSrs : ResBase() {
                     images[imageIndex].draw(canvas, 1,
                         frameHeaders[frameIndex][0] - frameHeaders[0][0] + x,
                         frameHeaders[frameIndex][1] - frameHeaders[0][1] + y)
+                }
+            }
+        }
+    }
+
+    /**
+     * 以特效自身的视觉锚点（面积加权中心）为基准绘制到 (x, y)：
+     * 多目标 SRS 的原始坐标是按满员编队制作的，直接按首帧偏移绘制会把
+     * 特效落在玩家队伍上；先减去视觉锚点才能对准目标。
+     */
+    fun drawAtTarget(canvas: Canvas, x: Int, y: Int) {
+        val images = mImage ?: return
+        val frameHeaders = mFrameHeader ?: return
+
+        for (i in mShowList) {
+            val frameIndex = i.index
+            if (frameIndex >= 0 && frameIndex < frameHeaders.size) {
+                val imageIndex = frameHeaders[frameIndex][4]
+                if (imageIndex >= 0 && imageIndex < images.size) {
+                    images[imageIndex].draw(canvas, 1,
+                        frameHeaders[frameIndex][0] - mImpactAnchorX + x,
+                        frameHeaders[frameIndex][1] - mImpactAnchorY + y)
+                }
+            }
+        }
+    }
+
+    /**
+     * 同 drawAtTarget，但把各帧相对锚点的偏移按 (sx, sy) 比例压缩：
+     * SRS 按 3 槽满员编队绘制，人数不足时按占用跨度比例缩放，使各列
+     * 特效落在实际角色身上而不是空槽位。
+     */
+    fun drawAtTargetScaled(canvas: Canvas, x: Int, y: Int, sx: Double, sy: Double) {
+        val images = mImage ?: return
+        val frameHeaders = mFrameHeader ?: return
+
+        for (i in mShowList) {
+            val frameIndex = i.index
+            if (frameIndex >= 0 && frameIndex < frameHeaders.size) {
+                val imageIndex = frameHeaders[frameIndex][4]
+                if (imageIndex >= 0 && imageIndex < images.size) {
+                    images[imageIndex].draw(canvas, 1,
+                        ((frameHeaders[frameIndex][0] - mImpactAnchorX) * sx + x).toInt(),
+                        ((frameHeaders[frameIndex][1] - mImpactAnchorY) * sy + y).toInt())
                 }
             }
         }

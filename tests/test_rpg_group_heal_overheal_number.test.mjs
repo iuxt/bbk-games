@@ -27,7 +27,8 @@ import { fileURLToPath } from "node:url";
 //   one, where the real gain is 0.
 //
 // THE FIX
-//   MagicRestore.applyToTarget is the one place every restore cast flows
+//   MagicRestore.applyEffect (applyEffect_qwqr58$, renamed from applyToTarget
+//   in the Kotlin rebuild) is the one place every restore cast flows
 //   through (single, group, in-battle, menu). After writing the clamped hp,
 //   overwrite the accumulated delta with the real (clamped) gain. Damage is
 //   unaffected — it never goes through MagicRestore — and single-target display
@@ -77,7 +78,7 @@ test("mechanism (buggy): a near-full ally shows the spell amount, not the real g
     assert.notEqual(nearFull.deltaSinceBackup, 20, "but the real gain is only 20");
 });
 
-// Mirrors the FIXED MagicRestore.applyToTarget: after writing the clamped hp,
+// Mirrors the FIXED MagicRestore.applyEffect: after writing the clamped hp,
 // overwrite the accumulated delta with the real (clamped) gain.
 function applyRestoreFixed(ch, spellHp) {
     if (ch.hpStored <= 0) return; // skip the dead, like the real guard
@@ -129,17 +130,30 @@ function methodBody(src, name) {
     assert.fail(`unterminated method body for ${name}`);
 }
 
-test("core.js: MagicRestore.applyToTarget clamps the display delta to the real HP gained", () => {
+test("core.js: MagicRestore.applyEffect clamps the display delta to the real HP gained", () => {
     const src = fs.readFileSync(CORE_JS, "utf8");
-    const body = methodBody(src, "MagicRestore.prototype.applyToTarget_qpjxya$");
-    // After writing the (clamped) hp, the accumulated deltaSinceBackup must be
-    // overwritten with the actually-restored amount, so an all-target restore
-    // floats nothing over a full-HP ally and only the real gain over a partial
-    // one — instead of the unclamped spell amount.
+    const body = methodBody(src, "MagicRestore.prototype.applyEffect_qwqr58$");
+    // The fix must snapshot hp at function entry, BEFORE the clamped heal...
     assert.match(
         body,
-        /deltaSinceBackup_12x06j\$_0\s*=\s*dst\.hp\s*-\s*currentHp/,
-        "applyToTarget must reset deltaSinceBackup to dst.hp - currentHp (the clamped gain) after healing"
+        /var currentHp = dst\.hp;/,
+        "applyEffect must snapshot currentHp = dst.hp before healing"
+    );
+    // ...write the heal only under the wasAlive guard (the hp write itself is
+    // clamped to maxHP right after)...
+    assert.match(
+        body,
+        /if \(wasAlive && this\.mHp_0 > 0\) \{[^{}]*dst\.hp = dst\.hp \+ this\.mHp_0 \| 0;/,
+        "the heal write must stay behind the wasAlive guard"
+    );
+    // ...then overwrite the accumulated deltaSinceBackup with the
+    // actually-restored amount, so an all-target restore floats nothing over a
+    // full-HP ally and only the real gain over a partial one — instead of the
+    // unclamped spell amount.
+    assert.match(
+        body,
+        /dst\.deltaSinceBackup\s*=\s*dst\.hp\s*-\s*currentHp\s*\|\s*0;/,
+        "applyEffect must reset deltaSinceBackup to dst.hp - currentHp (the clamped gain) after healing"
     );
 });
 

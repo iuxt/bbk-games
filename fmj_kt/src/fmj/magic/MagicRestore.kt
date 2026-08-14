@@ -29,11 +29,13 @@ class MagicRestore : BaseMagic() {
      */
     fun applyEffect(src: FightingCharacter, dst: FightingCharacter) {
         println("MagicRestore.applyEffect: 角色 ${dst.name} 使用恢复魔法前 HP: ${dst.hp}/${dst.maxHP}, 魔法HP恢复: $mHp")
-        
+
+        val currentHp = dst.hp
+
         // 检查目标角色是否已经阵亡（HP <= 0 表示阵亡）
         val wasAlive = dst.hp > 0
         val wasDead = dst.hp <= 0
-        
+
         // 恢复型魔法（MagicRestore）不具有复活功能，只能对存活角色使用，类似普通药物（GoodsMedicine）
         if (wasAlive && mHp > 0) {
             println("MagicRestore.applyEffect: 角色存活，增加HP $mHp")
@@ -48,12 +50,17 @@ class MagicRestore : BaseMagic() {
         } else {
             println("MagicRestore.applyEffect: 魔法无HP恢复效果 (mHp=$mHp)")
         }
-        
+
+        // hp setter 累计的是未钳制的名义治疗量（为了让伤害飘字真实）；
+        // 治疗侧满血不应飘字、近满只飘实际恢复量——群体恢复经
+        // diffToAnimation 读该字段，覆写为钳制后的实际增量。
+        dst.deltaSinceBackup = dst.hp - currentHp
+
         // 状态治疗（只对存活角色有效）
         if (wasAlive) {
             health(mBuff, dst.debuff)
         }
-        
+
         println("MagicRestore.use: 角色 ${dst.name} 使用恢复魔法后 HP: ${dst.hp}/${dst.maxHP}")
     }
 }

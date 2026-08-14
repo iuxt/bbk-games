@@ -144,8 +144,13 @@ test("core.js: AwardAndPunishPostAction floats an MP number when MP changed", ()
     // number reflects the actual (clamped) gain, not the ornament's full amount.
     assert.match(
         body,
-        /backup_2mheeg\$_0\.mp/,
+        /attacker\.mp - attacker\.backup_8be2vx\$\.mp/,
         "must read the backed-up mp to compute the delta"
+    );
+    assert.match(
+        body,
+        /mpDelta !== 0[\s\S]{0,200}new RaiseAnimation\(/,
+        "a RaiseAnimation for MP must only be pushed when mpDelta !== 0 (full MP -> no number)"
     );
     assert.match(
         body,

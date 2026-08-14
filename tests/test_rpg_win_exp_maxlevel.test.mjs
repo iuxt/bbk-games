@@ -106,16 +106,18 @@ function functionBody(src, name) {
 test("core.js: the Win exp loop skips capped members with continue, not break", () => {
     const src = fs.readFileSync(CORE_JS, "utf8");
     const body = functionBody(src, "Combat.prototype.update_s8cxhz$");
-    // The max-level guard must skip only that member…
+    // The max-level guard must skip only that member. The Kotlin source has a
+    // comment between the `if` and the `continue`, so the compiled output puts
+    // them on separate lines — allow arbitrary whitespace (incl. newlines).
     assert.match(
         body,
-        /if \(p\.level >= p\.levelupChain\.maxLevel\) continue;/,
+        /if\s*\(p\.level >= p\.levelupChain\.maxLevel\)\s*continue\s*;/,
         "the max-level guard must `continue` (skip that member) so later members still get exp"
     );
     // …and must not abort the whole party loop.
     assert.doesNotMatch(
         body,
-        /if \(p\.level >= p\.levelupChain\.maxLevel\) break;/,
+        /if\s*\(p\.level >= p\.levelupChain\.maxLevel\)\s*break\s*;/,
         "`break` starves every member listed after a capped one — regression"
     );
 });

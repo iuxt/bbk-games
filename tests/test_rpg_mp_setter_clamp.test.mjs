@@ -25,7 +25,17 @@ import { fileURLToPath } from "node:url";
 //
 // THE FIX
 //   Clamp the low end too, symmetric with the hp setter:
-//   `Math_0.max(0, Math_0.min(a, mp))`.
+//   `field = max(0, min(maxMP, mp))`. The Kotlin->JS rebuild compiles the
+//   stdlib Math calls to JsMath and keeps single-quoted property names, so the
+//   shipped setter reads:
+//
+//       Object.defineProperty(FightingCharacter.prototype, 'mp', {
+//         set: function (mp) {
+//           var a = this.maxMP;
+//           var b = JsMath.min(a, mp);
+//           this.mp_oo4f3b$_0 = JsMath.max(0, b);   // <-- max(0, ...) added
+//         }
+//       });
 
 const CORE_JS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "rpg", "core.js");
 
@@ -87,11 +97,13 @@ function functionBody(src, name) {
 
 test("core.js: mp setter clamps to [0, maxMP] like the hp setter", () => {
     const src = fs.readFileSync(CORE_JS, "utf8");
-    // The mp setter is defined via Object.defineProperty; grab its setter body
-    // by locating the mp getter first, then brace-matching the set function.
-    const anchor = src.indexOf('Object.defineProperty(FightingCharacter.prototype, "mp"');
-    assert.ok(anchor !== -1, 'could not locate the "mp" property definition');
-    const open = src.indexOf("{", src.indexOf("set: function(mp)", anchor));
+    // The mp setter is defined via Object.defineProperty (the Kotlin->JS bundle
+    // spells the property name with single quotes); grab its setter body by
+    // locating the 'mp' property definition first, then brace-matching the set
+    // function.
+    const anchor = src.indexOf("Object.defineProperty(FightingCharacter.prototype, 'mp'");
+    assert.ok(anchor !== -1, "could not locate the 'mp' property definition");
+    const open = src.indexOf("{", src.indexOf("set: function", anchor));
     let depth = 0;
     let body = null;
     for (let i = open; i < src.length; i++) {
@@ -106,9 +118,12 @@ test("core.js: mp setter clamps to [0, maxMP] like the hp setter", () => {
         }
     }
     assert.ok(body, "could not extract the mp setter body");
+    // Two-step clamp: cap against maxMP first (min), then floor at 0 (max) —
+    // both bounds must be present, in that data flow, written to the mp
+    // backing field.
     assert.match(
         body,
-        /Math_0\.max\(0,\s*Math_0\.min\(a,\s*mp\)\)/,
+        /var a = this\.maxMP;\s*var b = JsMath\.min\(a, mp\);\s*this\.mp_[\w$]+_0 = JsMath\.max\(0, b\);/,
         `mp setter must clamp to [0, maxMP]; found: ${body.trim()}`
     );
 });

@@ -38,8 +38,16 @@ node fmj_kt/smoke-boot.mjs        # 沙箱冒烟
 ## 已知差异（与 main 分支手修版相比）
 
 - 上游 HEAD 源码自带部分同等修复（满级队员跳过经验、回合上限生效、
-  每回合重置回合事件标志、复活量用 max(0,hp) 等）；
+  每回合重置回合事件标志、复活量用 max(0,hp)、群体药品跳死者、
+  装饰合击 mMagic 守卫等）；
+- 上游缺失的 bbk 修复已作为 Kotlin 补丁移植进 `fmj_kt/src` 并随本流水线
+  编译（`git log -- fmj_kt/src` 可查）：hp/mp/maxHP setter 钳制与
+  deltaSinceBackup 真实伤害飘字、装备回血/回真气飘实际量、行动队列
+  cancel 退款（合击/围攻/全灭停战）、合击目标重定向、幽灵 keyup 吞键、
+  群体法术特效编队中心锚定与人数压缩、投掷/用药 Y 锚偏移、get1ByteSInt
+  原码解析、costMp 无符号、hasEquipt 双装饰槽、learnNum 单调化与读档
+  峰值校正、商店重复购买归零、穿戴守卫与换装回滚等；
+- 属性可见值仍按 GameSettings 上限钳制（上游 totals 累加器保证换装
+  可逆），maxHP/maxMP 不再有人为 999/9999 上限（恢复 ROM 原始数值）；
 - 上游新增功能带较多 console 调试日志（PlayerStats/HP_CHANGE 等）；
-- `tests/test_rpg_*` 中约 48 个「源码 pin」测试失败：它们匹配的是旧手修
-  补丁的文本特征，不适用于编译产物格式，同时其中部分 bbk 修复上游源码
-  并不包含——本分支用于对比验证上游行为，合入前需逐项评估。
+- 回归测试已全部改写为新编译产物形态，`npm run test:node` 212/212 通过。

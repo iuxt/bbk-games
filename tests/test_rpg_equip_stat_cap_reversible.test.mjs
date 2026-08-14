@@ -8,15 +8,17 @@ import { fileURLToPath } from "node:url";
 // the stat" bug in rpg/core.js (fmj engine, 伏魔记 et al.).
 //
 // THE BUG
-//   Equipment wear/remove is a SYMMETRIC delta on each stat
-//   (GoodsEquipment.prototype.putOn_xa4yhy$ ~47266 / takeOff_xa4yhy$ ~47283):
+//   Equipment wear/remove used to be a SYMMETRIC delta on each stat
+//   (GoodsEquipment.prototype.putOn_xa4yhy$ / takeOff_xa4yhy$):
 //       p.speed = p.speed + this.mSpeed;   // putOn
 //       p.speed = p.speed - this.mSpeed;   // takeOff
 //   But assigning triggers the setter, which CLAMPS the value to an upper
-//   bound (FightingCharacter prototype, ~40088-40158):
-//       speed  -> Math.min(99, s)    lingli -> Math.min(99, l)
-//       luck   -> Math.min(99, l)    attack -> Math.min(999, at)
-//       defend -> Math.min(999, d)   maxMP  -> Math.min(999, maxMP)
+//   bound (FightingCharacter prototype; nowadays the limit comes from
+//   GameSettings.enableEnhancedLimits — 99/127 for speed-class stats,
+//   999/9999 for attack-class stats):
+//       speed  -> min(99, s)    lingli -> min(99, l)
+//       luck   -> min(99, l)    attack -> min(999, at)
+//       defend -> min(999, d)   maxMP  -> min(999, maxMP)
 //   The clamp is ONE-SIDED: putOn discards anything above the cap, yet takeOff
 //   subtracts the FULL bonus. The two are no longer inverses, so the base stat
 //   is permanently eroded — and every gear swap while sitting at the cap eats
@@ -31,15 +33,22 @@ import { fileURLToPath } from "node:url";
 //                      ; putOn +14  -> min(69+14,99) = 83
 //   => 83, exactly the "掉到 80 多" the player saw.
 //
-// THE FIX (chosen: lift the cap)
-//   Remove the upper-bound clamp from those six setters. With no one-sided
-//   clamp disrupting the symmetric ±bonus delta, wear/remove become exact
-//   inverses again — equipping past the cap keeps the real accumulated value
-//   (speed can read 115), and unequipping restores the base precisely. Combat
-//   and display simply use the now-uncapped value. Same class of "clamp eats
-//   the real value" problem already solved once for the hp setter via
-//   deltaSinceBackup (see test_rpg_group_heal_overheal_number); here the clean
-//   fix is to stop clamping at the source.
+// THE FIX (shipped: total* accumulators in GoodsEquipment putOn/takeOff)
+//   The visible-value setters KEEP their GameSettings clamp (display/balance),
+//   but the wear/remove pair no longer runs the ±bonus through them. Every
+//   gear-adjusted stat gets a plain total* accumulator that putOn/takeOff
+//   update symmetrically and then publish as the visible value:
+//       putOn  : p.totalSpeed += this.mSpeed; p.speed = p.totalSpeed
+//       takeOff: p.totalSpeed -= this.mSpeed; p.speed = p.totalSpeed
+//   The total* fields are plain data fields (no accessor property), so the
+//   one-sided clamp can never eat the bonus again: equipping past the cap
+//   keeps the real accumulated value in totalSpeed (the visible speed just
+//   reads the cap while worn), and unequipping restores the base precisely.
+//   maxHP is handled separately: its setter has no upper cap of its own and
+//   keeps only the correctness guard that pulls hp down when the ceiling
+//   drops (pinned below). Same class of "clamp eats the real value" problem
+//   already solved once for the hp setter via deltaSinceBackup
+//   (see test_rpg_group_heal_overheal_number).
 //
 // As with the other rpg tests, the 2.9MB browser bundle can't be instantiated
 // in Node, so we (a) model the mechanism in plain JS and (b) pin the
@@ -53,54 +62,60 @@ function makeChar(initial, cap) {
     return { v: initial, cap };
 }
 
-// Buggy setter: clamps the stored value to [.., cap] on every write, like the
-// pre-fix FightingCharacter setters.
+// Buggy model: the setter clamps the stored value to [.., cap] on every write
+// (like the FightingCharacter visible-value setters), and the pre-fix
+// putOn/takeOff routed their ±bonus straight through it.
 function setClamped(ch, v) {
     ch.v = Math.min(ch.cap, v);
 }
-// Fixed setter (chosen fix): no upper clamp.
-function setUncapped(ch, v) {
-    ch.v = v;
-}
+function putOnBuggy(ch, bonus) { setClamped(ch, ch.v + bonus); }
+function takeOffBuggy(ch, bonus) { setClamped(ch, ch.v - bonus); }
 
-// putOn/takeOff are symmetric deltas routed through whichever setter.
-function putOn(ch, bonus, setter) { setter(ch, ch.v + bonus); }
-function takeOff(ch, bonus, setter) { setter(ch, ch.v - bonus); }
+// FIXED model (shipped design): the visible-value setter still clamps, but
+// putOn/takeOff keep the true value in a plain accumulator (the engine's
+// total* fields, which no accessor intercepts) and publish from it.
+function makeAccChar(initial, cap) {
+    return { total: initial, v: initial, cap };
+}
+function setVisible(ch, v) { ch.v = Math.min(ch.cap, v); }
+function putOnFixed(ch, bonus) { ch.total += bonus; setVisible(ch, ch.total); }
+function takeOffFixed(ch, bonus) { ch.total -= bonus; setVisible(ch, ch.total); }
 
 test("mechanism (buggy): swapping back to the original gear does NOT restore the stat", () => {
     const p = makeChar(/*base*/ 85, /*cap*/ 99);
-    putOn(p, 14, setClamped);                 // 99 (was 99, clamped from 99)
+    putOnBuggy(p, 14);                          // 99 (was 99, clamped from 99)
     assert.equal(p.v, 99, "base 85 + 14 = 99, sits at the cap");
     // swap to the better +30 piece: take off old, put on new
-    takeOff(p, 14, setClamped);               // 99 - 14 = 85  (coincidentally right)
-    putOn(p, 30, setClamped);                 // min(85+30, 99) = 99
+    takeOffBuggy(p, 14);                        // 99 - 14 = 85  (coincidentally right)
+    putOnBuggy(p, 30);                          // min(85+30, 99) = 99
     assert.equal(p.v, 99, "85 + 30 clamps back to 99; the 16 above is lost");
     // swap back to the original +14 piece
-    takeOff(p, 30, setClamped);               // 99 - 30 = 69  <-- the corruption
+    takeOffBuggy(p, 30);                        // 99 - 30 = 69  <-- the corruption
     assert.equal(p.v, 69, "BUG: takeOff subtracts the full 30 from the clamped 99");
-    putOn(p, 14, setClamped);                 // min(69+14, 99) = 83
+    putOnBuggy(p, 14);                          // min(69+14, 99) = 83
     assert.equal(p.v, 83, "the player's reported '掉到 80 多'");
     assert.notEqual(p.v, 99, "the stat should have returned to 99 but cannot");
 });
 
 test("mechanism (fixed): swapping back to the original gear restores the stat exactly", () => {
-    const p = makeChar(85, 99);
-    putOn(p, 14, setUncapped);                // 99
+    const p = makeAccChar(85, 99);
+    putOnFixed(p, 14);                          // total 99, visible 99
     assert.equal(p.v, 99);
-    takeOff(p, 14, setUncapped);              // 85
-    putOn(p, 30, setUncapped);                // 115  (no clamp; the real value survives)
-    assert.equal(p.v, 115, "the accumulated value can exceed the old cap");
-    takeOff(p, 30, setUncapped);              // 85   (exact inverse)
+    takeOffFixed(p, 14);                        // total 85
+    putOnFixed(p, 30);                          // total 115, visible clamped at 99
+    assert.equal(p.total, 115, "the accumulator keeps the real value past the cap");
+    assert.equal(p.v, 99, "the visible value just reads the cap while worn");
+    takeOffFixed(p, 30);                        // total 85 (exact inverse)
     assert.equal(p.v, 85, "unequipping restores the base precisely");
-    putOn(p, 14, setUncapped);                // 99
+    putOnFixed(p, 14);                          // total 99
     assert.equal(p.v, 99, "back to the original gear, back to the original stat");
 });
 
 test("mechanism (fixed): repeated wear/remove never erodes the base stat", () => {
-    const p = makeChar(85, 99);
+    const p = makeAccChar(85, 99);
     for (let i = 0; i < 20; i++) {
-        putOn(p, 30, setUncapped);
-        takeOff(p, 30, setUncapped);
+        putOnFixed(p, 30);
+        takeOffFixed(p, 30);
     }
     assert.equal(p.v, 85, "20 cycles of wearing/removing the +30 piece leave the base untouched");
 });
@@ -108,22 +123,25 @@ test("mechanism (fixed): repeated wear/remove never erodes the base stat", () =>
 test("mechanism (buggy vs fixed): under the cap both behave identically", () => {
     // The fix only changes behaviour when a stat would exceed the cap; a normal
     // stat that never hits the cap is unaffected, so existing balance holds.
-    for (const setter of [setClamped, setUncapped]) {
-        const p = makeChar(40, 99);
-        putOn(p, 10, setter);
-        assert.equal(p.v, 50);
-        takeOff(p, 10, setter);
-        assert.equal(p.v, 40);
-    }
+    const buggy = makeChar(40, 99);
+    putOnBuggy(buggy, 10);
+    assert.equal(buggy.v, 50);
+    takeOffBuggy(buggy, 10);
+    assert.equal(buggy.v, 40);
+    const fixed = makeAccChar(40, 99);
+    putOnFixed(fixed, 10);
+    assert.equal(fixed.v, 50);
+    takeOffFixed(fixed, 10);
+    assert.equal(fixed.v, 40);
 });
 
 // --- source-level pins on rpg/core.js (fail before the fix, pass after) ---
 
-// Extract an Object.defineProperty(FightingCharacter.prototype, "name", { ... });
+// Extract an Object.defineProperty(FightingCharacter.prototype, 'name', { ... });
 // block by brace matching, so the pin survives formatting churn and does not
 // bleed into the neighbouring property.
 function definePropertyBlock(src, propName) {
-    const needle = `Object.defineProperty(FightingCharacter.prototype, "${propName}"`;
+    const needle = `Object.defineProperty(FightingCharacter.prototype, '${propName}'`;
     const start = src.indexOf(needle);
     assert.ok(start !== -1, `could not find defineProperty for ${propName} in rpg/core.js`);
     const open = src.indexOf("{", start);
@@ -156,49 +174,69 @@ function methodBody(src, name) {
     assert.fail(`unterminated method body for ${name}`);
 }
 
-// The six stats whose setters clamped to an upper bound and are adjusted by
-// equipment wear/remove. Each must no longer clamp (Math_0.min removed).
-const CLAMPED_STATS = [
-    ["speed", 99],
-    ["lingli", 99],
-    ["luck", 99],
-    ["attack", 999],
-    ["defend", 999],
-    ["maxMP", 999],
+// The six stats whose VISIBLE setters clamp to an upper bound (speed-class
+// <= 99/127, attack-class <= 999/9999, per GameSettings.enableEnhancedLimits)
+// and are adjusted by equipment wear/remove. Reversibility no longer lives in
+// the setters — it lives in putOn/takeOff's total* accumulators: putOn adds
+// the bonus to the plain accumulator, takeOff subtracts it, and both publish
+// the visible value from the accumulator, so the pair stays an exact inverse
+// even while the visible value sits at the cap.
+const EQUIP_STATS = [
+    ["speed", "totalSpeed", "mSpeed", 99],
+    ["lingli", "totalLingli", "mlingli", 99],
+    ["luck", "totalLuck", "mLuck", 99],
+    ["attack", "totalAttack", "mat", 999],
+    ["defend", "totalDefend", "mdf", 999],
+    ["maxMP", "totalMaxMP", "mMpMax", 999],
 ];
 
-for (const [stat, oldCap] of CLAMPED_STATS) {
-    test(`core.js: ${stat} setter no longer clamps to ${oldCap} (wear/remove stays reversible)`, () => {
+for (const [stat, total, bonus, oldCap] of EQUIP_STATS) {
+    test(`core.js: putOn/takeOff keep ${stat} reversible via ${total} (old cap ${oldCap})`, () => {
         const src = fs.readFileSync(CORE_JS, "utf8");
-        const block = definePropertyBlock(src, stat);
-        assert.doesNotMatch(
-            block,
-            /Math_0\.min/,
-            `${stat} setter must not Math_0.min-clamp its value; the one-sided clamp is what made equip/unequip non-reversible at the cap`
+        // Name includes ` = function` so we pin the DEFINITION and not the
+        // `.call(this, p)` parent-invocation inside the GoodsDecorations /
+        // GoodsWeapon wrappers of the same name.
+        const putOn = methodBody(src, "GoodsEquipment.prototype.putOn_xa4yhy$ = function");
+        assert.match(
+            putOn,
+            new RegExp(`p\\.${total}\\s*=\\s*p\\.${total}\\s*\\+\\s*this\\.${bonus}[\\s\\S]{0,400}p\\.${stat}\\s*=\\s*p\\.${total};`),
+            `putOn must add ${bonus} to the ${total} accumulator and then publish ${stat} from it`
+        );
+        const takeOff = methodBody(src, "GoodsEquipment.prototype.takeOff_xa4yhy$ = function");
+        assert.match(
+            takeOff,
+            new RegExp(`p\\.${total}\\s*=\\s*p\\.${total}\\s*-\\s*this\\.${bonus}[\\s\\S]{0,400}p\\.${stat}\\s*=\\s*p\\.${total};`),
+            `takeOff must subtract ${bonus} from the ${total} accumulator and then publish ${stat} from it`
         );
     });
 }
 
 test("core.js: maxHP setter still keeps hp within maxHP (the unrelated hp clamp is preserved)", () => {
-    // We only lifted the six gear-adjusted upper caps. maxHP's setter has no
-    // upper cap of its own, but it DOES clamp current hp down to the new
-    // ceiling when maxHP drops — that correctness guard must survive untouched.
+    // maxHP's setter has no upper cap of its own; it only keeps the correctness
+    // guard that pulls current hp down to the new ceiling when maxHP drops
+    // (`field = maxHP; if (field < hp) hp = field`). That guard must survive
+    // untouched, and no 999 cap may be reintroduced for maxHP itself.
     const src = fs.readFileSync(CORE_JS, "utf8");
     const block = definePropertyBlock(src, "maxHP");
-    assert.match(block, /if\s*\([^]*hp_oo4bdu\$_0\s*>\s*[^]*maxHP_aqimg2\$_0[^]*\)/, "maxHP setter must still clamp stored hp down to maxHP");
+    assert.match(
+        block,
+        /this\.maxHP_aqimg2\$_0\s*=\s*maxHP;\s*if\s*\(\s*this\.maxHP_aqimg2\$_0\s*<\s*this\.hp\s*\)\s*\{\s*this\.hp\s*=\s*this\.maxHP_aqimg2\$_0;\s*\}/,
+        "maxHP setter must store the value and pull hp down to it when hp exceeds the new ceiling"
+    );
+    assert.doesNotMatch(block, /Math_0\.min|JsMath\.min/, "maxHP itself must stay uncapped (no min-clamp in this setter)");
 });
 
-test("core.js: equipment wear/remove are still symmetric ±bonus deltas", () => {
-    // The fix is in the setters, NOT in the wear/remove logic. The putOn/takeOff
-    // pair must remain `p.X = p.X ± this.mX`; only the setters changed.
+test("core.js: the total* accumulators are plain fields (never routed through the clamped setters)", () => {
+    // The reversibility guarantee only holds because `p.totalSpeed = ...` etc.
+    // are plain data-field writes that no accessor intercepts. If any total*
+    // ever gained a defineProperty accessor, the one-sided erosion bug would
+    // come straight back through the same clamp.
     const src = fs.readFileSync(CORE_JS, "utf8");
-    // Name includes ` = function` so we pin the DEFINITION (core.js:47266 /
-    // 47283) and not the `.call(this, p)` parent-invocation inside the
-    // GoodsDecorations / GoodsWeapon wrappers of the same name.
-    const putOn = methodBody(src, "GoodsEquipment.prototype.putOn_xa4yhy$ = function");
-    assert.match(putOn, /p\.speed\s*=\s*p\.speed\s*\+\s*this\.mSpeed/, "putOn adds mSpeed");
-    assert.match(putOn, /p\.defend\s*=\s*p\.defend\s*\+\s*this\.mdf/, "putOn adds mdf");
-    const takeOff = methodBody(src, "GoodsEquipment.prototype.takeOff_xa4yhy$ = function");
-    assert.match(takeOff, /p\.speed\s*=\s*p\.speed\s*-\s*this\.mSpeed/, "takeOff subtracts mSpeed");
-    assert.match(takeOff, /p\.defend\s*=\s*p\.defend\s*-\s*this\.mdf/, "takeOff subtracts mdf");
+    for (const total of ["totalMaxMP", "totalMaxHP", "totalAttack", "totalDefend", "totalSpeed", "totalLingli", "totalLuck"]) {
+        assert.doesNotMatch(
+            src,
+            new RegExp(`Object\\.defineProperty\\([^)]*\\.prototype,\\s*'${total}'`),
+            `${total} must stay a plain field; an accessor would make putOn/takeOff non-reversible again`
+        );
+    }
 });

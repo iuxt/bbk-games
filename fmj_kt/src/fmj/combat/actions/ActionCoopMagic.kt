@@ -18,7 +18,7 @@ class ActionCoopMagic : Action {
 
     private var mMonsters: MutableList<FightingCharacter> = mutableListOf()
 
-    private var mMonster: FightingCharacter
+    internal var mMonster: FightingCharacter
         get() = mMonsters[0]
         set(value) {
             mMonsters = mutableListOf(value)

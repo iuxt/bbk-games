@@ -148,6 +148,18 @@ class ScreenActorWearing(override val parent: GameNode): BaseScreen {
                         object : ScreenGoodsList.OnItemSelectedListener {
                             override fun onItemSelected(goods: BaseGoods, index: Int) {
                                 val actor = game.playerList[mActorIndex]
+                                // 装备列表是打开列表时的快照：确认时该装备可能已被
+                                // deleteGoods 移出背包。校验背包确实持有、且未穿在
+                                // 身上（装饰双槽），防止对已穿装备重复穿戴/装备复制
+                                // （配合 ScreenChgEquipment 的失败回滚）。
+                                if (Player.sGoodsList.getGoodsNum(goods.type, goods.index) < 1) {
+                                    showMessage("没有该装备!", 1000L)
+                                    return
+                                }
+                                if (actor.hasEquipt(goods.type, goods.index)) {
+                                    showMessage("已装备!", 1000L)
+                                    return
+                                }
                                 popScreen()
                                 pushScreen(ScreenChgEquipment(this@ScreenActorWearing, actor, goods as GoodsEquipment, mCurItem))
                             }

@@ -78,11 +78,21 @@ class ScreenChgEquipment
         } else if (key == Global.KEY_ENTER) {
             if (mSelIndex == mGoods.size - 1) { // 换了新装备
                 // 物品链中删除该装备
-                Player.sGoodsList.deleteGoods(mGoods[mGoods.size - 1].type,
-                        mGoods[mGoods.size - 1].index)
-                // 物品链中加入老装备
-                if (mGoods.size > 1) {
-                    Player.sGoodsList.addGoods(mGoods[0].type, mGoods[0].index)
+                if (Player.sGoodsList.deleteGoods(mGoods[mGoods.size - 1].type,
+                                mGoods[mGoods.size - 1].index)) {
+                    // 物品链中加入老装备
+                    if (mGoods.size > 1) {
+                        Player.sGoodsList.addGoods(mGoods[0].type, mGoods[0].index)
+                    }
+                } else {
+                    // 背包里已没有要穿的装备（列表是打开时的快照，条目可能
+                    // 早已被 deleteGoods 消耗）：若继续归还旧装备会凭空复制。
+                    // 撤销本次换装——脱下新装备、穿回旧装备，恢复进界面前
+                    // 的状态（与 KEY_CANCEL 的恢复路径一致）。
+                    mActor.takeOff(mGoods[0].type, itemIndex)
+                    if (mGoods.size > 1) {
+                        mActor.putOn(mGoods[0], itemIndex)
+                    }
                 }
             }
             popScreen()

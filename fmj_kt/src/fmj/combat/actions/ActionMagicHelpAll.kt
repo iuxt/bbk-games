@@ -1,7 +1,9 @@
 package fmj.combat.actions
 
 import fmj.characters.FightingCharacter
+import fmj.characters.Monster
 import fmj.characters.Player
+import fmj.combat.Combat
 import fmj.combat.anim.RaiseAnimation
 import fmj.lib.ResSrs
 import fmj.magic.BaseMagic
@@ -14,10 +16,14 @@ class ActionMagicHelpAll(attacker: FightingCharacter,
     private var state = 1
 
     private lateinit var animation: ResSrs
-    
+
     // 动画显示位置
     internal var mAnix: Int = 0
     internal var mAniy: Int = 0
+
+    /** 特效按实际人数相对满员编队的压缩比例 */
+    internal var animationScaleX: Double = 1.0
+    internal var animationScaleY: Double = 1.0
 
     internal var ox: Int = 0
     internal var oy: Int = 0
@@ -27,9 +33,15 @@ class ActionMagicHelpAll(attacker: FightingCharacter,
     override fun preproccess() {
         val attacker = mAttacker?:return
         println("ActionMagicHelpAll: 准备执行群体魔法，施术者: ${attacker.name}, 目标数量: ${mTargets.size}")
-        mTargets.forEach { 
+        var targetX = 0
+        var targetY = 0
+        var targetCount = 0
+        mTargets.forEach {
             println("  目标: ${it.name} at (${it.combatX}, ${it.combatY}), isPlayer=${it is Player}")
-            it.backupStatus() 
+            it.backupStatus()
+            targetX += it.combatX
+            targetY += it.combatY
+            targetCount++
         }
 
         ox = attacker.combatX
@@ -37,15 +49,48 @@ class ActionMagicHelpAll(attacker: FightingCharacter,
         animation = magic.magicAni!!
         animation.start()
         animation.setIteratorNum(2)
-        
-        // 动画显示在第一个目标的位置
-        if (mTargets.isNotEmpty()) {
-            val firstTarget = mTargets[0]
-            mAnix = firstTarget.combatX
-            mAniy = firstTarget.combatY - (firstTarget.fightingSprite?.height ?: 16) / 2
-            println("ActionMagicHelpAll: 动画位置计算完成（第一个目标位置） -> ($mAnix, $mAniy)")
+
+        // 特效对准目标编队的质心
+        if (targetCount > 0) {
+            mAnix = targetX / targetCount
+            mAniy = targetY / targetCount
         }
-        
+
+        // SRS 精灵的各列特效是按满员 3 槽编队坐标制作的：人数不足时占用
+        // 跨度小于全编队跨度，外列特效会落进空槽位。按占用跨度/满员跨度
+        // 的比例压缩各帧相对锚点的偏移，使每列都落在实际角色身上。
+        animationScaleX = 1.0
+        animationScaleY = 1.0
+        if (targetCount > 1 && mTargets.isNotEmpty()) {
+            // sPlayerPos 是 Point 对（.x/.y），Monster.arr 是 intArrayOf 对
+            //（[0]/[1]），归一化成坐标数组再算跨度。
+            val slotXs: IntArray
+            val slotYs: IntArray
+            if (mTargets[0] is Player) {
+                slotXs = IntArray(Combat.sPlayerPos.size) { Combat.sPlayerPos[it].x }
+                slotYs = IntArray(Combat.sPlayerPos.size) { Combat.sPlayerPos[it].y }
+            } else {
+                slotXs = IntArray(Monster.arr.size) { Monster.arr[it][0] }
+                slotYs = IntArray(Monster.arr.size) { Monster.arr[it][1] }
+            }
+            val slotTotal = slotXs.size
+            if (targetCount < slotTotal) {
+                val fx0 = slotXs[0].toDouble()
+                val fxN = slotXs[targetCount - 1].toDouble()
+                val fxE = slotXs[slotTotal - 1].toDouble()
+                val fy0 = slotYs[0].toDouble()
+                val fyN = slotYs[targetCount - 1].toDouble()
+                val fyE = slotYs[slotTotal - 1].toDouble()
+                if (fxE != fx0) {
+                    animationScaleX = kotlin.math.abs(fxN - fx0) / kotlin.math.abs(fxE - fx0)
+                }
+                if (fyE != fy0) {
+                    animationScaleY = kotlin.math.abs(fyN - fy0) / kotlin.math.abs(fyE - fy0)
+                }
+            }
+        }
+        println("ActionMagicHelpAll: 动画位置计算完成（目标编队质心） -> ($mAnix, $mAniy), scale=($animationScaleX, $animationScaleY)")
+
         // 修复：群体恢复魔法只消耗一次MP
         val currentMagic = magic
         if (currentMagic is fmj.magic.MagicRestore) {
@@ -95,7 +140,9 @@ class ActionMagicHelpAll(attacker: FightingCharacter,
     override fun draw(canvas: Canvas) {
         if (state == STATE_ANI) {
             println("ActionMagicHelpAll: 绘制动画 at ($mAnix, $mAniy)")
-            animation.drawAbsolutely(canvas, mAnix, mAniy)
+            // 多目标 SRS 按 3 槽满员编队绘制：以特效视觉锚点对准编队质心，
+            // 并按实际人数压缩各列偏移，使每列落在角色身上。
+            animation.drawAtTargetScaled(canvas, mAnix, mAniy, animationScaleX, animationScaleY)
         } else if (state == STATE_AFT) {
             drawRaiseAnimation(canvas)
         }

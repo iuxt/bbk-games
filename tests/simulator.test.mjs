@@ -170,19 +170,28 @@ test("magic screen shows the MP cost of the selected spell", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
     const loader = readFileSync(new URL("../rpg/app.js", import.meta.url), "utf8");
 
+    // The Kotlin source (ScreenMagic.draw) binds the currently selected spell
+    // into `val hlMagic = magics[mCurItemIndex]` and renders its cost as
+    // "耗真气:<costMp>" (the GBK string literal compiles to \u escapes). The
+    // binding proves the shown cost belongs to the selected spell, not a
+    // stale list entry.
     assert.match(
         source,
-        /"耗真气:"\s*\+\s*toString\(this\.magics_0\[this\.mCurItemIndex_0\]\.costMp\)/
+        /var hlMagic = this\.magics_0\[this\.mCurItemIndex_0\];\s*TextRender_getInstance\(\)\.drawText_kkuqvh\$\(canvas, '\\u8017\\u771F\\u6C14:' \+ toString\(hlMagic\.costMp\)/
     );
-    assert.doesNotMatch(
-        source,
-        /"耗真气:"\s*\+\s*toString\(hlMagic\.costMp\)/
-    );
-    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=21"/);
+    // The loader must reference core.js through a cache-busting version
+    // parameter (currently v=22) — a bare unversioned reference is rejected.
+    assert.match(loader, /script\.src\s*=\s*"core\.js\?v=\d+"/);
+    assert.doesNotMatch(loader, /["']core\.js["']/);
 });
 
 test("thrown/used goods are refunded when their target dies before the action runs", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+    const prepare = source.slice(
+        source.indexOf("ActionExecutor.prototype.prepareAction_0"),
+        source.indexOf("ActionExecutor.prototype.draw_9in0vv$")
+    );
+    assert.ok(prepare, "ActionExecutor.prepareAction_0 not found");
 
     // Item count is deducted at selection time (deleteGoods) and the throw/use
     // action is queued. If the target dies before the action executes, the
@@ -191,29 +200,44 @@ test("thrown/used goods are refunded when their target dies before the action ru
 
     // Multi-target drop (no surviving target): cancel() before nulling the action.
     assert.match(
-        source,
+        prepare,
         /isTargetAlive[\s\S]*?isSingleTarget[\s\S]*?ensureNotNull\(this\.mCurrentAction_0\)\.cancel\(\);\s*this\.mCurrentAction_0 = null;/
     );
     // Single-target drop (no alive target to retarget): cancel() before postAction_1().
     assert.match(
-        source,
-        /newTarget == null\) \{\s*ensureNotNull\(this\.mCurrentAction_0\)\.cancel\(\);\s*this\.postAction_1\(\);/
+        prepare,
+        /newTarget == null\) \{\s*ensureNotNull\(this\.mCurrentAction_0\)\.cancel\(\);\s*this\.postAction_1\(\);\s*return;/
     );
-    // The refund is what cancel() does for throw/use-item actions.
+    // The refund is what cancel() does for throw/use-item actions (the fresh
+    // compile emits `function () {` with a space after `function`).
     assert.match(
         source,
-        /ActionThrowItemOne\.prototype\.cancel = function\(\) \{[\s\S]*?addGoods_6xxg66\$/
+        /ActionThrowItemOne\.prototype\.cancel = function \(\) \{[\s\S]{0,300}?addGoods_6xxg66\$/
+    );
+    assert.match(
+        source,
+        /ActionUseItemOne\.prototype\.cancel = function \(\) \{[\s\S]{0,300}?addGoods_6xxg66\$/
     );
 });
 
 test("healing applies coerced HP values through a reusable target effect", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
 
+    // MagicRestore.applyEffect_qwqr58$ was extracted out of use() so group
+    // heals can reuse it without paying MP again. It captures the pre-heal
+    // HP, applies the int32-coerced heal, re-clamps to maxHP, and finally
+    // overwrites deltaSinceBackup with the actually-applied (clamped) delta
+    // so popups show the real restoration instead of the nominal one.
     assert.match(
         source,
-        /MagicRestore\.prototype\.applyToTarget_qpjxya\$\s*=\s*function\(dst\)[\s\S]*?var currentHp\s*=\s*dst\.hp\s*\|\s*0;[\s\S]*?var restoredHp\s*=\s*this\.mHp_0\s*\|\s*0;[\s\S]*?dst\.hp\s*=\s*currentHp\s*\+\s*restoredHp\s*\|\s*0;/
+        /MagicRestore\.prototype\.applyEffect_qwqr58\$ = function \(src, dst\) \{[\s\S]{0,400}?var currentHp = dst\.hp;[\s\S]{0,400}?dst\.hp = dst\.hp \+ this\.mHp_0 \| 0;[\s\S]{0,120}?if \(dst\.hp > dst\.maxHP\) \{\s*dst\.hp = dst\.maxHP;\s*\}[\s\S]{0,600}?dst\.deltaSinceBackup = dst\.hp - currentHp \| 0;/
     );
-    assert.equal(("84" | 0) + ("4" | 0), 88);
+    // The single-target path pays MP then reuses the very same effect.
+    assert.match(
+        source,
+        /MagicRestore\.prototype\.use_qwqr58\$ = function \(src, dst\) \{[\s\S]{0,250}?this\.applyEffect_qwqr58\$\(src, dst\);/
+    );
+    assert.equal((84 + 4) | 0, 88);
 });
 
 test("all-target healing pays once and applies healing to every target", () => {
@@ -222,14 +246,14 @@ test("all-target healing pays once and applies healing to every target", () => {
         source.indexOf("ActionMagicHelpAll.prototype.preproccess"),
         source.indexOf("ActionMagicHelpAll.prototype.update_s8cxhz$")
     );
+    assert.ok(action, "ActionMagicHelpAll.preproccess not found");
 
+    // Group Restore magic pays the MP cost exactly once — inside the
+    // affordability gate — and then applies the reusable effect (not use(),
+    // which would pay again) to every target inside the same branch.
     assert.match(
         action,
-        /attacker\.mp\s*=\s*attacker\.mp\s*-\s*this\.magic_8be2vx\$\.costMp\s*\|\s*0;/
-    );
-    assert.match(
-        action,
-        /while\s*\(tmp\$_1\.hasNext\(\)\)[\s\S]*?applyToTarget_qpjxya\$\(restoreTarget\)/
+        /var currentMagic = this\.magic_8be2vx\$;\s*if \(Typescript\.isType\(currentMagic, MagicRestore\)\) \{\s*if \(attacker\.mp >= currentMagic\.costMp\) \{\s*attacker\.mp = attacker\.mp - currentMagic\.costMp \| 0;[\s\S]{0,250}?while \(tmp\$_\d+\.hasNext\(\)\) \{\s*var element_\d* = tmp\$_\d+\.next\(\);\s*currentMagic\.applyEffect_qwqr58\$\((attacker, element_\d*)\);\s*\}/
     );
     assert.equal(
         (action.match(/attacker\.mp\s*=\s*attacker\.mp\s*-/g) || []).length,
@@ -252,13 +276,14 @@ test("single-target attack magic renders at the device-accurate target anchor", 
     );
     assert.match(
         source,
-        /this\.mMonster_0\.combatY\s*-\s*\(ensureNotNull\(this\.mMonster_0\.fightingSprite\)\.height\s*\/\s*2\s*\|\s*0\)\s*\|\s*0/
+        /this\.mAniY_0\s*=\s*this\.mMonster_8be2vx\$\.combatY\s*-\s*\(ensureNotNull\(this\.mMonster_8be2vx\$\.fightingSprite\)\.height\s*\/\s*2\s*\|\s*0\)\s*\|\s*0/
     );
 
     const attackDraw = source.slice(
         source.indexOf("ActionMagicAttackOne.prototype.draw_9in0vv$"),
         source.indexOf("ActionMagicAttackOne.prototype.rollbackToPhysical")
     );
+    assert.ok(attackDraw, "ActionMagicAttackOne.draw_9in0vv$ not found");
     assert.match(attackDraw, /drawAbsolutely_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/);
     assert.doesNotMatch(attackDraw, /drawAtTarget_2g4tob/);
 });
@@ -273,18 +298,24 @@ test("all-target attack magic anchors its effect on the target formation", () =>
         source.indexOf("ActionMagicAttackAll.prototype.draw_9in0vv$"),
         source.indexOf("ActionMagicAttackAll.prototype.rollbackToPhysical")
     );
+    assert.ok(action, "ActionMagicAttackAll.preproccess not found");
+    assert.ok(draw, "ActionMagicAttackAll.draw_9in0vv$ not found");
 
     // The group effect must be centred on the enemy formation's GEOMETRIC
-    // centre (formationCenter over the full Monster.arr_0 / sPlayerPos slot
+    // centre (formationCenter over the full Monster.arr / sPlayerPos slot
     // table), not on the living targets' centroid — so a lone survivor in the
     // top/bottom slot no longer drags the burst off-centre — and never at the
-    // ROM's raw coordinates which sit over the player party.
-    assert.match(action, /window\.BBKSrsAnchor\.formationCenter\(/);
-    assert.match(action, /Monster\$Companion_getInstance\(\)\.arr_0/);
-    assert.match(action, /Combat\$Companion_getInstance\(\)\.sPlayerPos/);
+    // ROM's raw coordinates which sit over the player party. The Kotlin js()
+    // interop guard compiles to a typeof-ternary around the module call.
+    assert.match(
+        action,
+        /var slots = Typescript\.isType\(this\.mTargets\.get_za3lpa\$\((0)\), Player\) \? Combat\$Companion_getInstance\(\)\.sPlayerPos : Monster\$Companion_getInstance\(\)\.arr;/
+    );
+    assert.match(action, /window\.BBKSrsAnchor\.formationCenter\(slots, width, height\)/);
+    assert.match(action, /this\.mAnix_0 = center\.x;\s*this\.mAniy_0 = center\.y;/);
     assert.match(
         draw,
-        /drawAtTarget_2g4tob\$\(canvas, this\.animationX_0, this\.animationY_0\)/
+        /drawAtTarget_2g4tob\$\(canvas, this\.mAnix_0, this\.mAniy_0\)/
     );
     assert.doesNotMatch(draw, /draw_2g4tob\$\(canvas, 0, 0\)/);
 });
@@ -300,8 +331,13 @@ test("single-target help, throw and use-item effects render at the target anchor
 
     // All single-target effects must anchor frame 0 at the target top-centre,
     // not at the target centre, so the effect settles at the character's feet
-    // instead of floating above their head.
-    const yAnchor = /combatY\s*-\s*\(ensureNotNull\(.*?fightingSprite\)\.height\s*\/\s*2\s*\|\s*0\)\s*\|\s*0/;
+    // instead of floating above their head. The fresh compile emits two
+    // shapes: HelpOne uses fightingSprite!! (ensureNotNull), while
+    // ThrowItem/UseItem use the elvis fallback (fightingSprite?.height ?: 16).
+    const yAnchorEnsure =
+        /combatY\s*-\s*\(ensureNotNull\(this\.mTarget\.fightingSprite\)\.height\s*\/\s*2\s*\|\s*0\)\s*\|\s*0/;
+    const yAnchorElvis =
+        /combatY\s*-\s*\(\(\(tmp\$_\d+ = \(tmp\$_\d+ = this\.mTarget\.fightingSprite\) != null \? tmp\$_\d+\.height : null\) != null \? tmp\$_\d+ : 16\) \/ 2 \| 0\) \| 0/;
 
     const cases = [
         {
@@ -310,6 +346,7 @@ test("single-target help, throw and use-item effects render at the target anchor
             preproccessEnd: "ActionMagicHelpOne.prototype.update_s8cxhz$",
             drawStart: "ActionMagicHelpOne.prototype.draw_9in0vv$",
             drawEnd: "ActionMagicHelpOne.prototype.rollbackToPhysical",
+            yAnchor: yAnchorEnsure,
             drawCall: /drawAbsolutely_2g4tob\$\(canvas, this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$\)/,
         },
         {
@@ -318,6 +355,7 @@ test("single-target help, throw and use-item effects render at the target anchor
             preproccessEnd: "ActionThrowItemOne.prototype.update_s8cxhz$",
             drawStart: "ActionThrowItemOne.prototype.draw_9in0vv$",
             drawEnd: "ActionThrowItemOne.prototype.cancel",
+            yAnchor: yAnchorElvis,
             drawCall: /drawAbsolutely_2g4tob\$\(canvas, this\.mAniX_0, this\.mAniY_0\)/,
         },
         {
@@ -326,11 +364,12 @@ test("single-target help, throw and use-item effects render at the target anchor
             preproccessEnd: "ActionUseItemOne.prototype.update_s8cxhz$",
             drawStart: "ActionUseItemOne.prototype.draw_9in0vv$",
             drawEnd: "ActionUseItemOne.prototype.cancel",
+            yAnchor: yAnchorElvis,
             drawCall: /drawAbsolutely_2g4tob\$\(canvas, this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$\)/,
         },
     ];
 
-    for (const { name, preproccessStart, preproccessEnd, drawStart, drawEnd, drawCall } of cases) {
+    for (const { name, preproccessStart, preproccessEnd, drawStart, drawEnd, yAnchor, drawCall } of cases) {
         const preproccess = source.slice(source.indexOf(preproccessStart), source.indexOf(preproccessEnd));
         assert.ok(preproccess, `${name} preproccess not found`);
         assert.match(preproccess, yAnchor, `${name} Y must anchor at target top-centre (combatY - height/2)`);
@@ -344,49 +383,89 @@ test("single-target help, throw and use-item effects render at the target anchor
 
 test("multi-target healing still aligns via the shared SRS anchor", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+    const preproccess = source.slice(
+        source.indexOf("ActionMagicHelpAll.prototype.preproccess"),
+        source.indexOf("ActionMagicHelpAll.prototype.update_s8cxhz$")
+    );
+    const draw = source.slice(
+        source.indexOf("ActionMagicHelpAll.prototype.draw_9in0vv$"),
+        source.indexOf("ActionMagicHelpAll.prototype.rollbackToPhysical")
+    );
+    assert.ok(preproccess, "ActionMagicHelpAll.preproccess not found");
+    assert.ok(draw, "ActionMagicHelpAll.draw_9in0vv$ not found");
 
-   // The SRS anchor module stays wired for the all-target heal effect, which
-   // centres its authored group on the current party formation and scales the
-   // spread to fit the actual number of targets.
-   assert.match(
-       source,
-       /BBKSrsAnchor\.compute\(this\.mFrameHeader_0, this\.mImage_0\)/
-   );
-   assert.match(
-       source,
-       /BBKSrsAnchor\.imageFor\(this\.mFrameHeader_0\[index\], this\.mImage_0\)/
-   );
-  assert.match(
-      source,
-      /ActionMagicHelpAll[\s\S]*?drawAtTargetScaled\(canvas, this\.animationX_0, this\.animationY_0, this\.animationScaleX_0, this\.animationScaleY_0\)/
-  );
+    // The SRS anchor module stays wired for the all-target heal: ResSrs
+    // resolves its impact anchor through window.BBKSrsAnchor.compute
+    // (updateImpactAnchor_0, with a first-frame-header fallback), the action
+    // centres the authored group on the target-formation centroid and scales
+    // the spread by occupied-vs-full formation span, and drawing goes through
+    // drawAtTargetScaled which offsets every frame by that shared anchor.
+    assert.match(
+        source,
+        /var anchor = typeof window\.BBKSrsAnchor !== 'undefined' \? window\.BBKSrsAnchor\.compute\(frameHeaders, images\) : null;/
+    );
+    assert.match(
+        source,
+        /this\.mImpactAnchorX_0 = anchor\.x;\s*this\.mImpactAnchorY_0 = anchor\.y;/
+    );
+    // Centroid of the actual targets (box-accumulator locals targetX/targetY).
+    assert.match(
+        preproccess,
+        /if \(targetCount\.v > 0\) \{\s*this\.mAnix_8be2vx\$ = targetX\.v \/ targetCount\.v \| 0;\s*this\.mAniy_8be2vx\$ = targetY\.v \/ targetCount\.v \| 0;\s*\}/
+    );
+    // Slot-table normalisation (sPlayerPos for players, Monster.arr for
+    // monsters) feeding the occupied/full-span scale factors.
+    assert.match(preproccess, /Combat\$Companion_getInstance\(\)\.sPlayerPos\[i\]\.x;/);
+    assert.match(preproccess, /Monster\$Companion_getInstance\(\)\.arr\[i_1\]\[0\];/);
+    assert.match(
+        preproccess,
+        /if \(targetCount\.v < slotTotal\) \{[\s\S]{0,700}?this\.animationScaleX_8be2vx\$ = tmp\$_\d+ \/ JsMath\.abs\([a-z_0-9]+\);[\s\S]{0,300}?this\.animationScaleY_8be2vx\$ = tmp\$_\d+ \/ JsMath\.abs\([a-z_0-9]+\);/
+    );
+    // The draw itself anchors and scales through the shared mechanism.
+    assert.match(
+        draw,
+        /this\.animation_0\.drawAtTargetScaled_eamxi9\$\((canvas, )?this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$, this\.animationScaleX_8be2vx\$, this\.animationScaleY_8be2vx\$\)/
+    );
+    assert.match(
+        source,
+        /ResSrs\.prototype\.drawAtTargetScaled_eamxi9\$ = function \(canvas, x, y, sx, sy\) \{[\s\S]{0,900}?var imageIndex = frameHeaders\[frameIndex\]\[4\];\s*if \(imageIndex >= 0 && imageIndex < images\.length\) \{[\s\S]{0,300}?numberToInt\(\(frameHeaders\[frameIndex\]\[0\] - this\.mImpactAnchorX_0 \| 0\) \* sx \+ x\)[\s\S]{0,80}?numberToInt\(\(frameHeaders\[frameIndex\]\[1\] - this\.mImpactAnchorY_0 \| 0\) \* sy \+ y\)/
+    );
 });
 
 test("all-target attack magic skips dead enemies", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
 
     // Dead combatants are out of the fight: an all-target spell must neither
-    // damage a corpse nor pop a damage number over it. MagicAttack.use_h32lzv$
-    // (used by ActionMagicAttackAll and multi-target ActionCoopMagic) skips
-    // every target whose HP is at or below zero.
-    const multiAttack = source.slice(
-        source.indexOf("MagicAttack.prototype.use_h32lzv$"),
-        source.indexOf("MagicAttack.$metadata$")
-    );
-    assert.match(multiAttack, /var fc = tmp\$\.next\(\);\s*\/\/ Dead combatants[\s\S]*?if \(!fc\.isAlive\) \{\s*continue;\s*\}/);
-
-    // Corpses still show no popup, but the guarantee moved to the damage step:
-    // MagicAttack.use skips already-dead combatants (asserted above), so their
-    // delta is 0 and RaiseAnimation no-ops. The preproccess loop must therefore
-    // raise a number for EVERY target — including one killed by this very spell,
-    // so the player sees the real damage dealt rather than a silent vanish.
+    // damage a corpse nor pop a damage number over it. In the fresh compile
+    // the dead-skip moved to the CALLER: ActionMagicAttackAll.preproccess
+    // filters mTargets into aliveTargets BEFORE casting, passes aliveTargets
+    // (not mTargets) to MagicAttack.use_h32lzv$, and raises damage numbers
+    // only over aliveTargets. Because the filter runs before use, a target
+    // killed by this very spell is still in aliveTargets and pops its real
+    // damage number, while a pre-existing corpse is neither damaged nor
+    // given a popup.
     const attackAction = source.slice(
         source.indexOf("ActionMagicAttackAll.prototype.preproccess"),
         source.indexOf("ActionMagicAttackAll.prototype.update_s8cxhz$")
     );
-    const targetLoop = attackAction.match(/while\s*\([^)]*\.hasNext\(\)\)\s*\{[\s\S]*?item\.diffToAnimation_6taknv\$\(\)[\s\S]*?\}/);
-    assert.ok(targetLoop, "per-target raise-animation loop found in ActionMagicAttackAll.preproccess");
-    assert.doesNotMatch(targetLoop[0], /isAlive/, "must not gate the damage number on isAlive (hides a freshly-killed enemy's damage)");
+    assert.ok(attackAction, "ActionMagicAttackAll.preproccess not found");
+
+    // Filter, then cast on the filtered list — in that order.
+    assert.match(
+        attackAction,
+        /while \(tmp\$_\d+\.hasNext\(\)\) \{\s*var element_1 = tmp\$_\d+\.next\(\);\s*if \(element_1\.isAlive\)\s*destination\.add_11rb\$\((element_1)\);\s*\}\s*var aliveTargets = destination;\s*this\.magic_8be2vx\$\.use_h32lzv\$\((attacker, aliveTargets)\);/
+    );
+    // The raise-animation loop iterates aliveTargets only (tightly bounded so
+    // it cannot be confused with the isAlive filter loop above).
+    assert.match(
+        attackAction,
+        /tmp\$_\d+ = aliveTargets\.iterator\(\);\s*while \(tmp\$_\d+\.hasNext\(\)\) \{\s*var item = tmp\$_\d+\.next\(\);\s*destination_\d*\.add_11rb\$\((item\.diffToAnimation_6taknv\$\(\))\);\s*\}/
+    );
+    // And the unfiltered list must NOT be passed to the damage step.
+    assert.doesNotMatch(
+        attackAction,
+        /use_h32lzv\$\((attacker, this\.mTargets)\)/
+    );
 });
 
 test("ordinary healing skips the dead but revive magic raises them", () => {
@@ -398,36 +477,59 @@ test("ordinary healing skips the dead but revive magic raises them", () => {
     // Auxiliary (the 招魂咒/唤灵术/赦魂术 "起死回生" line) is the revive and
     // must keep affecting KO'd allies.
     const restore = source.slice(
-        source.indexOf("MagicRestore.prototype.applyToTarget"),
-        source.indexOf("MagicRestore.prototype.use_qwqr58$")
+        source.indexOf("MagicRestore.prototype.applyEffect_qwqr58$"),
+        source.indexOf("MagicRestore.$metadata$")
     );
-    assert.match(restore, /if \(!dst\.isAlive\) \{\s*return;\s*\}/);
+    assert.ok(restore, "MagicRestore.applyEffect_qwqr58$ not found");
+    // Ordinary Restore magic only heals targets that were alive when the spell
+    // landed; the dead branch is a logging-only no-op (no HP write), and the
+    // delta override then reports 0 actual restoration for the dead.
+    assert.match(restore, /var wasAlive = dst\.hp > 0;\s*var wasDead = dst\.hp <= 0;/);
+    assert.match(
+        restore,
+        /if \(wasAlive && this\.mHp_0 > 0\) \{[\s\S]{0,400}?dst\.hp = dst\.hp \+ this\.mHp_0 \| 0;/
+    );
+    assert.match(
+        restore,
+        /else if \(wasDead\) \{\s*println\([^)]*\);\s*\}/
+    );
 
     const auxiliary = source.slice(
         source.indexOf("MagicAuxiliary.prototype.use_qwqr58$"),
         source.indexOf("MagicAuxiliary.$metadata$")
     );
-    // The revive line heals directly with no isAlive guard.
-    assert.match(auxiliary, /function\(src, dst\) \{\s*\/\/ Auxiliary magic is the revive line[\s\S]*?var a = dst\.maxHP;/);
+    assert.ok(auxiliary, "MagicAuxiliary.use_qwqr58$ not found");
+    // The revive line heals the dead directly (percentage of maxHP) with no
+    // isAlive guard, and floors the result at 1 HP so revival always sticks.
+    assert.match(
+        auxiliary,
+        /if \(dst\.hp <= 0\) \{\s*println\([^)]*\);\s*dst\.hp = Typescript\.imul\(dst\.maxHP, this\.mHp_0\) \/ 100 \| 0;/
+    );
+    assert.match(auxiliary, /if \(dst\.hp <= 0\) \{\s*dst\.hp = 1;\s*\}/);
     assert.doesNotMatch(auxiliary, /if \(!dst\.isAlive\)/);
 
-    // All-target help is healing/buffing (the revive line is single-target),
-    // so it raises a number only for living targets — a dead ally gets no popup.
-    const helpAction = source.slice(
-        source.indexOf("ActionMagicHelpAll.prototype.preproccess"),
-        source.indexOf("ActionMagicHelpAll.prototype.update_s8cxhz$")
-    );
-    assert.match(helpAction, /while \(tmp\$_3\.hasNext\(\)\) \{\s*var item = tmp\$_3\.next\(\);[\s\S]*?if \(item\.isAlive\) \{\s*destination\.add_11rb/);
-
     // Targeting matches: only the revive line (Auxiliary) can select a KO'd
-    // ally; ordinary single-target help/buffing skips the dead with the cursor.
+    // ally (ignoreDead=false); Restore and every other help type keep the
+    // dead unselectable (ignoreDead=true). The Kotlin when-chain compiles to
+    // a tmp branch chain feeding `var ignoreDead`.
     const helpTargeting = source.slice(
-        source.indexOf("MagicAttack.prototype.use_h32lzv$") >= 0
-            ? source.lastIndexOf("CombatUI$MainMenu$onKeyUp$lambda$ObjectLiteral.prototype.onItemSelected_3fncnk$")
-            : 0,
+        source.indexOf("CombatUI$MainMenu$onKeyUp$lambda$ObjectLiteral.prototype.onItemSelected_3fncnk$"),
         source.indexOf("CombatUI$MainMenu$onKeyUp$lambda$ObjectLiteral.$metadata$")
     );
-    assert.match(helpTargeting, /var ignoreDead = !Typescript\.isType\(magic, MagicAuxiliary\);/);
+    assert.ok(helpTargeting, "CombatUI MainMenu onItemSelected lambda not found");
+    assert.match(
+        helpTargeting,
+        /if \(Typescript\.isType\(magic, MagicAuxiliary\)\) \{[\s\S]{0,300}?tmp\$_\d+ = false;/
+    );
+    assert.match(
+        helpTargeting,
+        /else if \(Typescript\.isType\(magic, MagicRestore\)\) \{[\s\S]{0,300}?tmp\$_\d+ = true;/
+    );
+    assert.match(helpTargeting, /var ignoreDead = tmp\$_\d+;/);
+    assert.match(
+        helpTargeting,
+        /new CombatUI\$MenuCharacterSelect\([\s\S]{0,400}?, ignoreDead\)\);/
+    );
 });
 
 test("lowering maxHP re-clamps current HP so it can never exceed the cap", () => {
@@ -436,13 +538,17 @@ test("lowering maxHP re-clamps current HP so it can never exceed the cap", () =>
     // The hp setter clamps HP to maxHP on every write, but a maxHP decrease
     // must also pull an already-stored HP back down, otherwise current HP can
     // read higher than max HP after unequipping gear or a stat recalculation.
+    // The fresh compile quotes defineProperty names with single quotes and
+    // re-clamps through the hp property setter (so the [0, maxHP] clamp in
+    // the hp setter applies as well).
     const maxHpSetter = source.slice(
-        source.indexOf('Object.defineProperty(FightingCharacter.prototype, "maxHP"'),
-        source.indexOf('Object.defineProperty(FightingCharacter.prototype, "maxMP"')
+        source.indexOf("Object.defineProperty(FightingCharacter.prototype, 'maxHP'"),
+        source.indexOf("Object.defineProperty(FightingCharacter.prototype, 'maxMP'")
     );
+    assert.ok(maxHpSetter, "FightingCharacter maxHP setter not found");
     assert.match(
         maxHpSetter,
-        /set: function\(maxHP\) \{\s*this\.maxHP_aqimg2\$_0 = maxHP;\s*\/\/ HP can never exceed maxHP[\s\S]*?if \(this\.hp_oo4bdu\$_0 > this\.maxHP_aqimg2\$_0\) \{\s*this\.hp_oo4bdu\$_0 = this\.maxHP_aqimg2\$_0;\s*\}/
+        /set: function \(maxHP\) \{\s*this\.maxHP_aqimg2\$_0 = maxHP;\s*if \(this\.maxHP_aqimg2\$_0 < this\.hp\) \{\s*this\.hp = this\.maxHP_aqimg2\$_0;\s*\}\s*\}/
     );
 });
 
@@ -452,50 +558,72 @@ test("hp setter clamps to zero so dead characters never display a false-positive
     // The hp setter must clamp HP to [0, maxHP]. Without the lower clamp,
     // overkill damage produces negative HP; drawSmallNum renders the absolute
     // value, so a character at -300/200 HP displays "300 / 200" — HP > maxHP.
+    // The setter accumulates the nominal (unclamped) delta first — so damage
+    // popups stay honest — and only then clamps the stored HP into
+    // [0, maxHP] via JsMath.min/max (Math_0 in the previous hand-patched
+    // build; JsMath in the fresh Kotlin compile).
     const hpSetter = source.slice(
-        source.indexOf('Object.defineProperty(FightingCharacter.prototype, "hp"'),
-        source.indexOf('Object.defineProperty(FightingCharacter.prototype, "isAlive"')
+        source.indexOf("Object.defineProperty(FightingCharacter.prototype, 'hp'"),
+        source.indexOf("Object.defineProperty(FightingCharacter.prototype, 'isAlive'")
     );
+    assert.ok(hpSetter, "FightingCharacter hp setter not found");
     assert.match(
         hpSetter,
-        /this\.hp_oo4bdu\$_0\s*=\s*Math_0\.max\(0,\s*Math_0\.min\(a,\s*hp\)\)/
+        /this\.deltaSinceBackup = this\.deltaSinceBackup \+ \(hp - this\.hp_oo4bdu\$_0\) \| 0;\s*var a = this\.maxHP;\s*var b = JsMath\.min\(a, hp\);\s*this\.hp_oo4bdu\$_0 = JsMath\.max\(0, b\);/
     );
 });
 
 test("resurrection magic is not retargeted when its target is dead", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
-
-    // prepareAction_0 redirects single-target actions away from dead targets
-    // to a random alive one when the original target died mid-round.  But
-    // resurrection magic (ActionMagicHelpOne + MagicAuxiliary) intentionally
-    // targets the dead — the dead target is the whole point.  The executor
-    // must NOT retarget a revive spell.
     const prepare = source.slice(
         source.indexOf("ActionExecutor.prototype.prepareAction_0"),
         source.indexOf("ActionExecutor.prototype.draw_9in0vv$")
     );
+    assert.ok(prepare, "ActionExecutor.prepareAction_0 not found");
+
+    // prepareAction_0 redirects single-target actions away from dead targets
+    // to a random alive one when the original target died mid-round.  But
+    // resurrection actions intentionally target the dead — the dead target is
+    // the whole point — so the executor must NOT retarget them.  The fresh
+    // compile recognises two revival shapes, keeping the Kotlin variable
+    // names: a type-10 (起死回生) goods used via ActionUseItemOne, and
+    // ActionMagicHelpOne carrying MagicAuxiliary.
     assert.match(
         prepare,
-        /var isRevive = Typescript\.isType\(this\.mCurrentAction_0, ActionMagicHelpOne\) && Typescript\.isType\(this\.mCurrentAction_0\.magic_8be2vx\$, MagicAuxiliary\);/
+        /var tmp\$_\d+ = Typescript\.isType\(this\.mCurrentAction_0, ActionUseItemOne\);[\s\S]{0,250}?\.goods_8be2vx\$\.type === 10;[\s\S]{0,80}?var isRevivalItemAction = tmp\$_\d+;/
     );
-    assert.match(prepare, /if \(!isRevive\) \{/);
+    assert.match(
+        prepare,
+        /var tmp\$_\d+ = Typescript\.isType\(this\.mCurrentAction_0, ActionMagicHelpOne\);[\s\S]{0,250}?magic_8be2vx\$, MagicAuxiliary\);[\s\S]{0,80}?var isRevivalMagicAction = tmp\$_\d+;/
+    );
+    // The revival branch keeps the dead target (it only logs); the retarget
+    // lookup (newTarget) lives in the else branch.
+    assert.match(
+        prepare,
+        /if \(isRevivalItemAction \|\| isRevivalMagicAction\) \{\s*println\([^)]*\);\s*\} else \{[\s\S]{0,500}?var newTarget = tmp\$_\d+;/
+    );
 });
 
 test("revive magic uses max(0, hp) so overkill damage cannot prevent revival", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
 
-    // MagicAuxiliary.use_qwqr58$ adds a percentage-based heal to the current
-    // HP. If the character died from overkill (HP deeply negative), adding the
-    // heal to the negative value can still leave them at or below zero — dead.
-    // Using max(0, hp) as the base prevents this.
+    // MagicAuxiliary's death branch heals by a percentage of maxHP. The fresh
+    // Kotlin source no longer ADDS the heal to the current (possibly deeply
+    // negative, overkill) HP — it assigns imul(maxHP, mHp)/100 directly in
+    // the dst.hp <= 0 branch, which is algebraically identical to using
+    // max(0, hp) as the base: the negative HP never enters the sum. The
+    // additive form is only used on the alive branch, and a <= 0 result is
+    // floored to 1 so revival always sticks.
     const auxiliary = source.slice(
         source.indexOf("MagicAuxiliary.prototype.use_qwqr58$"),
         source.indexOf("MagicAuxiliary.$metadata$")
     );
+    assert.ok(auxiliary, "MagicAuxiliary.use_qwqr58$ not found");
     assert.match(
         auxiliary,
-        /var b = Math_0\.max\(0, dst\.hp\)/
+        /if \(dst\.hp <= 0\) \{\s*println\([^)]*\);\s*dst\.hp = Typescript\.imul\(dst\.maxHP, this\.mHp_0\) \/ 100 \| 0;/
     );
+    assert.match(auxiliary, /if \(dst\.hp <= 0\) \{\s*dst\.hp = 1;\s*\}/);
 });
 
 test("SRS anchor takes the area-weighted visual centre of simple frames", () => {
@@ -546,9 +674,18 @@ test("佛光普照 aligns its authored group with the current player formation",
         { x: 76, y: 65 }
     );
     assert.deepEqual(targetCenter, { x: 108, y: 64 });
+    // The all-target heal draws the authored group through
+    // ResSrs.drawAtTargetScaled: the party centroid lands in mAnix/mAniy, the
+    // occupied/full-formation span lands in the scale factors, and each frame
+    // is offset by the shared impact anchor (mImpactAnchorX/Y from
+    // BBKSrsAnchor.compute) inside the draw routine.
     assert.match(
         source,
-        /ActionMagicHelpAll[\s\S]*?drawAtTarget_2g4tob\$\(canvas, this\.animationX_0, this\.animationY_0\)/
+        /ActionMagicHelpAll\.prototype\.draw_9in0vv\$[\s\S]{0,600}?drawAtTargetScaled_eamxi9\$\((canvas, )?this\.mAnix_8be2vx\$, this\.mAniy_8be2vx\$, this\.animationScaleX_8be2vx\$, this\.animationScaleY_8be2vx\$\)/
+    );
+    assert.match(
+        source,
+        /ResSrs\.prototype\.drawAtTargetScaled_eamxi9\$[\s\S]{0,900}?frameHeaders\[frameIndex\]\[0\] - this\.mImpactAnchorX_0 \| 0\) \* sx \+ x/
     );
 });
 

@@ -334,12 +334,17 @@ class Player : FightingCharacter(), Coder {
      */
     fun hasEquipt(type: Int, id: Int): Boolean {
         if (type == 6) {
-            // 两个位置都装备同一件装备才返回真
-            return arrayOf(equipmentsArray[0], equipmentsArray[1]).all {
-                return it?.let {
-                    it.type == type && it.index == id
-                } ?: false
+            // 装饰有两个槽位（equipmentsArray[0..1]），任一槽位匹配即视为已
+            // 装备：原实现的 lambda 里写了非局部 return，首轮即返回，1 号
+            // 槽永远查不到"已装备"，同一装饰可以双戴、属性加成翻倍。
+            for (slot in 0..1) {
+                equipmentsArray[slot]?.let {
+                    if (it.type == type && it.index == id) {
+                        return true
+                    }
+                }
             }
+            return false
         }
 
         for (i in 2..7) {
@@ -504,6 +509,14 @@ class Player : FightingCharacter(), Coder {
         magicChain?.learnNum = coder.readInt()
         name = coder.readString()
         level = coder.readInt()
+        // 防御：修复前的存档可能已把 magicChain.learnNum 存坏（如 0），读档
+        // 后按当前等级的 levelupChain 峰值校正，避免要再升一级才恢复法术。
+        magicChain?.let {
+            val peak = levelupChain.getLearnMagicNum(level)
+            if (peak > it.learnNum) {
+                it.learnNum = peak
+            }
+        }
         maxHP = coder.readInt()
         hp = coder.readInt()
         maxMP = coder.readInt()

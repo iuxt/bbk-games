@@ -1,7 +1,9 @@
 package fmj.combat.actions
 
 import fmj.characters.FightingCharacter
+import fmj.characters.Monster
 import fmj.characters.Player
+import fmj.combat.Combat
 import fmj.lib.ResSrs
 import fmj.magic.MagicAttack
 
@@ -38,18 +40,45 @@ class ActionMagicAttackAll(attacker: FightingCharacter,
         mAni = magic.magicAni
         mAni!!.start()
         mAni!!.setIteratorNum(2)
-        
-        // 动画显示在第一个目标的位置
-        if (mTargets.isNotEmpty()) {
-            val firstTarget = mTargets[0]
-            mAnix = firstTarget.combatX
-            mAniy = firstTarget.combatY - (firstTarget.fightingSprite?.height ?: 16) / 2
-            println("ActionMagicAttackAll: 动画位置计算完成（第一个目标位置） -> ($mAnix, $mAniy)")
+
+        // 全体攻击特效锚定在目标阵营的几何中心（上/中/下三槽位中点），
+        // 与当前存活数量无关——否则只剩 1 个站在上/下槽位的目标时，特效
+        // 会跟着它偏离中心。阵营按首个目标类型选取槽位表：玩家目标用
+        // Combat.sPlayerPos，怪物目标用 Monster.arr。
+        var sumW = 0
+        var sumH = 0
+        var sampled = 0
+        mTargets.forEach {
+            val fs = it.fightingSprite
+            if (fs != null) {
+                sumW += fs.width
+                sumH += fs.height
+                sampled++
+            }
         }
-        
-        // 过滤出活着的敌人，但不修改原始mTargets列表
+        if (sampled > 0 && mTargets.isNotEmpty()) {
+            val slots: dynamic = if (mTargets[0] is Player) Combat.sPlayerPos else Monster.arr
+            val width = sumW / sampled
+            val height = sumH / sampled
+            val center = js("typeof window.BBKSrsAnchor !== 'undefined'" +
+                    " ? window.BBKSrsAnchor.formationCenter(slots, width, height) : null")
+            if (center != null) {
+                mAnix = center.x
+                mAniy = center.y
+            } else {
+                val firstTarget = mTargets[0]
+                mAnix = firstTarget.combatX
+                mAniy = firstTarget.combatY - (firstTarget.fightingSprite?.height ?: 16) / 2
+            }
+            println("ActionMagicAttackAll: 动画位置计算完成（目标阵营中心） -> ($mAnix, $mAniy)")
+        }
+
+        // 过滤出活着的敌人，但不修改原始mTargets列表。
+        // 过滤发生在施法之前，因此被本法术击杀的目标仍在 aliveTargets 中、
+        // 会飘出真实伤害数字（diffToAnimation 用未钳制增量）；本就死亡的
+        // 尸体被排除，不飘字。
         val aliveTargets = mTargets.filter { it.isAlive }
-        
+
         magic.use(attacker, aliveTargets)
 
         mRaiseAnimations.add(attacker.diffToAnimation())
@@ -108,7 +137,9 @@ class ActionMagicAttackAll(attacker: FightingCharacter,
         super.draw(canvas)
         if (mState == STATE_ANI) {
             println("ActionMagicAttackAll: 绘制动画 at ($mAnix, $mAniy)")
-            mAni!!.drawAbsolutely(canvas, mAnix, mAniy)
+            // 多目标攻击 SRS 的原始编队坐标是按玩家队伍制作的，以特效
+            // 视觉锚点为基准对准目标阵营中心绘制。
+            mAni!!.drawAtTarget(canvas, mAnix, mAniy)
         } else if (mState == STATE_AFT) {
             drawRaiseAnimation(canvas)
         }

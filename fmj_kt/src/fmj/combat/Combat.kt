@@ -61,6 +61,10 @@ class Combat private constructor(override val parent: GameNode) : BaseScreen, Co
     /** 每个玩家上一回合的动作，用于重复功能 */
     private val mLastPlayerActions = mutableMapOf<Int, Action>()
 
+    /** 本场战斗中已按下的键：用于吞掉没有对应 keydown 的"幽灵"释放
+     *  （例如进入战斗前按住的回车，在战斗菜单弹出时才释放，会误确认菜单） */
+    private val mPressedKeys = mutableMapOf<Int, Boolean>()
+
     /** 当前选择动作的角色在[.mPlayerList]中的序号 */
     private var mCurSelActionPlayerIndex = 0
 
@@ -109,8 +113,8 @@ class Combat private constructor(override val parent: GameNode) : BaseScreen, Co
             return mPlayerList.any { it.hp > 0 }
         }
 
-    /** 怪物是否都挂了 */
-    private val isAllMonsterDead: Boolean
+    /** 怪物是否都挂了（ActionExecutor 全灭即停时也要查询） */
+    internal val isAllMonsterDead: Boolean
         get() = firstAliveMonster == null
 
     /**
@@ -258,7 +262,10 @@ class Combat private constructor(override val parent: GameNode) : BaseScreen, Co
 
     private fun prepareForNewCombat() {
         mActionQueue.clear()
-        
+        // 新战斗开始：清掉上一场（或进战前）的按键记录，之后到达的任何
+        // 没有对应 keydown 的 keyup 都视为幽灵释放。
+        mPressedKeys.clear()
+
         // R键功能：从静态存储加载玩家动作历史
         mLastPlayerActions.clear()
         if (sGlobalPlayerActions.isNotEmpty()) {
@@ -606,6 +613,7 @@ class Combat private constructor(override val parent: GameNode) : BaseScreen, Co
     }
 
     override fun onKeyDown(key: Int) {
+        mPressedKeys[key] = true
         if (mCombatState == CombatState.SelectAction) {
             if (!mIsAutoAttack) {
                 if (key == Global.KEY_REPEAT) {
@@ -620,6 +628,12 @@ class Combat private constructor(override val parent: GameNode) : BaseScreen, Co
     }
 
     override fun onKeyUp(key: Int) {
+        // 吞掉幽灵 keyup：本场战斗没有对应 keydown 的释放（战斗开始前按
+        // 住的键在菜单弹出时释放），照常路由会误确认战斗菜单。
+        if (mPressedKeys[key] != true) {
+            return
+        }
+        mPressedKeys[key] = false
         if (mCombatState == CombatState.SelectAction) {
             if (!mIsAutoAttack) {
                 mCombatUI.onKeyUp(key)
@@ -903,8 +917,13 @@ class Combat private constructor(override val parent: GameNode) : BaseScreen, Co
 
         if (action is ActionCoopMagic) { // 只保留合击
             println("[合击调试] 检测到合体技能，清空队列并只保留合击")
-            mActionQueue.clear()
-            mActionQueue.add(action)
+            // 合击取代本轮已排队的其他行动。投掷/使用道具在选择时已经
+            // deleteGoods 扣减，直接 clear() 会吞掉道具；必须逐个 cancel()
+            // 退还（同 cancelRemainingActions 的语义）。刚入队的合击排在
+            // 队尾，保留它，只取消之前的行动。
+            while (mActionQueue.size > 1) {
+                mActionQueue.pop()?.cancel()
+            }
             // 为所有参与合击的玩家记录这个动作
             action.mActors.forEach { player ->
                 val playerIndex = mPlayerList.indexOf(player)
@@ -928,7 +947,12 @@ class Combat private constructor(override val parent: GameNode) : BaseScreen, Co
     override fun onAutoAttack() {
         // clear all the actions that has been selected, enter into auto fight mode
         mCombatUI.reset()
-        mActionQueue.clear()
+        // 围攻同样取代已排队的行动：清空前逐个 cancel() 退还已扣减的
+        // 投掷/使用道具（clear() 会吞道具，见 onActionSelected 合击分支）。
+        while (true) {
+            val a = mActionQueue.pop() ?: break
+            a.cancel()
+        }
         mIsAutoAttack = true
         mCombatState = CombatState.SelectAction
     }

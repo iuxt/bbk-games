@@ -22,6 +22,19 @@ class ResLevelupChain : ResBase() {
         mLevelData = ByteArray(maxLevel * LEVEL_BYTES)
 
         System.arraycopy(buf, offset + 4, mLevelData, 0, mLevelData.size)
+
+        // 伏魔记 ROM 中角色法术学满（累计达到 magicSum）后，剩余级别的
+        // "已学法术数"(byte19) 被填 0；getLearnMagicNum 直接读该列并赋给
+        // magicChain.learnNum，升级越过学满级别时 learnNum 归零、
+        // getAllLearntMagics() 返回空，已学法术全失。加载时把该列单调
+        // 非递减化（学满后保持峰值），根因修复且能救已损坏存档。
+        for (lv in 2..maxLevel) {
+            val prev = (lv - 2) * LEVEL_BYTES + 19
+            val cur = (lv - 1) * LEVEL_BYTES + 19
+            if ((mLevelData[cur].toInt() and 0xFF) < (mLevelData[prev].toInt() and 0xFF)) {
+                mLevelData[cur] = mLevelData[prev]
+            }
+        }
     }
 
     fun getMaxHP(level: Int): Int {

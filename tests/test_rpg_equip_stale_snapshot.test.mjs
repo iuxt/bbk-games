@@ -154,16 +154,28 @@ function functionBody(src, name) {
 
 test("core.js: 穿戴 item-selected re-validates bag ownership and duplicate equip", () => {
     const src = fs.readFileSync(CORE_JS, "utf8");
-    const body = functionBody(src, "ScreenActorWearing$onKeyUp$ObjectLiteral.prototype.onItemSelected_6xxg66$");
+    // New Kotlin->JS build: the listener method carries the `$$default` mangled
+    // suffix (Kotlin default-argument lowering) instead of the old bare name.
+    const body = functionBody(src, "ScreenActorWearing$onKeyUp$ObjectLiteral.prototype.onItemSelected_ckyljo$$default");
     assert.match(
         body,
-        /getGoodsNum_vux9f0\$\(goods\.type, goods\.index\) < 1/,
+        /getGoodsNum_vux9f0\$\(goods\.type, goods\.index\)\s*<\s*1/,
         "must verify the bag still holds the goods (the pick list is a snapshot)"
+    );
+    assert.match(
+        body,
+        /getGoodsNum_vux9f0\$\(goods\.type, goods\.index\)\s*<\s*1[\s\S]{0,200}return;/,
+        "the out-of-stock guard must reject the selection (early return), not just warn"
     );
     assert.match(
         body,
         /hasEquipt_vux9f0\$\(goods\.type, goods\.index\)/,
         "must block equipping an ornament already worn in either decoration slot"
+    );
+    assert.match(
+        body,
+        /hasEquipt_vux9f0\$\(goods\.type, goods\.index\)[\s\S]{0,200}return;/,
+        "the already-equipped guard must reject the selection (early return), not just warn"
     );
 });
 

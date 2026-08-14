@@ -119,14 +119,23 @@ test("ROM: 金缕衣 mSpeed byte is 0x8a and decodes to -10 (sign-magnitude)", (
 
 test("core.js: get1ByteSInt decodes sign-magnitude (bit7 = sign, bits0..6 = magnitude)", () => {
     // Pins the production fix. Fails if the helper reverts to `return buf[start]`.
+    // (Kotlin->JS output: single-quoted members, `function (buf, start)` with a
+    // space, decimal 255/128/127 for the hex masks.)
     const src = fs.readFileSync(CORE_JS, "utf8");
-    const m = src.match(/ResBase\$Companion\.prototype\.get1ByteSInt_ir89t6\$\s*=\s*function\(buf,\s*start\)\s*\{([\s\S]*?)\};/);
+    const m = src.match(/ResBase\$Companion\.prototype\.get1ByteSInt_ir89t6\$\s*=\s*function\s*\(buf,\s*start\)\s*\{([\s\S]*?)\n\s*\};/);
     assert.ok(m, "could not locate get1ByteSInt_ir89t6$ definition in rpg/core.js");
     const body = m[1];
-    // must normalise the Int8Array element to unsigned, then split sign/magnitude
-    assert.match(body, /&\s*255/, `get1ByteSInt must mask buf[start] to unsigned first; found: ${body.trim()}`);
-    assert.match(body, /0x80|128/, `get1ByteSInt must test the sign bit (0x80); found: ${body.trim()}`);
-    assert.match(body, /0x7f|127/, `get1ByteSInt must mask the magnitude (0x7f); found: ${body.trim()}`);
+    // must normalise the Int8Array element to unsigned first (compiler temp var name captured)
+    const varM = body.match(/var (\w+) = buf\[start\] & 255/);
+    assert.ok(varM, `get1ByteSInt must mask buf[start] to unsigned first; found: ${body.trim()}`);
+    const b = varM[1];
+    // must test the sign bit (bit 7)…
+    assert.match(body, new RegExp(`\\(\\s*${b}\\s*&\\s*(?:0x80|128)\\s*\\)\\s*!==\\s*0`), `get1ByteSInt must test the sign bit (0x80); found: ${body.trim()}`);
+    // …and the negative branch must be sign-magnitude: NEGATE THE 0x7f-MASKED
+    // magnitude, i.e. `-(b & 0x7f)`. This is the load-bearing shape: a plain
+    // `-b` or a two's-complement `b - 256` would both mis-decode (e.g. 0xFF as
+    // -255/-1 instead of -127) yet could sneak past looser assertions.
+    assert.match(body, new RegExp(`-\\s*\\(\\s*${b}\\s*&\\s*(?:0x7f|127)\\s*\\)`), `get1ByteSInt's negative branch must be -(b & 0x7f), not -b / b-256; found: ${body.trim()}`);
     // must NOT be the old bare return
     assert.doesNotMatch(body, /return\s+buf\[start\]\s*;\s*$/, "get1ByteSInt must not return buf[start] verbatim");
 });
