@@ -191,16 +191,17 @@ object SaveLoadGame {
         val originalScreenX = MapScreenX
         val originalScreenY = MapScreenY
         
-        // 修正负数或过大的屏幕坐标
+        // 修正负数或过大的屏幕坐标（回退到 9×6 视口的玩家锚点 (4,3)，
+        // 与存档侧的修正一致；上游 H5 曾用 19×12 视口的"中心"(9,5)）
         if (MapScreenX < 0 || MapScreenX > 1000) {
-            MapScreenX = 9  // 使用默认的安全位置
-            DebugLogger.warn(DebugLogger.Tags.SAVE_LOAD, "FixScreenPos", 
+            MapScreenX = 4  // 使用默认的安全位置
+            DebugLogger.warn(DebugLogger.Tags.SAVE_LOAD, "FixScreenPos",
                 "修正异常的MapScreenX: $originalScreenX -> $MapScreenX")
         }
-        
+
         if (MapScreenY < 0 || MapScreenY > 1000) {
-            MapScreenY = 5  // 使用默认的安全位置
-            DebugLogger.warn(DebugLogger.Tags.SAVE_LOAD, "FixScreenPos", 
+            MapScreenY = 3  // 使用默认的安全位置
+            DebugLogger.warn(DebugLogger.Tags.SAVE_LOAD, "FixScreenPos",
                 "修正异常的MapScreenY: $originalScreenY -> $MapScreenY")
         }
         

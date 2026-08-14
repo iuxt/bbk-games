@@ -614,6 +614,14 @@ class ScreenMainGame(
      * 载入号码n,类型m的地图，初始位置（x，y）
      */
     fun loadMap(type: Int, index: Int, x: Int, y: Int) {
+        // 换图前记住玩家在屏幕上的相对位置（经典主机 RPG 行为：换图时
+        // 玩家视觉上留在原地，地图在脚下更换）。上游 H5 改屏时曾把玩家
+        // 强制摆到 19×12 视口的"中心"(9,5)——在 9×6 的设备原生视口下
+        // 玩家被推出画面右下角，只能看到其左上方的一角地图。
+        var tmpP: Point? = null
+        if (player != null && currentMap != null) {
+            tmpP = player!!.getPosOnScreen(mMapScreenPos)
+        }
         // 加载新地图
         val mapRes = DatLib.getRes(DatLib.ResType.MAP, type, index)
         if (mapRes is ResMap) {
@@ -623,14 +631,8 @@ class ScreenMainGame(
             return
         }
         mMapScreenPos.set(x, y)
-        
-        // 设置玩家位置（如果玩家存在）
-        if (player != null) {
-            // 设置玩家到屏幕中心
-            val screenX = 9  // 屏幕中心X
-            val screenY = 5  // 屏幕中心Y
-            player!!.setPosOnScreen(screenX, screenY, mMapScreenPos)
-            
+        if (tmpP != null) {
+            player!!.setPosOnScreen(tmpP.x, tmpP.y, mMapScreenPos)
             val mapPos = player!!.posInMap
             println("loadMap: Player at (${mapPos.x}, ${mapPos.y})")
         }
@@ -1031,9 +1033,9 @@ class ScreenMainGame(
                 
                 player!!.setPosInMap(newX, newY)
                 
-                // 调整屏幕位置
-                val screenX = maxOf(0, minOf(x - 9, mapWidth - 20))
-                val screenY = maxOf(0, minOf(y - 5, mapHeight - 12))
+                // 调整屏幕位置（9×6 设备原生视口：玩家锚在屏幕 (4,3) 附近）
+                val screenX = maxOf(0, minOf(x - 4, mapWidth - 10))
+                val screenY = maxOf(0, minOf(y - 3, mapHeight - 6))
                 mMapScreenPos.set(screenX, screenY)
                 
                 println("createNpc: Fixed player to ($newX, $newY) near NPC at ($x, $y)")
