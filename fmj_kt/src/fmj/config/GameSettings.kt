@@ -11,8 +11,12 @@ object GameSettings {
     // 存储键前缀 - 使用"sav/"前缀确保保存到localStorage而不是内存
     private const val STORAGE_KEY_PREFIX = "sav/fmj_settings_"
 
-    // 内部存储变量
-    private var _useOriginalDamageFormula = true
+    // 内部存储变量。
+    // 伤害公式默认用「简化」版（= 本站 main 分支/老 core.js 的公式：
+    // 普攻 max(攻-防,0)+0..9 随机、法术按灵力差 1%/点 缩放）。上游自制
+    // 的"原版 C 引擎"除法公式（攻/((防>>3)+1)）在怪物防御上百后伤害
+    // 只剩零头，普遍偏低；可在游戏内设置界面手动切回。
+    private var _useOriginalDamageFormula = false
     private var _enableEnhancedLimits = false
     private var _showCoordinates = true
     private var _allowWallWalking = false
@@ -127,7 +131,7 @@ object GameSettings {
             }
 
             // 重置内部变量为默认值
-            _useOriginalDamageFormula = true
+            _useOriginalDamageFormula = false
             _enableEnhancedLimits = false
             _showCoordinates = true
             _allowWallWalking = false
