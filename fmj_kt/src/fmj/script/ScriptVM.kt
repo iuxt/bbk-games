@@ -58,7 +58,9 @@ class ScriptVM(override val parent: GameNode): Control {
             return makeCommand(8) {
                 cmdPrint("cmd_loadmap type=$type index=$index x=$x y=$y")
 
-                game.mainScene.loadMap(type, index, x - 5, y - 2)
+                // ROM 脚本按 160×96 视口的 (4,3) 锚点编写，直接使用原始坐标。
+                // 上游 H5 改屏时曾平移 (x-5, y-2) 换算到 19×12 视口的 (9,5) 锚点。
+                game.mainScene.loadMap(type, index, x, y)
 
                 object: OperateDrawOnce() {
                     override fun drawOnce(canvas: Canvas) {
@@ -71,9 +73,10 @@ class ScriptVM(override val parent: GameNode): Control {
 
         fun cmd_createactor(code: ByteArray, start: Int): Command {
             val actor = get2ByteInt(code, start)
-            // 原来的中心坐标为(4, 3)，大尺寸后中心坐标为(9, 5),所以需要偏移(5, 2)
-            val x = get2ByteInt(code, start + 2) + 5
-            val y = get2ByteInt(code, start + 4) + 2
+            // 屏幕坐标相对 160×96 视口的 (4,3) 锚点（ROM 原始值，无需偏移；
+            // 上游 H5 改屏时曾 +5/+2 平移到 19×12 视口的 (9,5) 锚点）
+            val x = get2ByteInt(code, start + 2)
+            val y = get2ByteInt(code, start + 4)
 
             return makeCommand(6) {
                 cmdPrint("cmd_createactor $actor at ($x, $y)")

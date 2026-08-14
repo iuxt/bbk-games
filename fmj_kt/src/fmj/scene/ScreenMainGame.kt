@@ -543,12 +543,9 @@ class ScreenMainGame(
         triggerMapEvent(x - 1, y)
         if (canPlayerWalk(x - 1, y)) {
             player!!.walk(Direction.West)
-            // 滚动式地图加载：当玩家接近左边缘时向左滚动
-            val playerScreenPos = player!!.getPosOnScreen(mMapScreenPos)
-            if (playerScreenPos.x <= 9) {
-                mMapScreenPos.x -= 1
-                SaveLoadGame.MapScreenX = mMapScreenPos.x
-            }
+            // 相机锁死跟随：每步卷动，玩家固定在屏幕 (4,3)
+            mMapScreenPos.x -= 1
+            SaveLoadGame.MapScreenX = mMapScreenPos.x
             // 更新玩家位置到前端
             updatePlayerPositionInBrowser()
         } else {
@@ -561,12 +558,9 @@ class ScreenMainGame(
         triggerMapEvent(x, y - 1)
         if (canPlayerWalk(x, y - 1)) {
             player!!.walk(Direction.North)
-            // 滚动式地图加载：当玩家接近上边缘时向上滚动
-            val playerScreenPos = player!!.getPosOnScreen(mMapScreenPos)
-            if (playerScreenPos.y <= 5) {
-                mMapScreenPos.y -= 1
-                SaveLoadGame.MapScreenY = mMapScreenPos.y
-            }
+            // 同 walkLeft：相机锁死跟随
+            mMapScreenPos.y -= 1
+            SaveLoadGame.MapScreenY = mMapScreenPos.y
             // 更新玩家位置到前端
             updatePlayerPositionInBrowser()
         } else {
@@ -578,13 +572,11 @@ class ScreenMainGame(
         val (x, y) = player!!.posInMap
         triggerMapEvent(x + 1, y)
         if (canPlayerWalk(x + 1, y)) {
+            // 相机锁死跟随（原版设计）：每步卷动，玩家固定在屏幕 (4,3)；
+            // 地图边缘的可行走余量保证相机不会越出地图。
+            mMapScreenPos.x += 1
+            SaveLoadGame.MapScreenX = mMapScreenPos.x
             player!!.walk(Direction.East)
-            // 滚动式地图加载：当玩家接近右边缘时向右滚动
-            val playerScreenPos = player!!.getPosOnScreen(mMapScreenPos)
-            if (playerScreenPos.x >= 9) {
-                mMapScreenPos.x += 1
-                SaveLoadGame.MapScreenX = mMapScreenPos.x
-            }
             // 更新玩家位置到前端
             updatePlayerPositionInBrowser()
         } else {
@@ -596,13 +588,10 @@ class ScreenMainGame(
         val (x, y) = player!!.posInMap
         triggerMapEvent(x, y + 1)
         if (canPlayerWalk(x, y + 1)) {
+            // 同 walkRight：相机锁死跟随
+            mMapScreenPos.y += 1
+            SaveLoadGame.MapScreenY = mMapScreenPos.y
             player!!.walk(Direction.South)
-            // 滚动式地图加载：当玩家接近下边缘时向下滚动
-            val playerScreenPos = player!!.getPosOnScreen(mMapScreenPos)
-            if (playerScreenPos.y >= 5) {
-                mMapScreenPos.y += 1
-                SaveLoadGame.MapScreenY = mMapScreenPos.y
-            }
             // 更新玩家位置到前端
             updatePlayerPositionInBrowser()
         } else {
@@ -1198,10 +1187,10 @@ class ScreenMainGame(
             val playerMapX = firstPlayer.posInMap.x
             val playerMapY = firstPlayer.posInMap.y
             
-            // 计算让Player显示在屏幕中心所需的屏幕坐标
-            // 屏幕中心大约是 (4, 3)，所以屏幕左上角应该是Player位置减去中心偏移
-            val centerOffsetX = 9  // 屏幕中心X偏移
-            val centerOffsetY = 5  // 屏幕中心Y偏移
+            // 计算让Player显示在屏幕锚点所需的屏幕坐标
+            // 9×6 视口的玩家锚点是 (4, 3)（与原版行走跟随设计一致）
+            val centerOffsetX = 4  // 屏幕锚点X偏移
+            val centerOffsetY = 3  // 屏幕锚点Y偏移
             
             val newScreenX = playerMapX - centerOffsetX
             val newScreenY = playerMapY - centerOffsetY
