@@ -1504,11 +1504,11 @@ class Combat private constructor(override val parent: GameNode) : BaseScreen, Co
             sInstance?.onKeyUp(key)
         }
 
-        /** 玩家角色中心坐标 */
+        /** 玩家角色中心坐标（160×96 设备原生气槽位） */
         val sPlayerPos = arrayOf(
-                Point(64 + 12 + (Global.SCREEN_WIDTH - 160) / 2 + 30, 52 + 18 + (Global.SCREEN_HEIGHT - 96) / 2 + 30),
-                Point(96 + 12 + (Global.SCREEN_WIDTH - 160) / 2 + 30, 48 + 18 + (Global.SCREEN_HEIGHT - 96) / 2 + 30),
-                Point(128 + 12 + (Global.SCREEN_WIDTH - 160) / 2 + 30, 40 + 18 + (Global.SCREEN_HEIGHT - 96) / 2 + 30))
+                Point(76, 70),
+                Point(108, 66),
+                Point(140, 58))
 
         fun ForceWin() {
             sInstance?.mCombatState = CombatState.Win

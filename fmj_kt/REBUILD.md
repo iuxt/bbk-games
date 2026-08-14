@@ -40,6 +40,12 @@ node fmj_kt/smoke-boot.mjs        # 沙箱冒烟
 - 上游 HEAD 源码自带部分同等修复（满级队员跳过经验、回合上限生效、
   每回合重置回合事件标志、复活量用 max(0,hp)、群体药品跳死者、
   装饰合击 mMagic 守卫等）；
+- 屏幕分辨率已还原为设备原生的 **160×96**（上游 H5 版曾改屏到 320×192
+  以显示更大地图视野，但 ROM 内容按 160×96 制作，同等显示宽度下内容
+  物理尺寸减半）。随分辨率一并还原了上游改屏时调整过的坐标：
+  Global 常量与 MAP_LEFT_OFFSET、怪物/玩家战斗槽位（Monster.arr /
+  Combat.sPlayerPos）、战斗菜单图标与玩家信息面板（CombatUI）、
+  对话框矩形组（ScriptVM cmd_say）、穿戴界面物品名（ScreenActorWearing）。
 - 上游缺失的 bbk 修复已作为 Kotlin 补丁移植进 `fmj_kt/src` 并随本流水线
   编译（`git log -- fmj_kt/src` 可查）：hp/mp/maxHP setter 钳制与
   deltaSinceBackup 真实伤害飘字、装备回血/回真气飘实际量、行动队列

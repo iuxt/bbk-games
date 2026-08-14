@@ -68,7 +68,7 @@ class ScreenActorWearing(override val parent: GameNode): BaseScreen {
         }
         canvas.drawRect(mPos[mCurItem].x, mPos[mCurItem].y,
                 mPos[mCurItem].x + 32, mPos[mCurItem].y + 32, Util.sBlackPaint)
-        TextRender.drawText(canvas, mItemName[mCurItem], 200, 60)
+        TextRender.drawText(canvas, mItemName[mCurItem], 120, 80)
 
         // 画人物头像、姓名，居中偏上
         if (mActorIndex >= 0) {

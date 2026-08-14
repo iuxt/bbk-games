@@ -12,16 +12,19 @@ object Global {
     var fgColor = Color.BLACK
     var bgColor = Color.WHITE
 
-    val SCREEN_WIDTH = 320
-    val SCREEN_HEIGHT = 192
-    
+    // 设备原生分辨率（bbk 电子词典 160×96）。上游 H5 版曾翻倍到 320×192
+    // 以显示更大地图视野，但 ROM 内容（字体/精灵/对话框）均按 160×96 制作，
+    // 同等显示宽度下内容物理尺寸减半；已随分辨率一并还原配套坐标。
+    val SCREEN_WIDTH = 160
+    val SCREEN_HEIGHT = 96
+
     // 🛡️ 安全开关：生产环境必须设为 false
     const val ENABLE_DEV_TOOLS = true  // 开发时 true，发布时改为 false
-    
+
     // 📝 调试日志控制开关
     var ENABLE_DEBUG_LOGS = true  // 控制所有调试日志是否输出
 
-    val MAP_LEFT_OFFSET = 0
+    val MAP_LEFT_OFFSET = 8
 
     val KEY_UP = 1
     val KEY_DOWN = 2

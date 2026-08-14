@@ -103,10 +103,11 @@ class Monster : FightingCharacter() {
     }
 
     companion object {
+        // 160×96 设备原生的怪物槽位坐标（上游 H5 改屏时曾加居中偏移）
         val arr = arrayOf(
-            intArrayOf(12 + (Global.SCREEN_WIDTH - 160) / 2 - 30, 25 + (Global.SCREEN_HEIGHT - 96) / 2 - 30),
-            intArrayOf(44 + (Global.SCREEN_WIDTH - 160) / 2 - 30, 14 + (Global.SCREEN_HEIGHT - 96) / 2 - 30), 
-            intArrayOf(82 + (Global.SCREEN_WIDTH - 160) / 2 - 30, 11 + (Global.SCREEN_HEIGHT - 96) / 2 - 30)
+                intArrayOf(12, 25),
+                intArrayOf(44, 14),
+                intArrayOf(82, 11)
         )
     }
 }

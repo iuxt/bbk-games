@@ -184,12 +184,13 @@ class CombatUI(override val parent: GameNode,
         }
 
         override fun draw(canvas: Canvas) {
-            val centerOffsetX = (Global.SCREEN_WIDTH - 160) / 2
-            val centerOffsetY = (Global.SCREEN_HEIGHT - 96) / 2 - 15
+            // 160×96 设备原生布局下无居中偏移（上游 H5 改屏时加过）
+            val centerOffsetX = 0
+            val centerOffsetY = 0
 
             // 安全绘制菜单图标，检查高度是否有效
             val menuIconHeight = if (mMenuIcon.height > 0) mMenuIcon.height else 16
-            mMenuIcon.draw(canvas, mCurIconIndex, 20, Global.SCREEN_HEIGHT - menuIconHeight - 20)
+            mMenuIcon.draw(canvas, mCurIconIndex, 7, Global.SCREEN_HEIGHT - menuIconHeight)
 
             val p = selectedPlayer ?: return
             mPlayerInfoBg.draw(canvas, 1, 49 + centerOffsetX, 66 + centerOffsetY)

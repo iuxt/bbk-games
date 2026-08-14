@@ -236,15 +236,13 @@ class ScriptVM(override val parent: GameNode): Control {
             val text = getStringBytes(code, start + 2)
             val headImg = DatLib.getPic(1, picNum, allowNull = true)
             var isAnyKeyDown = false
-            // 计算居中偏移量
-            val centerOffsetX = (Global.SCREEN_WIDTH - 320) / 2
-            val centerOffsetY = (Global.SCREEN_HEIGHT - 192) / 2
-            val rWithPic = RectF(18f + centerOffsetX, 100f + centerOffsetY, 302f + centerOffsetX, Global.SCREEN_HEIGHT - 10f) // 有图边框
-            val rWithTextT = Rect(48 + centerOffsetX, 116 + centerOffsetY, 290 + centerOffsetX, 150 + centerOffsetY) // 上
-            val rWithTextB = Rect(28 + centerOffsetX, 152 + centerOffsetY, 290 + centerOffsetX, 186 + centerOffsetY) // 下
-            val rWithoutPic = RectF(18f + centerOffsetX, 110f + centerOffsetY, 302f + centerOffsetX, Global.SCREEN_HEIGHT - 10f) // 无图边框
-            val rWithoutTextT = Rect(28 + centerOffsetX, 116 + centerOffsetY, 290 + centerOffsetX, 150 + centerOffsetY) // 上
-            val rWithoutTextB = Rect(28 + centerOffsetX, 152 + centerOffsetY, 290 + centerOffsetX, 186 + centerOffsetY) // 下
+            // 160×96 设备原生的对话框布局（上游 H5 改屏时按 320×192 重排过）
+            val rWithPic = RectF(9f, 50f, 151f, Global.SCREEN_HEIGHT - 0.5f) // 有图边框
+            val rWithTextT = Rect(44, 58, 145, 75) // 上
+            val rWithTextB = Rect(14, 76, 145, 93) // 下
+            val rWithoutPic = RectF(9f, 55f, 151f, Global.SCREEN_HEIGHT - 0.5f) // 无图边框
+            val rWithoutTextT = Rect(14, 58, 145, 75) // 上
+            val rWithoutTextB = Rect(14, 76, 145, 93) // 下
             val paint = Paint()
             paint.color = Global.COLOR_BLACK
             paint.style = Paint.Style.FILL_AND_STROKE
