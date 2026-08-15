@@ -15,7 +15,7 @@ damage = base damage + trunc(base damage * bonus rate)
 
 This keeps the existing advantage scaling when the caster has higher spirit power, while preventing higher-spirit targets from reducing damage below the skill's authored base value. The HP and MP attack-damage paths use the same rule.
 
-The original-formula setting, absorb/level-scaling logic, magic costs, misses, buffs, and unrelated combat formulas remain unchanged.
+The original-formula setting, absorb/level-scaling logic, magic costs, misses, buffs, and unrelated combat formulas remain unchanged. Startup also uses the intended simplified-formula default when no stored setting exists: `initialize()` must pass `"false"` as the fallback for `useOriginalDamageFormula`. A stored explicit choice continues to override the default.
 
 ## Testing
 
@@ -25,3 +25,4 @@ Add Node regression coverage that executes the simplified `MagicAttack` HP and M
 - Higher caster spirit power still increases damage by the existing 1%-per-point rate.
 - Higher target spirit power no longer reduces damage below the base value.
 - The original damage-formula branch is not selected by the tests.
+- With no stored setting, `GameSettings.initialize()` selects the simplified formula; with a stored setting, it preserves that explicit choice.
