@@ -126,7 +126,7 @@ Run: `node --test tests/test_rpg_magic_damage_floor.test.mjs`
 
 Expected: PASS for all tests in the new file.
 
-- [ ] **Step 5: Commit the damage floor**
+- [x] **Step 5: Commit the damage floor**
 
 ```bash
 git add tests/test_rpg_magic_damage_floor.test.mjs \
@@ -146,7 +146,7 @@ git commit -m "fix(rpg): floor simplified skill damage"
 - Consumes: `GameSettings.initialize()` and `loadSetting(key, defaultValue)`.
 - Produces: no-storage startup with `useOriginalDamageFormula === false`; stored `"true"` or `"false"` remains authoritative.
 
-- [ ] **Step 1: Append the failing startup-default tests**
+- [x] **Step 1: Append the failing startup-default tests**
 
 Append to `tests/test_rpg_magic_damage_floor.test.mjs`:
 
@@ -182,13 +182,13 @@ test("production: startup fallback selects the simplified formula", () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests and verify the production pin fails**
+- [x] **Step 2: Run the tests and verify the production pin fails**
 
 Run: `node --test tests/test_rpg_magic_damage_floor.test.mjs`
 
 Expected: FAIL in `production: startup fallback selects the simplified formula` because both production copies still pass `"true"` as the fallback.
 
-- [ ] **Step 3: Correct the fallback in Kotlin and core.js**
+- [x] **Step 3: Correct the fallback in Kotlin and core.js**
 
 In `fmj_kt/src/fmj/config/GameSettings.kt`, replace:
 
@@ -216,13 +216,13 @@ this._useOriginalDamageFormula_0 = toBoolean(this.loadSetting_0('useOriginalDama
 
 Do not change the field initializer, reset value, settings screen, or save behavior.
 
-- [ ] **Step 4: Run the focused tests**
+- [x] **Step 4: Run the focused tests**
 
 Run: `node --test tests/test_rpg_magic_damage_floor.test.mjs`
 
 Expected: PASS for every test in the file.
 
-- [ ] **Step 5: Commit the startup default**
+- [x] **Step 5: Commit the startup default**
 
 ```bash
 git add tests/test_rpg_magic_damage_floor.test.mjs \

@@ -46,3 +46,33 @@ test("production: both simplified HP and MP paths clamp negative spirit differen
         "the unbounded compiled penalty formula must not remain"
     );
 });
+
+test("mechanism: startup preserves explicit damage-formula choices", () => {
+    function startupChoice(storedValue) {
+        if (storedValue === undefined) return false;
+        return storedValue === "true";
+    }
+
+    assert.equal(startupChoice(undefined), false, "no stored choice uses the simplified default");
+    assert.equal(startupChoice("false"), false);
+    assert.equal(startupChoice("true"), true, "a stored original-formula choice wins");
+});
+
+test("production: startup fallback selects the simplified formula", () => {
+    const core = fs.readFileSync(CORE_JS, "utf8");
+    const kotlin = fs.readFileSync(
+        path.join(ROOT, "fmj_kt", "src", "fmj", "config", "GameSettings.kt"),
+        "utf8"
+    );
+
+    assert.match(
+        kotlin,
+        /loadSetting\("useOriginalDamageFormula", "false"\)/,
+        "Kotlin startup fallback must agree with the declared default"
+    );
+    assert.match(
+        core,
+        /loadSetting_0\('useOriginalDamageFormula', 'false'\)/,
+        "compiled startup fallback must agree with the declared default"
+    );
+});

@@ -152,7 +152,7 @@ object GameSettings {
             println("GameSettings: 正在从 localStorage 加载设置...")
 
             // 从localStorage加载所有设置
-            _useOriginalDamageFormula = loadSetting("useOriginalDamageFormula", "true").toBoolean()
+            _useOriginalDamageFormula = loadSetting("useOriginalDamageFormula", "false").toBoolean()
             _enableEnhancedLimits = loadSetting("enableEnhancedLimits", "false").toBoolean()
             _showCoordinates = loadSetting("showCoordinates", "true").toBoolean()
             _allowWallWalking = loadSetting("allowWallWalking", "false").toBoolean()
