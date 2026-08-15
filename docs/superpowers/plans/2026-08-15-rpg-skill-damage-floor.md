@@ -240,19 +240,19 @@ git commit -m "fix(rpg): default startup to simplified damage"
 - Consumes: Tasks 1 and 2.
 - Produces: Verified test suite and deployable minified bundle.
 
-- [ ] **Step 1: Run all Node and Python tests**
+- [x] **Step 1: Run all Node and Python tests**
 
 Run: `npm test`
 
 Expected: PASS.
 
-- [ ] **Step 2: Run the production build**
+- [x] **Step 2: Run the production build**
 
 Run: `npm run build`
 
 Expected: build completes, terser parses `rpg/core.js` successfully, and no source-level regression is introduced.
 
-- [ ] **Step 3: Inspect final repository state**
+- [x] **Step 3: Inspect final repository state**
 
 Run: `git status --short`
 
