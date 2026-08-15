@@ -31,7 +31,7 @@
 - Consumes: `MagicAttack.calcHurt(src, dst, hp)` and `MagicAttack.calcMpHurt(src, dst, mp)` with `FightingCharacter.lingli`.
 - Produces: simplified HP/MP damage equal to `base + trunc(base * max(src.lingli - dst.lingli, 0) / 100)`, never below zero.
 
-- [ ] **Step 1: Write the failing regression tests**
+- [x] **Step 1: Write the failing regression tests**
 
 Create `tests/test_rpg_magic_damage_floor.test.mjs`:
 
@@ -86,13 +86,13 @@ test("production: both simplified HP and MP paths clamp negative spirit differen
 });
 ```
 
-- [ ] **Step 2: Run the tests and verify the source pin fails**
+- [x] **Step 2: Run the tests and verify the source pin fails**
 
 Run: `node --test tests/test_rpg_magic_damage_floor.test.mjs`
 
 Expected: FAIL in `production: both simplified HP and MP paths clamp negative spirit differences` because the production formula is still unbounded.
 
-- [ ] **Step 3: Implement the floor in Kotlin and core.js**
+- [x] **Step 3: Implement the floor in Kotlin and core.js**
 
 In both simplified branches of `fmj_kt/src/fmj/magic/MagicAttack.kt`, replace:
 
@@ -120,7 +120,7 @@ var add = JsMath.max(src.lingli - dst.lingli | 0, 0) / 100;
 
 There must be one replacement in `calcHurt_0` and one in `calcMpHurt_0`; do not change `calcMagicDamageOriginal_0` or `calcMpDamageOriginal_0`.
 
-- [ ] **Step 4: Run the focused tests**
+- [x] **Step 4: Run the focused tests**
 
 Run: `node --test tests/test_rpg_magic_damage_floor.test.mjs`
 

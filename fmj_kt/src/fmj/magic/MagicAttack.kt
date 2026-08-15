@@ -72,7 +72,7 @@ class MagicAttack : BaseMagic() {
                 damage
             } else {
                 // 简化公式
-                val add = (src.lingli - dst.lingli).toDouble() / 100
+                val add = max(src.lingli - dst.lingli, 0).toDouble() / 100
                 val damage = max(hp + (hp * add).toInt(), 0)
                 debugLog("  【calcHurt】简化公式: $hp + ($hp * $add) = $damage")
                 damage
@@ -197,7 +197,7 @@ class MagicAttack : BaseMagic() {
             return calcMpDamageOriginal(src, dst, mp)
         } else {
             // 简化公式：使用与HP相同的计算方式
-            val add = (src.lingli - dst.lingli).toDouble() / 100
+            val add = max(src.lingli - dst.lingli, 0).toDouble() / 100
             return max(mp + (mp * add).toInt(), 0)
         }
     }
