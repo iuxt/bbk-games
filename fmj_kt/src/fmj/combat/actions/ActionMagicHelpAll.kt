@@ -58,34 +58,26 @@ class ActionMagicHelpAll(attacker: FightingCharacter,
 
         // SRS 精灵的各列特效是按满员 3 槽编队坐标制作的：人数不足时占用
         // 跨度小于全编队跨度，外列特效会落进空槽位。按占用跨度/满员跨度
-        // 的比例压缩各帧相对锚点的偏移，使每列都落在实际角色身上。
+        // 的比例只压缩横向偏移，使每列落在实际角色身上；Y 轴是动画轨迹，
+        // 保持原样以避免把连续帧叠成同心圆。
         animationScaleX = 1.0
         animationScaleY = 1.0
         if (targetCount > 1 && mTargets.isNotEmpty()) {
             // sPlayerPos 是 Point 对（.x/.y），Monster.arr 是 intArrayOf 对
             //（[0]/[1]），归一化成坐标数组再算跨度。
             val slotXs: IntArray
-            val slotYs: IntArray
             if (mTargets[0] is Player) {
                 slotXs = IntArray(Combat.sPlayerPos.size) { Combat.sPlayerPos[it].x }
-                slotYs = IntArray(Combat.sPlayerPos.size) { Combat.sPlayerPos[it].y }
             } else {
                 slotXs = IntArray(Monster.arr.size) { Monster.arr[it][0] }
-                slotYs = IntArray(Monster.arr.size) { Monster.arr[it][1] }
             }
             val slotTotal = slotXs.size
             if (targetCount < slotTotal) {
                 val fx0 = slotXs[0].toDouble()
                 val fxN = slotXs[targetCount - 1].toDouble()
                 val fxE = slotXs[slotTotal - 1].toDouble()
-                val fy0 = slotYs[0].toDouble()
-                val fyN = slotYs[targetCount - 1].toDouble()
-                val fyE = slotYs[slotTotal - 1].toDouble()
                 if (fxE != fx0) {
                     animationScaleX = kotlin.math.abs(fxN - fx0) / kotlin.math.abs(fxE - fx0)
-                }
-                if (fyE != fy0) {
-                    animationScaleY = kotlin.math.abs(fyN - fy0) / kotlin.math.abs(fyE - fy0)
                 }
             }
         }

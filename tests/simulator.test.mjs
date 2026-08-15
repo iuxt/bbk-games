@@ -383,6 +383,7 @@ test("single-target help, throw and use-item effects render at the target anchor
 
 test("multi-target healing still aligns via the shared SRS anchor", () => {
     const source = readFileSync(new URL("../rpg/core.js", import.meta.url), "utf8");
+    const appSource = readFileSync(new URL("../rpg/app.js", import.meta.url), "utf8");
     const preproccess = source.slice(
         source.indexOf("ActionMagicHelpAll.prototype.preproccess"),
         source.indexOf("ActionMagicHelpAll.prototype.update_s8cxhz$")
@@ -393,6 +394,7 @@ test("multi-target healing still aligns via the shared SRS anchor", () => {
     );
     assert.ok(preproccess, "ActionMagicHelpAll.preproccess not found");
     assert.ok(draw, "ActionMagicHelpAll.draw_9in0vv$ not found");
+    assert.match(appSource, /core\.js\?v=32/);
 
     // The SRS anchor module stays wired for the all-target heal: ResSrs
     // resolves its impact anchor through window.BBKSrsAnchor.compute
@@ -414,12 +416,19 @@ test("multi-target healing still aligns via the shared SRS anchor", () => {
         /if \(targetCount\.v > 0\) \{\s*this\.mAnix_8be2vx\$ = targetX\.v \/ targetCount\.v \| 0;\s*this\.mAniy_8be2vx\$ = targetY\.v \/ targetCount\.v \| 0;\s*\}/
     );
     // Slot-table normalisation (sPlayerPos for players, Monster.arr for
-    // monsters) feeding the occupied/full-span scale factors.
-    assert.match(preproccess, /Combat\$Companion_getInstance\(\)\.sPlayerPos\[i\]\.x;/);
-    assert.match(preproccess, /Monster\$Companion_getInstance\(\)\.arr\[i_1\]\[0\];/);
+    // monsters) feeding the occupied/full horizontal formation span. The
+    // vertical component of each SRS frame is animation motion, not formation
+    // layout; scaling it collapses trails such as 佛光普照 into concentric
+    // circles, so Y must remain at its authored values.
+    assert.match(preproccess, /Combat\$Companion_getInstance\(\)\.sPlayerPos\[i(?:_\d+)?\]\.x;/);
+    assert.match(preproccess, /Monster\$Companion_getInstance\(\)\.arr\[i(?:_\d+)?\]\[0\];/);
     assert.match(
         preproccess,
-        /if \(targetCount\.v < slotTotal\) \{[\s\S]{0,700}?this\.animationScaleX_8be2vx\$ = tmp\$_\d+ \/ JsMath\.abs\([a-z_0-9]+\);[\s\S]{0,300}?this\.animationScaleY_8be2vx\$ = tmp\$_\d+ \/ JsMath\.abs\([a-z_0-9]+\);/
+        /if \(targetCount\.v < slotTotal\) \{[\s\S]{0,700}?this\.animationScaleX_8be2vx\$ = tmp\$_\d+ \/ JsMath\.abs\([a-z_0-9]+\);/
+    );
+    assert.doesNotMatch(
+        preproccess,
+        /this\.animationScaleY_8be2vx\$ = (?!1\.0)[\s\S]/
     );
     // The draw itself anchors and scales through the shared mechanism.
     assert.match(
