@@ -7,6 +7,7 @@ import fmj.characters.Monster
 import fmj.combat.actions.CalcDamage
 import fmj.config.GameSettings
 import fmj.scene.SaveLoadGame
+import java.Random
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -27,6 +28,8 @@ class MagicAttack : BaseMagic() {
             println(message)
         }
     }
+
+    private val random = Random()
 
     private var mHp: Int = 0//-8000~+8000，为正数时表示敌人损失生命的基数，为负数时表示从敌人身上吸取生命的基数
     private var mMp: Int = 0//-8000~+8000，为正数时表示敌人损失真气的基数，为负数时表示从敌人身上吸取真气的基数
@@ -111,7 +114,7 @@ class MagicAttack : BaseMagic() {
                 
                 // 随机浮动：baseDamage += (randomValue % baseDamage) >> 4
                 if (damage > 0) {
-                    val randomValue = kotlin.random.Random.nextInt(1000)
+                    val randomValue = random.nextInt(1000)
                     damage += (randomValue % damage) shr 4
                 }
                 
@@ -134,7 +137,7 @@ class MagicAttack : BaseMagic() {
                 
                 // 随机浮动
                 if (damage > 0) {
-                    val randomValue = kotlin.random.Random.nextInt(1000)
+                    val randomValue = random.nextInt(1000)
                     damage += (randomValue % damage) shr 4
                 }
                 
@@ -158,7 +161,7 @@ class MagicAttack : BaseMagic() {
                     
                     // 随机浮动
                     if (healing > 0) {
-                        val randomValue = kotlin.random.Random.nextInt(1000)
+                        val randomValue = random.nextInt(1000)
                         healing += (randomValue % healing) shr 4
                     }
                     
@@ -176,7 +179,7 @@ class MagicAttack : BaseMagic() {
             else -> {
                 damage += caster.lingli * (damage shr 6) - target.lingli * (damage shr 6)
                 if (damage > 0) {
-                    val randomValue = kotlin.random.Random.nextInt(1000)
+                    val randomValue = random.nextInt(1000)
                     damage += (randomValue % damage) shr 4
                 }
             }
@@ -220,7 +223,7 @@ class MagicAttack : BaseMagic() {
                 
                 // 随机浮动
                 if (mpDamage > 0) {
-                    val randomValue = kotlin.random.Random.nextInt(1000)
+                    val randomValue = random.nextInt(1000)
                     mpDamage += (randomValue % mpDamage) shr 4
                 }
                 
@@ -235,7 +238,7 @@ class MagicAttack : BaseMagic() {
                 mpDamage -= caster.lingli * (mpDamage shr 6)
                 mpDamage += target.lingli * (mpDamage shr 6)
                 if (mpDamage > 0) {
-                    val randomValue = kotlin.random.Random.nextInt(1000)
+                    val randomValue = random.nextInt(1000)
                     mpDamage += (randomValue % mpDamage) shr 4
                 }
                 if (mpDamage > target.mp) {
@@ -317,6 +320,13 @@ class MagicAttack : BaseMagic() {
                 val oldSrcHp = src.hp
                 src.hp -= hpHurt
                 debugLog("    ⚡ 施法者吸血: $oldSrcHp → ${src.hp} (+${-hpHurt})")
+            }
+
+            val mpHurt = calcMpHurt(src, fc, mMp)
+            fc.mp -= abs(mpHurt)
+            if (mpHurt < 0) {
+                src.mp -= mpHurt
+                debugLog("    ⚡ 施法者吸蓝: (+${-mpHurt})")
             }
 
             fc.beAttackedWithBuff(buff)

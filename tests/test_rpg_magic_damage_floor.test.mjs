@@ -8,6 +8,18 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CORE_JS = path.join(ROOT, "rpg", "core.js");
 const MAGIC_KT = path.join(ROOT, "fmj_kt", "src", "fmj", "magic", "MagicAttack.kt");
 
+function functionBody(src, name) {
+    const start = src.indexOf(name);
+    const open = src.indexOf("{", start);
+    let depth = 0;
+    for (let i = open; i < src.length; i++) {
+        if (src[i] === "{") depth++;
+        else if (src[i] === "}") depth--;
+        if (depth === 0) return src.slice(start, i + 1);
+    }
+    throw new Error(`unterminated function body: ${name}`);
+}
+
 function simplifiedDamage(base, casterLingli, targetLingli, floorPenalty) {
     const difference = casterLingli - targetLingli;
     const rate = (floorPenalty ? Math.max(difference, 0) : difference) / 100;
@@ -29,11 +41,12 @@ test("mechanism: equal and higher caster spirit keep the existing scaling", () =
 test("production: both simplified HP and MP paths clamp negative spirit differences", () => {
     const core = fs.readFileSync(CORE_JS, "utf8");
     const kotlin = fs.readFileSync(MAGIC_KT, "utf8");
+    const hpBody = functionBody(core, "MagicAttack.prototype.calcHurt_0");
+    const mpBody = functionBody(core, "MagicAttack.prototype.calcMpHurt_0");
 
-    const coreMatches = core.match(
-        /var add = JsMath\.max\(src\.lingli - dst\.lingli \| 0, 0\) \/ 100;/g
-    );
-    assert.equal(coreMatches?.length, 2, "rpg/core.js must floor both HP and MP damage");
+    const clampedDifference = /var a = src\.lingli - dst\.lingli \| 0;[\s\S]{0,100}var add = JsMath\.max\(a, 0\) \/ 100;/;
+    assert.match(hpBody, clampedDifference, "compiled HP damage must floor spirit differences");
+    assert.match(mpBody, clampedDifference, "compiled MP damage must floor spirit differences");
 
     const kotlinMatches = kotlin.match(
         /val add = max\(src\.lingli - dst\.lingli, 0\)\.toDouble\(\) \/ 100/g

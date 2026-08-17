@@ -453,18 +453,19 @@ class Combat private constructor(override val parent: GameNode) : BaseScreen, Co
                             if (p.level >= p.levelupChain.maxLevel)
                             // 满级
                                 continue
-                            val nextExp = p.levelupChain.getNextLevelExp(p.level)
-                            val exp = mWinExp + p.currentExp
-                            if (exp < nextExp) {
-                                p.currentExp = exp
-                            } else { // 升级
+                            var nextExp = p.levelupChain.getNextLevelExp(p.level)
+                            var exp = mWinExp + p.currentExp
+                            while (p.level < p.levelupChain.maxLevel && exp >= nextExp) {
                                 val cl = p.level // 当前等级
-                                p.currentExp = exp - nextExp
+                                exp -= nextExp
+                                p.currentExp = exp
                                 println("[Combat] ${p.name} 战斗升级: Level $cl -> ${cl + 1}, 剩余经验: ${p.currentExp}")
                                 // 使用统一的 levelUp 方法，确保逻辑一致
                                 p.levelUp(cl + 1)
                                 lvuplist.add(p)
+                                nextExp = p.levelupChain.getNextLevelExp(p.level)
                             }
+                            p.currentExp = exp
                         }
                     }
 

@@ -5,6 +5,8 @@ import fmj.lib.DatLib
 import fmj.lib.ResBase
 import fmj.lib.ResSrs
 
+import java.gbkString
+
 abstract class BaseMagic : ResBase() {
 
     /**
@@ -55,10 +57,17 @@ abstract class BaseMagic : ResBase() {
             ResSrs() // 使用空的 ResSrs
         }
         magicName = Companion.getString(buf, offset + 6)
-        if (buf[offset + 2].toInt() and 0xff > 0x70) { // 魔法描述过长
-            buf[offset + 0x70] = 0
+        val len = buf[offset + 2].toInt() and 0xff
+        val descriptionStart = offset + 0x1a
+        val descriptionLength = minOf(len - 0x1a, 0x70 - 0x1a)
+        magicDescription = if (descriptionLength > 0) {
+            val descriptionBytes = buf.copyOfRange(descriptionStart, descriptionStart + descriptionLength)
+            val nulIndex = descriptionBytes.indexOfFirst { it == 0.toByte() }
+            val boundedLength = if (nulIndex >= 0) nulIndex else descriptionLength
+            buf.gbkString(descriptionStart, boundedLength)
+        } else {
+            ""
         }
-        magicDescription = Companion.getString(buf, offset + 0x1a)
         setOtherData(buf, offset)
     }
 

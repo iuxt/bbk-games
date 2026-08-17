@@ -255,8 +255,13 @@ test("all-target healing pays once and applies healing to every target", () => {
         action,
         /var currentMagic = this\.magic_8be2vx\$;\s*if \(Typescript\.isType\(currentMagic, MagicRestore\)\) \{\s*if \(attacker\.mp >= currentMagic\.costMp\) \{\s*attacker\.mp = attacker\.mp - currentMagic\.costMp \| 0;[\s\S]{0,250}?while \(tmp\$_\d+\.hasNext\(\)\) \{\s*var element_\d* = tmp\$_\d+\.next\(\);\s*currentMagic\.applyEffect_qwqr58\$\((attacker, element_\d*)\);\s*\}/
     );
+    const restoreBranch = action.slice(
+        action.indexOf("if (Typescript.isType(currentMagic, MagicRestore))"),
+        action.indexOf("} else if (Typescript.isType(currentMagic, MagicEnhance))")
+    );
+    assert.ok(restoreBranch, "MagicRestore group branch not found");
     assert.equal(
-        (action.match(/attacker\.mp\s*=\s*attacker\.mp\s*-/g) || []).length,
+        (restoreBranch.match(/attacker\.mp\s*=\s*attacker\.mp\s*-/g) || []).length,
         1
     );
 });
@@ -394,7 +399,7 @@ test("multi-target healing still aligns via the shared SRS anchor", () => {
     );
     assert.ok(preproccess, "ActionMagicHelpAll.preproccess not found");
     assert.ok(draw, "ActionMagicHelpAll.draw_9in0vv$ not found");
-    assert.match(appSource, /core\.js\?v=32/);
+    assert.match(appSource, /core\.js\?v=33/);
 
     // The SRS anchor module stays wired for the all-target heal: ResSrs
     // resolves its impact anchor through window.BBKSrsAnchor.compute

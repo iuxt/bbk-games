@@ -4,6 +4,7 @@ import fmj.characters.FightingCharacter
 import fmj.characters.Player
 import fmj.goods.BaseGoods
 import fmj.goods.GoodsMedicine
+import fmj.goods.IEatMedicine
 import fmj.lib.DatLib
 import fmj.lib.ResSrs
 
@@ -35,18 +36,20 @@ class ActionUseItemAll(attacker: FightingCharacter,
         oy = attacker.combatY
         if (goods is GoodsMedicine) {
             mAni = goods.ani
-            mTargets.forEach { target ->
-                if (target is Player) {
-                    goods.eat(target)
-                } else {
-                    println("Warning: Target ${target.name} is not a Player, skipping medicine effect")
-                }
-            }
         } else {
             val aniRes = DatLib.getRes(DatLib.ResType.SRS, 2, 1, true)
             mAni = if (aniRes is ResSrs) aniRes else {
                 println("Warning: Failed to load SRS animation for ActionUseItemAll")
                 null
+            }
+        }
+        if (goods is IEatMedicine) {
+            mTargets.forEach { target ->
+                if (target is Player && target.isAlive) {
+                    goods.eat(target)
+                } else {
+                    println("Warning: Target ${target.name} is not a living Player, skipping item effect")
+                }
             }
         }
         mAni?.start()

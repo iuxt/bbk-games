@@ -29,6 +29,13 @@ class MagicEnhance : BaseMagic() {
     }
 
     override fun use(src: FightingCharacter, dst: FightingCharacter) {
+        if (src.mp < costMp) return
+
+        src.mp = src.mp - costMp
+        applyEffect(src, dst)
+    }
+
+    fun applyEffect(src: FightingCharacter, dst: FightingCharacter) {
         dst.beAttackedWithBuff(buff, 0)
     }
 }

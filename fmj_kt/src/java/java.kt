@@ -176,7 +176,8 @@ private fun hexByte(h: Char, l: Char): Byte {
 }
 
 private fun hexDecode(s: String): ByteArray {
-    return (0..s.length/2).map {
+    val byteCount = s.length / 2
+    return (0 until byteCount).map {
         hexByte(s[it*2], s[it*2+1])
     }.toByteArray()
 }

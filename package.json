@@ -4,6 +4,7 @@
   "scripts": {
     "build": "node scripts/build-site.mjs",
     "build:4980": "node scripts/build-4980.mjs",
+    "build:rpg": "scripts/build-fmj-kotlin.sh",
     "test:node": "node --test tests/*.test.mjs",
     "test:python": "python3 -m unittest discover -s tests -p 'test_*.py'",
     "test": "npm run test:node && npm run test:python"

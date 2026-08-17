@@ -7,6 +7,8 @@ import fmj.combat.Combat
 import fmj.combat.anim.RaiseAnimation
 import fmj.lib.ResSrs
 import fmj.magic.BaseMagic
+import fmj.magic.MagicEnhance
+import fmj.magic.MagicRestore
 
 import graphics.Canvas
 
@@ -85,8 +87,15 @@ class ActionMagicHelpAll(attacker: FightingCharacter,
 
         // 修复：群体恢复魔法只消耗一次MP
         val currentMagic = magic
-        if (currentMagic is fmj.magic.MagicRestore) {
+        if (currentMagic is MagicRestore) {
             // 恢复魔法：只消耗一次MP，对所有目标应用效果
+            if (attacker.mp >= currentMagic.costMp) {
+                attacker.mp = attacker.mp - currentMagic.costMp
+                mTargets.forEach {
+                    currentMagic.applyEffect(attacker, it)
+                }
+            }
+        } else if (currentMagic is MagicEnhance) {
             if (attacker.mp >= currentMagic.costMp) {
                 attacker.mp = attacker.mp - currentMagic.costMp
                 mTargets.forEach {
