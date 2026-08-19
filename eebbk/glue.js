@@ -245,6 +245,8 @@
 
   /* ---------- state ---------- */
   let Module = null;
+  let modulePromise = null;
+  let runtimeScriptPromise = null;
   let running = false;   /* rAF loop active */
   let started = false;   /* emulator powered on (home UI or game) */
   let gameLoaded = false;
@@ -347,14 +349,10 @@
       const num = document.createElement('span');
       const name = document.createElement('strong');
       card.type = 'button';
-      card.className = 'rom-card';
+      const selected = game.id === picker.selectedId;
+      card.className = 'rom-card' + (selected ? ' is-selected' : '');
       card.dataset.romId = game.id;
-      card.setAttribute('aria-pressed', 'false');
-      card.addEventListener('click', function () {
-        picker.selectedId = game.id;
-        setPickerError('');
-        updateSelection();
-      });
+      card.setAttribute('aria-pressed', selected ? 'true' : 'false');
       num.className = 'rom-number';
       num.setAttribute('aria-hidden', 'true');
       num.textContent = String(index + 1).padStart(2, '0');
@@ -383,12 +381,82 @@
         if (gamePickerSearch) gamePickerSearch.value = '';
         picker.selectedId = currentRom.id && picker.games.some(function (g) { return g.id === currentRom.id; })
           ? currentRom.id : '';
-        applyFilter();
+        if (!gamePicker.hidden) applyFilter();
+        else gameCount.textContent = picker.games.length + ' GAMES / 点击选择游戏';
       })
       .catch(function () {
         gameList.innerHTML = '<p class="loading-card">游戏目录读取失败，请刷新后重试</p>';
         gameCount.textContent = '目录载入失败';
       });
+  }
+
+  /* ---------- Lazy wasm/BIOS runtime ---------- */
+  function loadRuntimeScript() {
+    if (global.Gam4980Module) return Promise.resolve();
+    if (runtimeScriptPromise) return runtimeScriptPromise;
+    runtimeScriptPromise = new Promise(function (resolve, reject) {
+      const script = document.createElement('script');
+      script.src = 'gam4980.js?v=7';
+      script.async = true;
+      script.onload = function () { resolve(); };
+      script.onerror = function () { reject(new Error('模拟器核心下载失败')); };
+      document.head.appendChild(script);
+    });
+    return runtimeScriptPromise;
+  }
+
+  function exposeRuntimeSettings() {
+    global.BBK4980Glue.setGhosting = function (n) {
+      if (Module && Module._web_set_lcd_ghosting) Module._web_set_lcd_ghosting((n | 0) & 0xff);
+    };
+    global.BBK4980Glue.setLcdBg = function (r, g, b) {
+      if (Module && Module._web_set_lcd_bg) {
+        Module._web_set_lcd_bg((r | 0) & 0xff, (g | 0) & 0xff, (b | 0) & 0xff);
+      }
+    };
+  }
+
+  function ensureModule() {
+    if (modulePromise) return modulePromise;
+
+    const biosPromise = fetch('gam4980.data?v=7')
+      .then(function (r) {
+        if (!r.ok) throw new Error('固件下载失败');
+        return r.arrayBuffer();
+      });
+
+    modulePromise = Promise.all([loadRuntimeScript(), biosPromise])
+      .then(function (results) {
+        const bios = results[1];
+        return global.Gam4980Module({
+          print: function(text) { console.log('[C] ' + text); },
+          printErr: function(text) {
+            if (typeof text === 'string' && text.indexOf('Program terminated with exit(') !== -1) return;
+            console.warn('[C] ' + text);
+          }
+        }).then(function (mod) { return { mod: mod, bios: bios }; });
+      })
+      .then(function (runtime) {
+        Module = runtime.mod;
+        const bytes = new Uint8Array(runtime.bios);
+        const ptr = Module._malloc(bytes.byteLength);
+        let result;
+        try {
+          Module.HEAPU8.set(bytes, ptr);
+          result = Module._web_init(ptr, bytes.byteLength);
+        } finally {
+          Module._free(ptr);
+        }
+        if (result !== 0) throw new Error('固件无效或设备型号不受支持');
+        exposeRuntimeSettings();
+        return Module;
+      })
+      .catch(function (err) {
+        fatalError('初始化失败', (err && err.message) ? err.message : String(err));
+        throw err;
+      });
+
+    return modulePromise;
   }
 
   /* ---------- Hot-switch + power-off fallback ---------- */
@@ -410,10 +478,13 @@
       return;
     }
     if (mode === 'start') {
-      setCurrentRom(BBK.HOME_ROM_ID, BBK.HOME_ROM.name);
-      startEmulator();
-      setPickerBusy(false);
-      closePicker();
+      setPickerBusy(true, '正在启动…');
+      ensureModule().then(function () {
+        setCurrentRom(BBK.HOME_ROM_ID, BBK.HOME_ROM.name);
+        setPickerBusy(false);
+        closePicker();
+        startEmulator();
+      }).catch(function () { setPickerBusy(false); });
       return;
     }
     // autosave-reload：运行游戏中切换回词典
@@ -428,19 +499,21 @@
     if (picker.selectedId === BBK.HOME_ROM_ID) { launchHome(); return; }
     const game = picker.games.find(function (g) { return g.id === picker.selectedId; });
     const name = game ? game.name : picker.selectedId;
+    if (exited) {
+      writeLS('pendingRomId', picker.selectedId);
+      writeLS('pendingRomName', name);
+      location.reload();
+      return;
+    }
     setPickerError('');
     setPickerBusy(true, '游戏载入中…');
     gamePickerUse.disabled = true;
 
-    fetch('roms/' + encodeURIComponent(picker.selectedId) + '.gam')
-      .then(function (r) { if (!r.ok) throw new Error('ROM 下载失败'); return r.arrayBuffer(); })
-      .then(function (buf) {
-        if (exited) {
-          writeLS('pendingRomId', picker.selectedId);
-          writeLS('pendingRomName', name);
-          location.reload();
-          return;
-        }
+    const romPromise = fetch('roms/' + encodeURIComponent(picker.selectedId) + '.gam')
+      .then(function (r) { if (!r.ok) throw new Error('ROM 下载失败'); return r.arrayBuffer(); });
+    Promise.all([romPromise, ensureModule()])
+      .then(function (results) {
+        const buf = results[0];
         autosaveCurrent();
         loadGame(buf, name);
         setCurrentRom(picker.selectedId, name);
@@ -456,6 +529,7 @@
 
   /* ---------- Dialog open/close + focus ---------- */
   function openPicker() {
+    pauseEmulator();
     setPickerBusy(false);
     setPickerError('');
     if (picker.games.length) {
@@ -478,6 +552,7 @@
     gamePickerOpen.setAttribute('aria-expanded', 'false');
     document.body.classList.remove('dialog-open');
     if (picker.opener && picker.opener.focus) picker.opener.focus();
+    resumeEmulator();
   }
 
   function isMappedGameKey(event) {
@@ -614,6 +689,7 @@
   /* ---------- Save manager: dialog open/close ---------- */
   function openSaveManager() {
     if (!currentRom.id) return;
+    pauseEmulator();
     picker.opener = document.activeElement;
     setSaveMsg('', '');
     renderSaveSlots();
@@ -628,6 +704,7 @@
     document.body.classList.remove('dialog-open');
     importSlotTarget = null;
     if (picker.opener && picker.opener.focus) picker.opener.focus();
+    resumeEmulator();
   }
 
   /* ---------- PC key → emulator key mapping ---------- */
@@ -700,17 +777,43 @@
   }
 
   /* ---------- Canvas rendering ----------
-     RGB565→RGBA 转换已移入 wasm（_web_get_framebuffer_rgba），这里只做一次整块拷贝；
-     ImageData 复用同一份缓冲，避免每帧 createImageData 分配引发 GC。 */
+     wasm 直接维护紧凑 RGBA 帧缓冲；ImageData 引用同一块内存，正常帧不再复制 61KB。
+     若 wasm memory 因增长而换 buffer，只重建一次视图。 */
   let fbW = 0;
   let fbH = 0;
   let screenImg = null;
+  let screenHeapBuffer = null;
 
   function render() {
     const ptr = Module._web_get_framebuffer_rgba();
-    if (!screenImg) screenImg = ctx.createImageData(fbW, fbH);
-    screenImg.data.set(new Uint8Array(Module.HEAPU8.buffer, ptr, fbW * fbH * 4));
+    if (!screenImg || screenHeapBuffer !== Module.HEAPU8.buffer) {
+      screenHeapBuffer = Module.HEAPU8.buffer;
+      screenImg = new ImageData(
+        new Uint8ClampedArray(screenHeapBuffer, ptr, fbW * fbH * 4),
+        fbW,
+        fbH
+      );
+    }
     ctx.putImageData(screenImg, 0, 0);
+  }
+
+  function dialogIsOpen() {
+    return !gamePicker.hidden || !saveManager.hidden;
+  }
+
+  function pauseEmulator() {
+    if (!running) return;
+    running = false;
+    if (animId) cancelAnimationFrame(animId);
+    animId = 0;
+  }
+
+  function resumeEmulator() {
+    if (!started || exited || running || dialogIsOpen()) return;
+    lastFrameTs = 0;
+    frameAcc = 0;
+    running = true;
+    animId = requestAnimationFrame(frame);
   }
 
   /* ---------- Power on: show canvas + start the frame loop ---------- */
@@ -723,16 +826,13 @@
     canvas.height = fbH;
     placeholder.classList.remove('show');
     canvas.classList.add('show');
-    if (!running) {
-      running = true;
-      animId = requestAnimationFrame(frame);
-    }
+    resumeEmulator();
   }
 
   /* ---------- Main loop ----------
      固定 60fps 逻辑步进：按墙钟时间累积，每满 1000/60 ms 才调一次 web_run_frame，
      与 requestAnimationFrame 的显示器刷新率解耦（否则 120Hz 屏会跑成约 2 倍速）。
-     render() 仍每个 rAF 帧都执行，保持画面平滑。 */
+     仅在 wasm 报告 LCD RAM 变化时提交 canvas。 */
   let lastFrameTs = 0;
   let frameAcc = 0;
   function frame(ts) {
@@ -741,9 +841,10 @@
     const plan = planLogicSteps(ts - lastFrameTs, frameAcc);
     lastFrameTs = ts;
     frameAcc = plan.acc;
+    let frameChanged = false;
     for (let i = 0; i < plan.steps; i += 1) {
       try {
-        Module._web_run_frame();
+        frameChanged = !!Module._web_run_frame() || frameChanged;
       } catch (e) {
         // 设备关机 / BRK 会触发 emscripten_force_exit，抛出 ExitStatus；其他异常也一并不再以
         // uncaught 形式打到控制台，统一在前端浮层提示。status===0 视为正常关机，其余按运行出错处理。
@@ -755,9 +856,8 @@
         return;
       }
     }
-    // 帧缓冲只在 web_run_frame 里变化：没有逻辑步进的 rAF（例如 120Hz 屏的偶数帧）
-    // 直接跳过绘制，按 LCD 的 60fps 节奏渲染即可，减少高刷屏上的重复绘制。
-    if (plan.steps > 0) render();
+    // 高刷空步进和 LCD RAM 未变化时都不触碰 canvas。
+    if (frameChanged) render();
     animId = requestAnimationFrame(frame);
   }
 
@@ -768,6 +868,7 @@
     running = false;
     started = false;
     if (animId) cancelAnimationFrame(animId);
+    animId = 0;
     canvas.classList.remove('show');
     errorTitle.textContent = title;
     errorDetail.textContent = detail;
@@ -824,18 +925,32 @@
   gamePickerOpen.addEventListener('click', openPicker);
   gamePickerClose.addEventListener('click', closePicker);
   gamePickerUse.addEventListener('click', useSelectedGame);
+  gameList.addEventListener('click', function (e) {
+    const card = e.target.closest('.rom-card');
+    if (!card || !gameList.contains(card)) return;
+    picker.selectedId = card.dataset.romId || '';
+    setPickerError('');
+    updateSelection();
+  });
 
   if (gamePickerSearch) {
+    let filterRaf = 0;
+    function scheduleFilter() {
+      if (filterRaf) cancelAnimationFrame(filterRaf);
+      filterRaf = requestAnimationFrame(function () {
+        filterRaf = 0;
+        picker.query = gamePickerSearch.value.trim().toLowerCase();
+        applyFilter();
+      });
+    }
     gamePickerSearch.addEventListener('input', function () {
       if (composing) return;
-      picker.query = gamePickerSearch.value.trim().toLowerCase();
-      applyFilter();
+      scheduleFilter();
     });
     gamePickerSearch.addEventListener('compositionstart', function () { composing = true; });
     gamePickerSearch.addEventListener('compositionend', function () {
       composing = false;
-      picker.query = gamePickerSearch.value.trim().toLowerCase();
-      applyFilter();
+      scheduleFilter();
     });
   }
 
@@ -889,9 +1004,13 @@
     reader.onload = function () {
       const bytes = new Uint8Array(reader.result);
       const id = BBK.romStorageId(bytes, '');
-      loadGame(reader.result, f.name);
-      setCurrentRom(id, f.name.replace(/\.gam$/i, ''));
-      closePicker();
+      setPickerBusy(true, '正在启动…');
+      ensureModule().then(function () {
+        loadGame(reader.result, f.name);
+        setCurrentRom(id, f.name.replace(/\.gam$/i, ''));
+        setPickerBusy(false);
+        closePicker();
+      }).catch(function () { setPickerBusy(false); });
     };
     reader.readAsArrayBuffer(f);
   });
@@ -926,8 +1045,10 @@
     reader.onload = function () {
       const bytes = new Uint8Array(reader.result);
       const id = BBK.romStorageId(bytes, '');
-      loadGame(reader.result, f.name);
-      setCurrentRom(id, f.name.replace(/\.gam$/i, ''));
+      ensureModule().then(function () {
+        loadGame(reader.result, f.name);
+        setCurrentRom(id, f.name.replace(/\.gam$/i, ''));
+      }).catch(function () {});
     };
     reader.readAsArrayBuffer(f);
   });
@@ -961,85 +1082,63 @@
     }
   });
 
-  /* ---------- Bootstrap ---------- */
-  Gam4980Module({
-    print: function(text) { console.log('[C] ' + text); },
-    printErr: function(text) {
-      // 关机时 emscripten 会输出 "Program terminated with exit(0)"，属正常退出，
-      // 已由前端浮层提示，这里不再打到控制台。
-      if (typeof text === 'string' && text.indexOf('Program terminated with exit(') !== -1) return;
-      console.warn('[C] ' + text);
-    },
-  }).then(function(mod) {
-    Module = mod;
-    /* 暴露运行时调节：残影强度 setGhosting(0=关闭，最锐利) 与底色 setLcdBg(r,g,b)，
-       便于在 console 微调；默认值见 web_main.c 的 vars。 */
-    global.BBK4980Glue.setGhosting = function (n) {
-      if (Module && Module._web_set_lcd_ghosting) Module._web_set_lcd_ghosting((n | 0) & 0xff);
-    };
-    global.BBK4980Glue.setLcdBg = function (r, g, b) {
-      if (Module && Module._web_set_lcd_bg) Module._web_set_lcd_bg((r | 0) & 0xff, (g | 0) & 0xff, (b | 0) & 0xff);
-    };
-    if (Module._web_init() !== 0) {
-      fatalError('初始化失败', '缺少 8.BIN / E.BIN 固件文件，无法启动模拟器。');
-      return;
-    }
-    restoreCurrentRomFromStorage();
-    syncTouchpadMode();
-    loadCatalog();
+  /* ---------- Bootstrap ----------
+     目录先独立加载；仅当需要进入词典或 ROM 时才下载核心、wasm 与 4 MiB 固件。 */
+  restoreCurrentRomFromStorage();
+  syncTouchpadMode();
+  loadCatalog();
 
-    const pendingId = readLS('pendingRomId');
-    const pendingName = readLS('pendingRomName');
-    const hasAuto = currentRom.id ? !!readLS(BBK.autosaveKey(currentRom.id)) : false;
-    const decision = BBK.decideLaunch({
-      pendingId: pendingId,
-      currentRomId: currentRom.id,
-      hasAutosave: hasAuto
-    });
-
-    if (decision.action === 'home') {
-      if (pendingId) { removeLS('pendingRomId'); removeLS('pendingRomName'); }
-      setCurrentRom(BBK.HOME_ROM_ID, pendingId ? (pendingName || BBK.HOME_ROM.name) : (currentRom.name || BBK.HOME_ROM.name));
-      startEmulator();
-    } else if (decision.action === 'rom') {
-      const romId = decision.id;
-      const romName = pendingId ? (pendingName || romId) : (currentRom.name || romId);
-      if (pendingId) { removeLS('pendingRomId'); removeLS('pendingRomName'); }
-      fetch('roms/' + encodeURIComponent(romId) + '.gam')
-        .then(function (r) { if (!r.ok) throw new Error('ROM 下载失败'); return r.arrayBuffer(); })
-        .then(function (buf) {
-          // 先 _web_load_game 填充 flash，再（如有 autosave）_web_load 叠加 ram/cpu/bk_tab
-          const rp = Module._malloc(buf.byteLength);
-          Module.HEAPU8.set(new Uint8Array(buf), rp);
-          Module._web_load_game(rp, buf.byteLength);
-          Module._free(rp);
-          if (decision.applyAutosave) {
-            const auto = readLS(BBK.autosaveKey(romId));
-            if (auto) {
-              const bytes = BBK.base64ToBytes(auto);
-              const ptr = Module._malloc(bytes.byteLength);
-              Module.HEAPU8.set(bytes, ptr);
-              Module._web_load(ptr, bytes.byteLength);
-              Module._free(ptr);
-            }
-          }
-          gameLoaded = true;
-          startEmulator();
-          setCurrentRom(romId, romName);
-        })
-        .catch(function (e) {
-          console.warn('launch rom failed:', e);
-          // ROM 拉取失败（如失效的游戏 id）：清掉记住的选择，停留占位画面
-          if (!pendingId) {
-            removeLS('currentRomId');
-            removeLS('currentRomName');
-            setCurrentRom('', '');  // 同步重置标题与存档管理按钮，匹配占位画面
-          }
-        });
-    }
-    // decision.action === 'placeholder'：什么都不做，占位画面保持可见
-  }).catch(function(err) {
-    fatalError('初始化失败', (err && err.message) ? err.message : String(err));
+  const pendingId = readLS('pendingRomId');
+  const pendingName = readLS('pendingRomName');
+  const hasAuto = currentRom.id ? !!readLS(BBK.autosaveKey(currentRom.id)) : false;
+  const decision = BBK.decideLaunch({
+    pendingId: pendingId,
+    currentRomId: currentRom.id,
+    hasAutosave: hasAuto
   });
+
+  if (decision.action === 'home') {
+    ensureModule().then(function () {
+      if (pendingId) { removeLS('pendingRomId'); removeLS('pendingRomName'); }
+      setCurrentRom(
+        BBK.HOME_ROM_ID,
+        pendingId ? (pendingName || BBK.HOME_ROM.name) : (currentRom.name || BBK.HOME_ROM.name)
+      );
+      startEmulator();
+    }).catch(function () {});
+  } else if (decision.action === 'rom') {
+    const romId = decision.id;
+    const romName = pendingId ? (pendingName || romId) : (currentRom.name || romId);
+    const romPromise = fetch('roms/' + encodeURIComponent(romId) + '.gam')
+      .then(function (r) { if (!r.ok) throw new Error('ROM 下载失败'); return r.arrayBuffer(); });
+
+    Promise.all([ensureModule(), romPromise])
+      .then(function (results) {
+        const buf = results[1];
+        // 先填充 flash，再（如有 autosave）叠加 ram/cpu/bk_tab。
+        const rp = Module._malloc(buf.byteLength);
+        Module.HEAPU8.set(new Uint8Array(buf), rp);
+        Module._web_load_game(rp, buf.byteLength);
+        Module._free(rp);
+        if (decision.applyAutosave) {
+          const auto = readLS(BBK.autosaveKey(romId));
+          if (auto) restoreState(auto);
+        }
+        if (pendingId) { removeLS('pendingRomId'); removeLS('pendingRomName'); }
+        gameLoaded = true;
+        startEmulator();
+        setCurrentRom(romId, romName);
+      })
+      .catch(function (e) {
+        console.warn('launch rom failed:', e);
+        // 仅 ROM 拉取失败时清掉记住的选择；核心初始化失败会保留选择供重试。
+        if (!exited && !pendingId) {
+          removeLS('currentRomId');
+          removeLS('currentRomName');
+          setCurrentRom('', '');
+        }
+      });
+  }
+  // placeholder：不下载模拟器运行时，保持占位画面。
 
 }(typeof window !== "undefined" ? window : globalThis));

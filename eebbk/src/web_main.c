@@ -1,5 +1,6 @@
 #include <stdarg.h>
-#include <stdio.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
 #include <emscripten.h>
@@ -60,11 +61,18 @@
 
 #define LCD_WIDTH 159
 #define LCD_HEIGHT 96
+#define LCD_PITCH (LCD_WIDTH + 1)
+#define LCD_RAM_START 0x400
+#define LCD_RAM_END 0x1000
+#define LCD_RAM_SIZE (LCD_RAM_END - LCD_RAM_START + 1)
 
 /* ---- global state ---- */
-static int8_t   fa[(LCD_WIDTH + 1) * LCD_HEIGHT];
-static uint16_t fb[(LCD_WIDTH + 1) * LCD_HEIGHT];
-static uint8_t  rgba_fb[LCD_HEIGHT][LCD_WIDTH * 4];   /* RGBA8888 输出缓冲（不透明） */
+static int8_t   fa[LCD_PITCH * LCD_HEIGHT];
+static uint32_t rgba_fb[LCD_HEIGHT][LCD_WIDTH];
+static uint8_t  lcd_ram_snapshot[LCD_RAM_SIZE];
+static bool     lcd_snapshot_valid = false;
+static uint32_t rgba_bg;
+static uint32_t rgba_fg;
 
 /* ---- forward declarations ---- */
 static void sys_isr(void);
@@ -613,17 +621,37 @@ static void sys_keydown(uint8_t key)
     }
 }
 
-static inline void pp8(int y, int x, uint8_t p8)
+static uint32_t rgb565_to_rgba32(uint16_t c)
+{
+    uint32_t r = ((c >> 11) & 0x1f) << 3;
+    uint32_t g = ((c >> 5) & 0x3f) << 2;
+    uint32_t b = (c & 0x1f) << 3;
+    return r | (g << 8) | (b << 16) | 0xff000000u;
+}
+
+static void update_rgba_colors(void)
+{
+    rgba_bg = rgb565_to_rgba32(vars.lcd_bg);
+    rgba_fg = rgb565_to_rgba32(vars.lcd_fg);
+}
+
+static inline void pp8_direct(int y, int x, uint8_t p8)
+{
+    uint32_t *row = rgba_fb[y];
+    for (int i = 0; i < 8; i += 1) {
+        int px = x * 8 + i;
+        if (px < LCD_WIDTH)
+            row[px] = (p8 & (1 << (7 - i))) ? rgba_fg : rgba_bg;
+    }
+}
+
+static inline void pp8_ghost(int y, int x, uint8_t p8)
 {
     for (int i = 0; i < 8; i += 1) {
-        int z = y * (LCD_WIDTH + 1) + x * 8 + i;
-        bool p = p8 & (1 << (7 - i));
-        fb[z] = p ? vars.lcd_fg : vars.lcd_bg;
-        if (vars.lcd_ghosting > 0) {
-            fa[z] += p ? 1 : -1;
-            if (fa[z] < 0) fa[z] = 0;
-            if (fa[z] > vars.lcd_ghosting - 1) fa[z] = vars.lcd_ghosting - 1;
-        }
+        int z = y * LCD_PITCH + x * 8 + i;
+        fa[z] += (p8 & (1 << (7 - i))) ? 1 : -1;
+        if (fa[z] < 0) fa[z] = 0;
+        if (fa[z] > vars.lcd_ghosting - 1) fa[z] = vars.lcd_ghosting - 1;
     }
 }
 
@@ -639,44 +667,34 @@ static void blend_frame(void)
 
     for (int i = 0; i < LCD_HEIGHT; i += 1) {
         for (int j = 0; j < LCD_WIDTH; j += 1) {
-            int z = i * (LCD_WIDTH + 1) + j;
+            int z = i * LCD_PITCH + j;
             float a = (float)fa[z] / (vars.lcd_ghosting - 1);
             uint8_t mix_r = 0x1f & (uint8_t)((1 - a) * bg_r + a * fg_r);
             uint8_t mix_g = 0x3f & (uint8_t)((1 - a) * bg_g + a * fg_g);
             uint8_t mix_b = 0x1f & (uint8_t)((1 - a) * bg_b + a * fg_b);
-            fb[z] = mix_r << 11 | mix_g << 5 | mix_b;
+            rgba_fb[i][j] = (uint32_t)(mix_r << 3) |
+                            ((uint32_t)(mix_g << 2) << 8) |
+                            ((uint32_t)(mix_b << 3) << 16) |
+                            0xff000000u;
         }
     }
 }
 
-static int sys_init(void)
+static int sys_init(const uint8_t *bios, size_t size)
 {
-    /* Load BIOS from Emscripten virtual filesystem */
-    const char *path8 = "/preload/8.BIN";
-    const char *pathE = "/preload/E.BIN";
-
-    FILE *stream = fopen(path8, "rb");
-    if (stream == NULL) {
-        EM_ASM({
-            console.error("GAM4980: Missing 8.BIN — ensure preload data is available");
-        });
+    /* gam4980.data is the two 2 MiB BIOS images concatenated in 8.BIN/E.BIN order. */
+    if (bios == NULL || size != 0x400000) {
+        EM_ASM({ console.error("GAM4980: Invalid BIOS package"); });
         return -1;
     }
-    fread(sys.rom_8, 0x200000, 1, stream);
-    fclose(stream);
-
-    stream = fopen(pathE, "rb");
-    if (stream == NULL) {
-        EM_ASM({
-            console.error("GAM4980: Missing E.BIN — ensure preload data is available");
-        });
-        return -1;
-    }
-    fread(sys.rom_e, 0x200000, 1, stream);
-    fclose(stream);
+    memcpy(sys.rom_8, bios, 0x200000);
+    memcpy(sys.rom_e, bios + 0x200000, 0x200000);
 
     memset(sys.ram, 0x00, 0x8000);
     memset(sys.flash, 0xff, 0x200000);
+    memset(fa, 0, sizeof(fa));
+    lcd_snapshot_valid = false;
+    update_rgba_colors();
     sys.flash_cmd = 0;
     sys.flash_cycles = 0;
     sys.ram[_INCR] = 0x0f;
@@ -769,9 +787,9 @@ static void sys_load(const uint8_t *gam, size_t size)
 /* ---- Web Exports ---- */
 
 EMSCRIPTEN_KEEPALIVE
-int web_init(void)
+int web_init(const uint8_t *bios, size_t size)
 {
-    if (sys_init() != 0) return -1;
+    if (sys_init(bios, size) != 0) return -1;
     return (sys.bk_sys_d == 0x0ea8 || sys.bk_sys_d == 0x0e88) ? 0 : -1;
 }
 
@@ -780,10 +798,11 @@ void web_load_game(const uint8_t *data, size_t size)
 {
     if (size > 0x1e0000) return;
     sys_load(data, size);
+    lcd_snapshot_valid = false;
 }
 
 EMSCRIPTEN_KEEPALIVE
-void web_run_frame(void)
+int web_run_frame(void)
 {
     sys_step();
 
@@ -791,21 +810,36 @@ void web_run_frame(void)
     uint8_t *v = sys.ram + 0x400;
     sys.ram[0x400] = sys.ram[0x1000];
 
+    /* With ghosting disabled, unchanged LCD RAM means the already prepared RGBA frame can
+       be reused. This is common on menus, text screens and while the emulated CPU is halted. */
+    if (vars.lcd_ghosting <= 1 && lcd_snapshot_valid &&
+        memcmp(lcd_ram_snapshot, sys.ram + LCD_RAM_START, LCD_RAM_SIZE) == 0)
+        return 0;
+    memcpy(lcd_ram_snapshot, sys.ram + LCD_RAM_START, LCD_RAM_SIZE);
+    lcd_snapshot_valid = true;
+
+    bool ghosting = vars.lcd_ghosting > 1;
+
     for (int j = 65; j >= -30; j -= 1) {
         for (int i = 1; i < 20; i += 1) {
-            pp8(j >= 0 ? j : (j * -1 + 65), i, *v++);
+            int y = j >= 0 ? j : (j * -1 + 65);
+            if (ghosting) pp8_ghost(y, i, *v++);
+            else pp8_direct(y, i, *v++);
         }
         v += 13;
     }
     v = sys.ram + 0x413;
     for (int j = 64; j >= -30; j -= 1) {
-        pp8(j >= 0 ? j : (j * -1 + 65), 0, *v++);
+        int y = j >= 0 ? j : (j * -1 + 65);
+        if (ghosting) pp8_ghost(y, 0, *v++);
+        else pp8_direct(y, 0, *v++);
         v += 31;
     }
-    pp8(65, 0, sys.ram[0x0ff3]);
+    if (ghosting) pp8_ghost(65, 0, sys.ram[0x0ff3]);
+    else pp8_direct(65, 0, sys.ram[0x0ff3]);
 
-    if (vars.lcd_ghosting > 1)
-        blend_frame();
+    if (ghosting) blend_frame();
+    return 1;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -820,6 +854,7 @@ void web_set_lcd_ghosting(uint8_t v)
     vars.lcd_ghosting = v;
     /* 切换残影强度时清空残影计数器，避免旧值超出新上限导致短暂过曝闪烁 */
     memset(fa, 0, sizeof(fa));
+    lcd_snapshot_valid = false;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -829,12 +864,8 @@ void web_set_lcd_bg(uint8_t r, uint8_t g, uint8_t b)
     vars.lcd_bg = (uint16_t)(((uint16_t)(r >> 3) << 11) |
                              ((uint16_t)(g >> 2) << 5)  |
                              (uint16_t)(b >> 3));
-}
-
-EMSCRIPTEN_KEEPALIVE
-uint16_t* web_get_framebuffer(void)
-{
-    return fb;
+    update_rgba_colors();
+    lcd_snapshot_valid = false;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -849,22 +880,10 @@ int web_get_fb_height(void)
     return LCD_HEIGHT;
 }
 
-/* 把当前 RGB565 帧缓冲转换为 RGBA8888（每像素 4 字节，alpha=255），
-   供 JS 侧一次性整块拷贝到 canvas，避免在 JS 里逐像素换算。 */
 EMSCRIPTEN_KEEPALIVE
 uint8_t* web_get_framebuffer_rgba(void)
 {
-    for (int y = 0; y < LCD_HEIGHT; y += 1) {
-        for (int x = 0; x < LCD_WIDTH; x += 1) {
-            uint16_t c = fb[y * (LCD_WIDTH + 1) + x];
-            uint8_t *p = &rgba_fb[y][x * 4];
-            p[0] = (uint8_t)(((c >> 11) & 0x1f) << 3);
-            p[1] = (uint8_t)(((c >>  5) & 0x3f) << 2);
-            p[2] = (uint8_t)(((c >>  0) & 0x1f) << 3);
-            p[3] = 0xff;
-        }
-    }
-    return &rgba_fb[0][0];
+    return (uint8_t*)&rgba_fb[0][0];
 }
 
 /* ---- Save/Load State ---- */
@@ -913,4 +932,5 @@ void web_load(const uint8_t *buf, size_t size)
     sys.flash_cycles = state.flash_cycles;
     for (int i = 0; i < 16; ++i)
         mem_bs(i);
+    lcd_snapshot_valid = false;
 }

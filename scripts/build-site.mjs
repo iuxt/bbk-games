@@ -29,6 +29,7 @@ const emuRuntime = [
 // 源码中保持可读/原样的大体积引擎脚本：仅在写入 dist 时做 minify，以最小化线上体积。
 // 新增大文件时，把其相对 client 的路径追加到这里即可。
 const minifiable = [
+    "eebbk/glue.js",
     "rpg/core.js",
     "sanguobaye/js/baye.js",
     "mota/js/mtower.js",
