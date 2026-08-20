@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 
 await import("../eebbk/glue.js");
 const G = globalThis.BBK4980Glue;
+const glueSource = fs.readFileSync("eebbk/glue.js", "utf8");
 
 test("BBK4980Glue is exported", () => {
     assert.ok(G, "globalThis.BBK4980Glue 未导出");
@@ -37,12 +39,31 @@ test("romStorageId hashes local roms stably", () => {
     assert.match(G.romStorageId(a, ""), /^local-/);
 });
 
-test("slotKey and autosaveKey format and range", () => {
+test("slotKey, autosaveKey and nativeSaveKey format and range", () => {
     assert.equal(G.slotKey("fmj-1.0", 0), "sav/gamesave0-fmj-1.0");
     assert.equal(G.slotKey("fmj-1.0", 2), "sav/gamesave2-fmj-1.0");
     assert.equal(G.autosaveKey("fmj-1.0"), "sav/autosave-fmj-1.0");
+    assert.equal(G.nativeSaveKey("fmj-1.0"), "sav/native-fmj-1.0");
     assert.throws(() => G.slotKey("fmj-1.0", 3));
     assert.throws(() => G.slotKey("fmj-1.0", -1));
+    assert.throws(() => G.nativeSaveKey(""));
+});
+
+test("native Flash saves mirror synchronously before the async IndexedDB write", () => {
+    const persistStart = glueSource.indexOf("function persistNativeSave()");
+    const scheduleStart = glueSource.indexOf("function scheduleNativeSaveIfDirty()", persistStart);
+    const restoreStart = glueSource.indexOf("function restoreNativeSave(", scheduleStart);
+    assert.ok(persistStart >= 0 && scheduleStart > persistStart && restoreStart > scheduleStart);
+
+    const persistBody = glueSource.slice(persistStart, scheduleStart);
+    const mirrorAt = persistBody.indexOf("writeNativeSaveFallback(");
+    const indexedAt = persistBody.indexOf("writeNativeSaveRecord(");
+    assert.ok(mirrorAt >= 0, "必须先写同步 localStorage 镜像");
+    assert.ok(indexedAt > mirrorAt, "IndexedDB 写入必须排在同步镜像之后");
+
+    const scheduleBody = glueSource.slice(scheduleStart, restoreStart);
+    assert.match(scheduleBody, /persistNativeSave\(\)/, "检测到 Flash 变化后须立即持久化");
+    assert.doesNotMatch(scheduleBody, /setTimeout/, "不能延迟到刷新可能中断的定时器");
 });
 
 test("buildSavePayload wraps base64 save data", () => {

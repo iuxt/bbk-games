@@ -51,6 +51,11 @@
     return 'sav/autosave-' + storageId;
   }
 
+  function nativeSaveKey(storageId) {
+    if (!storageId) throw new Error('无效的游戏');
+    return 'sav/native-' + storageId;
+  }
+
   function buildSavePayload(storageId, gameName, slot, base64Data, exportedAt) {
     if (!isValidBase64(base64Data)) {
       throw new Error('存档数据为空或不是合法 base64');
@@ -196,6 +201,7 @@
     romStorageId: romStorageId,
     slotKey: slotKey,
     autosaveKey: autosaveKey,
+    nativeSaveKey: nativeSaveKey,
     buildSavePayload: buildSavePayload,
     parseSavePayload: parseSavePayload,
     HOME_ROM_ID: HOME_ROM_ID,
@@ -269,14 +275,12 @@
      每个 ROM 在 IndexedDB 中只有一份，由游戏自身决定内部槽位。 */
   const NATIVE_SAVE_DB = 'bbk-eebbk-saves';
   const NATIVE_SAVE_STORE = 'native-save-ram';
-  const NATIVE_SAVE_DELAY = 1200;
   let nativeSaveDbPromise = null;
   let nativeSaveStorageDisabled = false;
   let nativeSaveRomId = '';
   let nativeSaveSession = 0;
   let nativeSavePersistedRevision = 0;
   let nativeSaveScheduledRevision = 0;
-  let nativeSaveTimer = 0;
   let nativeSaveWriteChain = Promise.resolve();
 
   /* ---------- LocalStorage helpers ---------- */
@@ -346,6 +350,39 @@
       console.warn('Native save write failed:', err);
       return false;
     });
+  }
+
+  /* IndexedDB transactions may be cancelled by an immediate refresh, and some embedded
+     browsers disable IndexedDB entirely. Keep a synchronous per-ROM mirror so a game save
+     is durable before the next frame/pagehide returns. IndexedDB remains the binary copy. */
+  function readNativeSaveFallback(romId) {
+    if (!romId) return null;
+    try {
+      const record = JSON.parse(readLS(BBK.nativeSaveKey(romId)) || 'null');
+      if (!record || record.version !== 1 || !BBK.isValidBase64(record.data)) return null;
+      return {
+        romId: romId,
+        data: record.data,
+        updatedAt: Number(record.updatedAt) || 0
+      };
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function writeNativeSaveFallback(romId, bytes, updatedAt) {
+    if (!romId) return false;
+    try {
+      localStorage.setItem(BBK.nativeSaveKey(romId), JSON.stringify({
+        version: 1,
+        updatedAt: updatedAt,
+        data: BBK.bytesToBase64(bytes)
+      }));
+      return true;
+    } catch (err) {
+      console.warn('Native save local mirror failed:', err);
+      return false;
+    }
   }
 
   function setCurrentRom(id, name) {
@@ -474,7 +511,7 @@
     if (runtimeScriptPromise) return runtimeScriptPromise;
     runtimeScriptPromise = new Promise(function (resolve, reject) {
       const script = document.createElement('script');
-      script.src = 'gam4980.js?v=8';
+      script.src = 'gam4980.js?v=9';
       script.async = true;
       script.onload = function () { resolve(); };
       script.onerror = function () { reject(new Error('模拟器核心下载失败')); };
@@ -508,7 +545,7 @@
         const bios = results[1];
         return global.Gam4980Module({
           locateFile: function (path) {
-            return path === 'gam4980.wasm' ? 'gam4980.wasm?v=8' : path;
+            return path === 'gam4980.wasm' ? 'gam4980.wasm?v=9' : path;
           },
           print: function(text) { console.log('[C] ' + text); },
           printErr: function(text) {
@@ -984,11 +1021,13 @@
   }
 
   function persistNativeSave() {
-    if (nativeSaveTimer) clearTimeout(nativeSaveTimer);
-    nativeSaveTimer = 0;
-    nativeSaveScheduledRevision = 0;
     const cap = captureNativeSave();
     if (!cap || cap.revision === nativeSavePersistedRevision) return nativeSaveWriteChain;
+    const updatedAt = Date.now();
+    const mirrored = writeNativeSaveFallback(cap.romId, cap.bytes, updatedAt);
+    if (mirrored && nativeSaveRomId === cap.romId && nativeSaveSession === cap.session) {
+      nativeSavePersistedRevision = cap.revision;
+    }
     nativeSaveWriteChain = nativeSaveWriteChain
       .catch(function () {})
       .then(function () { return writeNativeSaveRecord(cap.romId, cap.bytes); })
@@ -996,34 +1035,35 @@
         if (written && nativeSaveRomId === cap.romId && nativeSaveSession === cap.session) {
           nativeSavePersistedRevision = cap.revision;
         }
-        return written;
+        return written || mirrored;
       });
     return nativeSaveWriteChain;
   }
 
   function scheduleNativeSaveIfDirty() {
-    if (nativeSaveStorageDisabled || exited || !gameLoaded || !Module || !nativeSaveRomId) return;
+    if (exited || !gameLoaded || !Module || !nativeSaveRomId) return;
     const revision = Module._web_save_ram_revision() >>> 0;
     if (revision === nativeSavePersistedRevision || revision === nativeSaveScheduledRevision) return;
-    if (nativeSaveTimer) clearTimeout(nativeSaveTimer);
     nativeSaveScheduledRevision = revision;
-    nativeSaveTimer = setTimeout(function () {
-      nativeSaveTimer = 0;
-      persistNativeSave().then(function () {
-        scheduleNativeSaveIfDirty();
-      });
-    }, NATIVE_SAVE_DELAY);
+    persistNativeSave().finally(function () {
+      if (nativeSaveScheduledRevision === revision) nativeSaveScheduledRevision = 0;
+    });
   }
 
   function restoreNativeSave(romId, session) {
     /* A pending write for the same ROM must finish before reading it back during a fast switch. */
+    const fallback = readNativeSaveFallback(romId);
     return nativeSaveWriteChain.catch(function () {}).then(function () {
       return readNativeSaveRecord(romId);
-    }).then(function (record) {
+    }).then(function (indexedRecord) {
+      const record = fallback && (!indexedRecord || fallback.updatedAt >= (indexedRecord.updatedAt || 0))
+        ? fallback : indexedRecord;
       if (!record || nativeSaveRomId !== romId || nativeSaveSession !== session) return false;
-      const bytes = record.data instanceof ArrayBuffer
-        ? new Uint8Array(record.data)
-        : new Uint8Array(record.data && record.data.buffer ? record.data.buffer : record.data || 0);
+      const bytes = typeof record.data === 'string'
+        ? BBK.base64ToBytes(record.data)
+        : (record.data instanceof ArrayBuffer
+          ? new Uint8Array(record.data)
+          : new Uint8Array(record.data && record.data.buffer ? record.data.buffer : record.data || 0));
       const expected = Module._web_save_ram_size();
       if (bytes.byteLength !== expected) {
         console.warn('Ignored native save with unexpected size:', bytes.byteLength, 'expected', expected);
