@@ -65,6 +65,7 @@
 #define LCD_RAM_START 0x400
 #define LCD_RAM_END 0x1000
 #define LCD_RAM_SIZE (LCD_RAM_END - LCD_RAM_START + 1)
+#define SAVE_RAM_SIZE 0x14000
 
 /* ---- global state ---- */
 static int8_t   fa[LCD_PITCH * LCD_HEIGHT];
@@ -73,6 +74,7 @@ static uint8_t  lcd_ram_snapshot[LCD_RAM_SIZE];
 static bool     lcd_snapshot_valid = false;
 static uint32_t rgba_bg;
 static uint32_t rgba_fg;
+static uint32_t save_ram_revision = 0;
 
 /* ---- forward declarations ---- */
 static void sys_isr(void);
@@ -203,7 +205,11 @@ static void flash_write(uint32_t addr, uint8_t val)
             sys.flash_cmd = 0;
             sys.flash_cycles = 0;
             addr = (addr + 0x8000) % 0x200000;
-            sys.flash[addr] = val;
+            if (sys.flash[addr] != val) {
+                sys.flash[addr] = val;
+                if (addr < SAVE_RAM_SIZE)
+                    save_ram_revision += 1;
+            }
         } else if ((addr == 0x5555) && (val == 0xaa)) {
             sys.flash_cycles += 1;
         }
@@ -211,18 +217,26 @@ static void flash_write(uint32_t addr, uint8_t val)
     case 5:
         switch (val) {
         case 0x10:
-            if (addr == 0x5555)
+            if (addr == 0x5555) {
                 memset(sys.flash, 0xff, 0x200000);
+                save_ram_revision += 1;
+            }
             break;
         case 0x30:
             addr = (addr + 0x8000) % 0x200000;
             memset(sys.flash + (addr & 0x1ff000), 0xff, 0x1000);
+            if ((addr & 0x1ff000) < SAVE_RAM_SIZE)
+                save_ram_revision += 1;
             break;
         case 0x50:
             addr = ((addr & 0x1f0000) + 0x8000) % 0x200000;
             memset(sys.flash + addr, 0xff, 0x8000);
+            if (addr < SAVE_RAM_SIZE)
+                save_ram_revision += 1;
             addr = (addr + 0x8000) % 0x200000;
             memset(sys.flash + addr, 0xff, 0x8000);
+            if (addr < SAVE_RAM_SIZE)
+                save_ram_revision += 1;
             break;
         }
         sys.flash_cmd = 0;
@@ -697,6 +711,7 @@ static int sys_init(const uint8_t *bios, size_t size)
     update_rgba_colors();
     sys.flash_cmd = 0;
     sys.flash_cycles = 0;
+    save_ram_revision = 0;
     sys.ram[_INCR] = 0x0f;
 
     mem_init();
@@ -797,7 +812,11 @@ EMSCRIPTEN_KEEPALIVE
 void web_load_game(const uint8_t *data, size_t size)
 {
     if (size > 0x1e0000) return;
+    /* The web UI can hot-switch ROMs inside one wasm instance. Start every ROM from a
+       clean Flash image, then let glue.js restore that ROM's isolated native save. */
+    memset(sys.flash, 0xff, sizeof(sys.flash));
     sys_load(data, size);
+    save_ram_revision = 0;
     lcd_snapshot_valid = false;
 }
 
@@ -884,6 +903,39 @@ EMSCRIPTEN_KEEPALIVE
 uint8_t* web_get_framebuffer_rgba(void)
 {
     return (uint8_t*)&rgba_fb[0][0];
+}
+
+/* ---- Native game save RAM ----
+
+   The libretro frontend persists the rotated Flash range sys.flash[0..0x14000):
+   logical $1f8000-$1fffff followed by $000000-$00bfff. Keep the same binary
+   layout so browser saves can also be exported as standard gam4980 SRAM later. */
+
+EMSCRIPTEN_KEEPALIVE
+size_t web_save_ram_size(void)
+{
+    return SAVE_RAM_SIZE;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void web_save_ram(uint8_t *buf)
+{
+    memcpy(buf, sys.flash, SAVE_RAM_SIZE);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int web_load_save_ram(const uint8_t *buf, size_t size)
+{
+    if (size != SAVE_RAM_SIZE) return 0;
+    memcpy(sys.flash, buf, SAVE_RAM_SIZE);
+    save_ram_revision = 0;
+    return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t web_save_ram_revision(void)
+{
+    return save_ram_revision;
 }
 
 /* ---- Save/Load State ---- */

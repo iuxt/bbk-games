@@ -265,10 +265,88 @@
   let composing = false;   // 中文输入法组合中，避免拼音过程中误过滤
   let currentRom = { id: '', name: '' };
 
+  /* 原生游戏存档（Flash save RAM）与快速存档分开保存。
+     每个 ROM 在 IndexedDB 中只有一份，由游戏自身决定内部槽位。 */
+  const NATIVE_SAVE_DB = 'bbk-eebbk-saves';
+  const NATIVE_SAVE_STORE = 'native-save-ram';
+  const NATIVE_SAVE_DELAY = 1200;
+  let nativeSaveDbPromise = null;
+  let nativeSaveStorageDisabled = false;
+  let nativeSaveRomId = '';
+  let nativeSaveSession = 0;
+  let nativeSavePersistedRevision = 0;
+  let nativeSaveScheduledRevision = 0;
+  let nativeSaveTimer = 0;
+  let nativeSaveWriteChain = Promise.resolve();
+
   /* ---------- LocalStorage helpers ---------- */
   function readLS(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
   function writeLS(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
   function removeLS(key) { try { localStorage.removeItem(key); } catch (e) {} }
+
+  /* ---------- IndexedDB native save helpers ---------- */
+  function openNativeSaveDb() {
+    if (nativeSaveStorageDisabled) return Promise.reject(new Error('IndexedDB 不可用'));
+    if (nativeSaveDbPromise) return nativeSaveDbPromise;
+    if (!global.indexedDB) {
+      nativeSaveStorageDisabled = true;
+      return Promise.reject(new Error('浏览器不支持 IndexedDB'));
+    }
+    nativeSaveDbPromise = new Promise(function (resolve, reject) {
+      const req = global.indexedDB.open(NATIVE_SAVE_DB, 1);
+      req.onupgradeneeded = function () {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(NATIVE_SAVE_STORE)) {
+          db.createObjectStore(NATIVE_SAVE_STORE, { keyPath: 'romId' });
+        }
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error || new Error('存档数据库打开失败')); };
+      req.onblocked = function () { reject(new Error('存档数据库升级被阻止')); };
+    }).catch(function (err) {
+      nativeSaveDbPromise = null;
+      nativeSaveStorageDisabled = true;
+      console.warn('Native save storage unavailable:', err);
+      throw err;
+    });
+    return nativeSaveDbPromise;
+  }
+
+  function readNativeSaveRecord(romId) {
+    if (!romId || nativeSaveStorageDisabled) return Promise.resolve(null);
+    return openNativeSaveDb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        const tx = db.transaction(NATIVE_SAVE_STORE, 'readonly');
+        const req = tx.objectStore(NATIVE_SAVE_STORE).get(romId);
+        req.onsuccess = function () { resolve(req.result || null); };
+        req.onerror = function () { reject(req.error || new Error('读取原生存档失败')); };
+      });
+    }).catch(function (err) {
+      console.warn('Native save read failed:', err);
+      return null;
+    });
+  }
+
+  function writeNativeSaveRecord(romId, bytes) {
+    if (!romId || nativeSaveStorageDisabled) return Promise.resolve(false);
+    const data = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    return openNativeSaveDb().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        const tx = db.transaction(NATIVE_SAVE_STORE, 'readwrite');
+        tx.objectStore(NATIVE_SAVE_STORE).put({
+          romId: romId,
+          data: data,
+          updatedAt: Date.now()
+        });
+        tx.oncomplete = function () { resolve(true); };
+        tx.onerror = function () { reject(tx.error || new Error('写入原生存档失败')); };
+        tx.onabort = function () { reject(tx.error || new Error('写入原生存档已取消')); };
+      });
+    }).catch(function (err) {
+      console.warn('Native save write failed:', err);
+      return false;
+    });
+  }
 
   function setCurrentRom(id, name) {
     currentRom = { id: id || '', name: name || '电子词典模拟器' };
@@ -396,7 +474,7 @@
     if (runtimeScriptPromise) return runtimeScriptPromise;
     runtimeScriptPromise = new Promise(function (resolve, reject) {
       const script = document.createElement('script');
-      script.src = 'gam4980.js?v=7';
+      script.src = 'gam4980.js?v=8';
       script.async = true;
       script.onload = function () { resolve(); };
       script.onerror = function () { reject(new Error('模拟器核心下载失败')); };
@@ -429,6 +507,9 @@
       .then(function (results) {
         const bios = results[1];
         return global.Gam4980Module({
+          locateFile: function (path) {
+            return path === 'gam4980.wasm' ? 'gam4980.wasm?v=8' : path;
+          },
           print: function(text) { console.log('[C] ' + text); },
           printErr: function(text) {
             if (typeof text === 'string' && text.indexOf('Program terminated with exit(') !== -1) return;
@@ -490,8 +571,10 @@
     // autosave-reload：运行游戏中切换回词典
     setPickerBusy(true, '切换中…');
     autosaveCurrent();
-    setCurrentRom(BBK.HOME_ROM_ID, BBK.HOME_ROM.name);
-    location.reload();
+    persistNativeSave().then(function () {
+      setCurrentRom(BBK.HOME_ROM_ID, BBK.HOME_ROM.name);
+      location.reload();
+    });
   }
 
   function useSelectedGame() {
@@ -515,7 +598,9 @@
       .then(function (results) {
         const buf = results[0];
         autosaveCurrent();
-        loadGame(buf, name);
+        return loadGame(buf, name, picker.selectedId);
+      })
+      .then(function () {
         setCurrentRom(picker.selectedId, name);
         setPickerBusy(false);
         closePicker();
@@ -856,6 +941,7 @@
         return;
       }
     }
+    scheduleNativeSaveIfDirty();
     // 高刷空步进和 LCD RAM 未变化时都不触碰 canvas。
     if (frameChanged) render();
     animId = requestAnimationFrame(frame);
@@ -864,6 +950,7 @@
   /* ---------- Fatal error / power-off: stop the loop and surface in the UI ---------- */
   function fatalError(title, detail) {
     if (exited) return;
+    persistNativeSave();
     exited = true;
     running = false;
     started = false;
@@ -875,18 +962,117 @@
     errorOverlay.classList.add('show');
   }
 
-  /* ---------- Load game from buffer ---------- */
-  function loadGame(data, name) {
-    if (exited) return;   /* runtime already torn down — ignore until reload */
-    const size = data.byteLength;
-    const ptr  = Module._malloc(size);
-    Module.HEAPU8.set(new Uint8Array(data), ptr);
-    Module._web_load_game(ptr, size);
-    Module._free(ptr);
+  /* ---------- Native game save RAM ---------- */
+  function captureNativeSave() {
+    if (exited || !gameLoaded || !Module || !nativeSaveRomId) return null;
+    const size = Module._web_save_ram_size();
+    const revision = Module._web_save_ram_revision() >>> 0;
+    const ptr = Module._malloc(size);
+    let bytes;
+    try {
+      Module._web_save_ram(ptr);
+      bytes = new Uint8Array(Module.HEAPU8.buffer, ptr, size).slice();
+    } finally {
+      Module._free(ptr);
+    }
+    return {
+      romId: nativeSaveRomId,
+      session: nativeSaveSession,
+      revision: revision,
+      bytes: bytes
+    };
+  }
 
-    gameLoaded = true;
-    startEmulator();   /* power on if not already (loop keeps running) */
-    console.log('Loaded game:', name, '(' + (size / 1024).toFixed(1) + ' KB)');
+  function persistNativeSave() {
+    if (nativeSaveTimer) clearTimeout(nativeSaveTimer);
+    nativeSaveTimer = 0;
+    nativeSaveScheduledRevision = 0;
+    const cap = captureNativeSave();
+    if (!cap || cap.revision === nativeSavePersistedRevision) return nativeSaveWriteChain;
+    nativeSaveWriteChain = nativeSaveWriteChain
+      .catch(function () {})
+      .then(function () { return writeNativeSaveRecord(cap.romId, cap.bytes); })
+      .then(function (written) {
+        if (written && nativeSaveRomId === cap.romId && nativeSaveSession === cap.session) {
+          nativeSavePersistedRevision = cap.revision;
+        }
+        return written;
+      });
+    return nativeSaveWriteChain;
+  }
+
+  function scheduleNativeSaveIfDirty() {
+    if (nativeSaveStorageDisabled || exited || !gameLoaded || !Module || !nativeSaveRomId) return;
+    const revision = Module._web_save_ram_revision() >>> 0;
+    if (revision === nativeSavePersistedRevision || revision === nativeSaveScheduledRevision) return;
+    if (nativeSaveTimer) clearTimeout(nativeSaveTimer);
+    nativeSaveScheduledRevision = revision;
+    nativeSaveTimer = setTimeout(function () {
+      nativeSaveTimer = 0;
+      persistNativeSave().then(function () {
+        scheduleNativeSaveIfDirty();
+      });
+    }, NATIVE_SAVE_DELAY);
+  }
+
+  function restoreNativeSave(romId, session) {
+    /* A pending write for the same ROM must finish before reading it back during a fast switch. */
+    return nativeSaveWriteChain.catch(function () {}).then(function () {
+      return readNativeSaveRecord(romId);
+    }).then(function (record) {
+      if (!record || nativeSaveRomId !== romId || nativeSaveSession !== session) return false;
+      const bytes = record.data instanceof ArrayBuffer
+        ? new Uint8Array(record.data)
+        : new Uint8Array(record.data && record.data.buffer ? record.data.buffer : record.data || 0);
+      const expected = Module._web_save_ram_size();
+      if (bytes.byteLength !== expected) {
+        console.warn('Ignored native save with unexpected size:', bytes.byteLength, 'expected', expected);
+        return false;
+      }
+      const ptr = Module._malloc(expected);
+      let restored = false;
+      try {
+        Module.HEAPU8.set(bytes, ptr);
+        restored = !!Module._web_load_save_ram(ptr, expected);
+      } finally {
+        Module._free(ptr);
+      }
+      nativeSavePersistedRevision = Module._web_save_ram_revision() >>> 0;
+      return restored;
+    });
+  }
+
+  /* ---------- Load game from buffer ---------- */
+  function loadGame(data, name, romId, quickState) {
+    if (exited) return Promise.resolve(false);   /* runtime already torn down — ignore until reload */
+    const wasRunning = running;
+    pauseEmulator();
+
+    /* Capture the old ROM's Flash before web_load_game overwrites it. */
+    return persistNativeSave().then(function () {
+      gameLoaded = false;
+      const size = data.byteLength;
+      const ptr = Module._malloc(size);
+      try {
+        Module.HEAPU8.set(new Uint8Array(data), ptr);
+        Module._web_load_game(ptr, size);
+      } finally {
+        Module._free(ptr);
+      }
+
+      nativeSaveSession += 1;
+      nativeSaveRomId = romId || '';
+      nativeSavePersistedRevision = Module._web_save_ram_revision() >>> 0;
+      const session = nativeSaveSession;
+      return restoreNativeSave(nativeSaveRomId, session).then(function () {
+        if (quickState) restoreState(quickState);
+        gameLoaded = true;
+        startEmulator();   /* power on if not already */
+        if (wasRunning) resumeEmulator();
+        console.log('Loaded game:', name, '(' + (size / 1024).toFixed(1) + ' KB)');
+        return true;
+      });
+    });
   }
 
   /* ---------- Save/Load state (via wasm _web_save / _web_load) ---------- */
@@ -1006,7 +1192,8 @@
       const id = BBK.romStorageId(bytes, '');
       setPickerBusy(true, '正在启动…');
       ensureModule().then(function () {
-        loadGame(reader.result, f.name);
+        return loadGame(reader.result, f.name, id);
+      }).then(function () {
         setCurrentRom(id, f.name.replace(/\.gam$/i, ''));
         setPickerBusy(false);
         closePicker();
@@ -1020,6 +1207,7 @@
   function handleAutoSave() {
     if (!gameLoaded || exited) return;
     autosaveCurrent();
+    persistNativeSave();
   }
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) handleAutoSave();
@@ -1046,7 +1234,8 @@
       const bytes = new Uint8Array(reader.result);
       const id = BBK.romStorageId(bytes, '');
       ensureModule().then(function () {
-        loadGame(reader.result, f.name);
+        return loadGame(reader.result, f.name, id);
+      }).then(function () {
         setCurrentRom(id, f.name.replace(/\.gam$/i, ''));
       }).catch(function () {});
     };
@@ -1115,18 +1304,12 @@
     Promise.all([ensureModule(), romPromise])
       .then(function (results) {
         const buf = results[1];
-        // 先填充 flash，再（如有 autosave）叠加 ram/cpu/bk_tab。
-        const rp = Module._malloc(buf.byteLength);
-        Module.HEAPU8.set(new Uint8Array(buf), rp);
-        Module._web_load_game(rp, buf.byteLength);
-        Module._free(rp);
-        if (decision.applyAutosave) {
-          const auto = readLS(BBK.autosaveKey(romId));
-          if (auto) restoreState(auto);
-        }
+        const auto = decision.applyAutosave ? readLS(BBK.autosaveKey(romId)) : '';
+        // 加载顺序：ROM → 原生 Flash 存档 → 可选的系统级快速快照。
+        return loadGame(buf, romName, romId, auto);
+      })
+      .then(function () {
         if (pendingId) { removeLS('pendingRomId'); removeLS('pendingRomName'); }
-        gameLoaded = true;
-        startEmulator();
         setCurrentRom(romId, romName);
       })
       .catch(function (e) {
