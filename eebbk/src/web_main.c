@@ -734,7 +734,7 @@ static int sys_init(const uint8_t *bios, size_t size)
     return 0;
 }
 
-static void sys_load(const uint8_t *gam, size_t size)
+static int sys_load(const uint8_t *gam, size_t size)
 {
     uint16_t start = gam[0x40] | (gam[0x41] << 8);
     uint32_t data = gam[0x42] | gam[0x43] << 8 | gam[0x44] << 16 | gam[0x45] << 24;
@@ -775,7 +775,7 @@ static void sys_load(const uint8_t *gam, size_t size)
         flash[0x80fc] = 0x02; flash[0x80fd] = 0x02;
         flash[0x80fe] = 0x03; flash[0x80ff] = 0x02;
     } else {
-        return;
+        return 0;
     }
 
     sys.bk_tab[0x5] = 0x20d;
@@ -797,6 +797,7 @@ static void sys_load(const uint8_t *gam, size_t size)
        sys_step 见 halt 位即跳过 s6502_exec，画面停在旧帧，直到按键触发中断才唤醒。
        这里清除 halt 位（同 sys_keydown / sys_timer 的唤醒写法），让游戏立即起跑。 */
     sys.ram[_SYSCON] &= 0xf7;
+    return 1;
 }
 
 /* ---- Web Exports ---- */
@@ -809,15 +810,21 @@ int web_init(const uint8_t *bios, size_t size)
 }
 
 EMSCRIPTEN_KEEPALIVE
-void web_load_game(const uint8_t *data, size_t size)
+int web_load_game(const uint8_t *data, size_t size)
 {
-    if (size > 0x1e0000) return;
+    /* sys_load reads through byte 0x45 and only accepts native GAM packages.
+       Validate before clearing the current Flash image so a bad local import
+       cannot destroy the game that is already running. */
+    if (data == NULL || size < 0x46 || size > 0x1e0000 ||
+        memcmp(data, "GAM\0", 4) != 0)
+        return 0;
     /* The web UI can hot-switch ROMs inside one wasm instance. Start every ROM from a
        clean Flash image, then let glue.js restore that ROM's isolated native save. */
     memset(sys.flash, 0xff, sizeof(sys.flash));
-    sys_load(data, size);
+    if (!sys_load(data, size)) return 0;
     save_ram_revision = 0;
     lcd_snapshot_valid = false;
+    return 1;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -970,9 +977,9 @@ void web_save(uint8_t *buf)
 }
 
 EMSCRIPTEN_KEEPALIVE
-void web_load(const uint8_t *buf, size_t size)
+int web_load(const uint8_t *buf, size_t size)
 {
-    if (size > sizeof(struct sys_state)) return;
+    if (buf == NULL || size != sizeof(struct sys_state)) return 0;
     struct sys_state state;
     memcpy(&state, buf, size);
     memcpy(sys.ram, &state.ram, sizeof(sys.ram));
@@ -985,4 +992,5 @@ void web_load(const uint8_t *buf, size_t size)
     for (int i = 0; i < 16; ++i)
         mem_bs(i);
     lcd_snapshot_valid = false;
+    return 1;
 }

@@ -282,6 +282,7 @@
   let nativeSavePersistedRevision = 0;
   let nativeSaveScheduledRevision = 0;
   let nativeSaveWriteChain = Promise.resolve();
+  let nativeSaveMirrorSequence = 0;
 
   /* ---------- LocalStorage helpers ---------- */
   function readLS(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
@@ -370,12 +371,13 @@
     }
   }
 
-  function writeNativeSaveFallback(romId, bytes, updatedAt) {
+  function writeNativeSaveFallback(romId, bytes, updatedAt, token) {
     if (!romId) return false;
     try {
       localStorage.setItem(BBK.nativeSaveKey(romId), JSON.stringify({
         version: 1,
         updatedAt: updatedAt,
+        token: token,
         data: BBK.bytesToBase64(bytes)
       }));
       return true;
@@ -383,6 +385,17 @@
       console.warn('Native save local mirror failed:', err);
       return false;
     }
+  }
+
+  function removeNativeSaveFallback(romId, token) {
+    if (!romId || !token) return;
+    try {
+      const key = BBK.nativeSaveKey(romId);
+      const record = JSON.parse(localStorage.getItem(key) || 'null');
+      /* A newer Flash revision may already have replaced this mirror while the
+         IndexedDB write was queued. Only remove the exact committed record. */
+      if (record && record.token === token) localStorage.removeItem(key);
+    } catch (err) {}
   }
 
   function setCurrentRom(id, name) {
@@ -511,7 +524,7 @@
     if (runtimeScriptPromise) return runtimeScriptPromise;
     runtimeScriptPromise = new Promise(function (resolve, reject) {
       const script = document.createElement('script');
-      script.src = 'gam4980.js?v=9';
+      script.src = 'gam4980.js?v=10';
       script.async = true;
       script.onload = function () { resolve(); };
       script.onerror = function () { reject(new Error('模拟器核心下载失败')); };
@@ -545,7 +558,7 @@
         const bios = results[1];
         return global.Gam4980Module({
           locateFile: function (path) {
-            return path === 'gam4980.wasm' ? 'gam4980.wasm?v=9' : path;
+            return path === 'gam4980.wasm' ? 'gam4980.wasm?v=10' : path;
           },
           print: function(text) { console.log('[C] ' + text); },
           printErr: function(text) {
@@ -1024,7 +1037,8 @@
     const cap = captureNativeSave();
     if (!cap || cap.revision === nativeSavePersistedRevision) return nativeSaveWriteChain;
     const updatedAt = Date.now();
-    const mirrored = writeNativeSaveFallback(cap.romId, cap.bytes, updatedAt);
+    const mirrorToken = cap.session + ':' + cap.revision + ':' + (++nativeSaveMirrorSequence);
+    const mirrored = writeNativeSaveFallback(cap.romId, cap.bytes, updatedAt, mirrorToken);
     if (mirrored && nativeSaveRomId === cap.romId && nativeSaveSession === cap.session) {
       nativeSavePersistedRevision = cap.revision;
     }
@@ -1035,6 +1049,7 @@
         if (written && nativeSaveRomId === cap.romId && nativeSaveSession === cap.session) {
           nativeSavePersistedRevision = cap.revision;
         }
+        if (written && mirrored) removeNativeSaveFallback(cap.romId, mirrorToken);
         return written || mirrored;
       });
     return nativeSaveWriteChain;
@@ -1086,6 +1101,7 @@
   function loadGame(data, name, romId, quickState) {
     if (exited) return Promise.resolve(false);   /* runtime already torn down — ignore until reload */
     const wasRunning = running;
+    const wasGameLoaded = gameLoaded;
     pauseEmulator();
 
     /* Capture the old ROM's Flash before web_load_game overwrites it. */
@@ -1093,11 +1109,17 @@
       gameLoaded = false;
       const size = data.byteLength;
       const ptr = Module._malloc(size);
+      let loaded = false;
       try {
         Module.HEAPU8.set(new Uint8Array(data), ptr);
-        Module._web_load_game(ptr, size);
+        loaded = !!Module._web_load_game(ptr, size);
       } finally {
         Module._free(ptr);
+      }
+      if (!loaded) {
+        gameLoaded = wasGameLoaded;
+        if (wasRunning) resumeEmulator();
+        throw new Error('ROM 文件无效或格式不受支持');
       }
 
       nativeSaveSession += 1;
@@ -1128,12 +1150,20 @@
 
   function restoreState(b64) {
     if (exited || !Module) return false;
-    const bytes = BBK.base64ToBytes(b64);
+    let bytes;
+    try {
+      bytes = BBK.base64ToBytes(b64);
+    } catch (err) {
+      return false;
+    }
+    if (bytes.byteLength !== Module._web_save_size()) return false;
     const ptr = Module._malloc(bytes.byteLength);
-    Module.HEAPU8.set(bytes, ptr);
-    Module._web_load(ptr, bytes.byteLength);
-    Module._free(ptr);
-    return true;
+    try {
+      Module.HEAPU8.set(bytes, ptr);
+      return !!Module._web_load(ptr, bytes.byteLength);
+    } finally {
+      Module._free(ptr);
+    }
   }
 
   function readSlot(slot) {

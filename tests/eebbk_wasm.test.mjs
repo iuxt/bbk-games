@@ -36,7 +36,7 @@ test("EEBBK wasm initializes in 16 MiB and reports clean LCD frames", async () =
   const rom = new Uint8Array(fs.readFileSync("eebbk/roms/伏魔记.gam"));
   const romPtr = mod._malloc(rom.byteLength);
   mod.HEAPU8.set(rom, romPtr);
-  mod._web_load_game(romPtr, rom.byteLength);
+  assert.equal(mod._web_load_game(romPtr, rom.byteLength), 1);
   mod._free(romPtr);
 
   let dirtyFrames = 0;
@@ -54,6 +54,32 @@ test("EEBBK wasm initializes in 16 MiB and reports clean LCD frames", async () =
   assert.equal(frame[3], 255);
 });
 
+test("EEBBK wasm rejects malformed ROMs without replacing the running game", async () => {
+  const mod = await createModule();
+  const biosPtr = mod._malloc(biosBytes.byteLength);
+  mod.HEAPU8.set(biosBytes, biosPtr);
+  assert.equal(mod._web_init(biosPtr, biosBytes.byteLength), 0);
+  mod._free(biosPtr);
+
+  const tooShort = new Uint8Array([0x47, 0x41, 0x4d, 0x00]);
+  const shortPtr = mod._malloc(tooShort.byteLength);
+  mod.HEAPU8.set(tooShort, shortPtr);
+  assert.equal(mod._web_load_game(shortPtr, tooShort.byteLength), 0);
+  mod._free(shortPtr);
+
+  const badHeader = new Uint8Array(0x46);
+  const badPtr = mod._malloc(badHeader.byteLength);
+  mod.HEAPU8.set(badHeader, badPtr);
+  assert.equal(mod._web_load_game(badPtr, badHeader.byteLength), 0);
+  mod._free(badPtr);
+
+  const rom = new Uint8Array(fs.readFileSync("eebbk/roms/伏魔记.gam"));
+  const romPtr = mod._malloc(rom.byteLength);
+  mod.HEAPU8.set(rom, romPtr);
+  assert.equal(mod._web_load_game(romPtr, rom.byteLength), 1);
+  mod._free(romPtr);
+});
+
 test("EEBBK wasm native save RAM round-trips the 80 KiB libretro layout", async () => {
   const mod = await createModule();
   const biosPtr = mod._malloc(biosBytes.byteLength);
@@ -64,7 +90,7 @@ test("EEBBK wasm native save RAM round-trips the 80 KiB libretro layout", async 
   const rom = new Uint8Array(fs.readFileSync("eebbk/roms/伏魔记.gam"));
   const romPtr = mod._malloc(rom.byteLength);
   mod.HEAPU8.set(rom, romPtr);
-  mod._web_load_game(romPtr, rom.byteLength);
+  assert.equal(mod._web_load_game(romPtr, rom.byteLength), 1);
   mod._free(romPtr);
 
   const saveSize = mod._web_save_ram_size();
@@ -92,7 +118,7 @@ test("EEBBK wasm native save RAM round-trips the 80 KiB libretro layout", async 
 
   const reloadPtr = mod._malloc(rom.byteLength);
   mod.HEAPU8.set(rom, reloadPtr);
-  mod._web_load_game(reloadPtr, rom.byteLength);
+  assert.equal(mod._web_load_game(reloadPtr, rom.byteLength), 1);
   mod._free(reloadPtr);
   mod._web_save_ram(savePtr);
   assert.deepEqual(
@@ -101,4 +127,20 @@ test("EEBBK wasm native save RAM round-trips the 80 KiB libretro layout", async 
     "热切换 ROM 时不得继承上一个游戏的 Flash 存档"
   );
   mod._free(savePtr);
+});
+
+test("EEBBK wasm only restores complete quick snapshots", async () => {
+  const mod = await createModule();
+  const biosPtr = mod._malloc(biosBytes.byteLength);
+  mod.HEAPU8.set(biosBytes, biosPtr);
+  assert.equal(mod._web_init(biosPtr, biosBytes.byteLength), 0);
+  mod._free(biosPtr);
+
+  const size = mod._web_save_size();
+  const ptr = mod._malloc(size + 1);
+  mod._web_save(ptr);
+  assert.equal(mod._web_load(ptr, size - 1), 0, "截断快照必须拒绝");
+  assert.equal(mod._web_load(ptr, size + 1), 0, "超长快照必须拒绝");
+  assert.equal(mod._web_load(ptr, size), 1, "完整快照应成功恢复");
+  mod._free(ptr);
 });

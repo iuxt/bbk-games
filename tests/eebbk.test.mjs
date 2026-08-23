@@ -58,8 +58,10 @@ test("native Flash saves mirror synchronously before the async IndexedDB write",
     const persistBody = glueSource.slice(persistStart, scheduleStart);
     const mirrorAt = persistBody.indexOf("writeNativeSaveFallback(");
     const indexedAt = persistBody.indexOf("writeNativeSaveRecord(");
+    const cleanupAt = persistBody.indexOf("removeNativeSaveFallback(");
     assert.ok(mirrorAt >= 0, "必须先写同步 localStorage 镜像");
     assert.ok(indexedAt > mirrorAt, "IndexedDB 写入必须排在同步镜像之后");
+    assert.ok(cleanupAt > indexedAt, "IndexedDB 提交后必须清理临时 localStorage 镜像");
 
     const scheduleBody = glueSource.slice(scheduleStart, restoreStart);
     assert.match(scheduleBody, /persistNativeSave\(\)/, "检测到 Flash 变化后须立即持久化");
