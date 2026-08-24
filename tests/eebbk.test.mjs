@@ -39,14 +39,65 @@ test("romStorageId hashes local roms stably", () => {
     assert.match(G.romStorageId(a, ""), /^local-/);
 });
 
-test("slotKey, autosaveKey and nativeSaveKey format and range", () => {
+test("slotKey, autosave/recovery keys and nativeSaveKey format and range", () => {
     assert.equal(G.slotKey("fmj-1.0", 0), "sav/gamesave0-fmj-1.0");
     assert.equal(G.slotKey("fmj-1.0", 2), "sav/gamesave2-fmj-1.0");
+    assert.equal(G.slotScreenshotKey("fmj-1.0", 2), "sav/gamesave2-fmj-1.0.screenshot");
     assert.equal(G.autosaveKey("fmj-1.0"), "sav/autosave-fmj-1.0");
+    assert.equal(G.recoveryCheckpointKey("fmj-1.0"), "sav/autosave-fmj-1.0.checkpoint");
+    assert.equal(G.recoveryCheckpointBackupKey("fmj-1.0"), "sav/autosave-fmj-1.0.checkpoint.prev");
     assert.equal(G.nativeSaveKey("fmj-1.0"), "sav/native-fmj-1.0");
     assert.throws(() => G.slotKey("fmj-1.0", 3));
     assert.throws(() => G.slotKey("fmj-1.0", -1));
     assert.throws(() => G.nativeSaveKey(""));
+    assert.throws(() => G.recoveryCheckpointKey(""));
+});
+
+test("chooseLaunchSnapshot：普通打开恢复精确离开快照", () => {
+    assert.equal(G.chooseLaunchSnapshot({
+        isReload: false,
+        resume: "resume",
+        checkpoint: "checkpoint",
+        checkpointBackup: "backup",
+    }), "resume");
+    assert.equal(G.chooseLaunchSnapshot({
+        isReload: false,
+        resume: "",
+        checkpoint: "checkpoint",
+        checkpointBackup: "backup",
+    }), "checkpoint");
+});
+
+test("chooseLaunchSnapshot：刷新时避开可能卡死的离开快照", () => {
+    assert.equal(G.chooseLaunchSnapshot({
+        isReload: true,
+        resume: "possibly-dead",
+        checkpoint: "checkpoint",
+        checkpointBackup: "backup",
+    }), "backup");
+    assert.equal(G.chooseLaunchSnapshot({
+        isReload: true,
+        resume: "possibly-dead",
+        checkpoint: "checkpoint",
+        checkpointBackup: "",
+    }), "checkpoint");
+    assert.equal(G.chooseLaunchSnapshot({
+        isReload: true,
+        resume: "possibly-dead",
+        checkpoint: "",
+        checkpointBackup: "",
+    }), "", "无检查点时应冷启动 ROM，不应再读取死循环快照");
+});
+
+test("恢复检查点在按键送入 wasm 前捕获", () => {
+    const sendStart = glueSource.indexOf("function sendEmulatorKey(key)");
+    const launchHomeStart = glueSource.indexOf("function launchHome()", sendStart);
+    assert.ok(sendStart >= 0 && launchHomeStart > sendStart);
+    const sendBody = glueSource.slice(sendStart, launchHomeStart);
+    const checkpointAt = sendBody.indexOf("checkpointBeforeInput()");
+    const keydownAt = sendBody.indexOf("Module._web_keydown(key)");
+    assert.ok(checkpointAt >= 0, "每次模拟器按键前必须尝试建立检查点");
+    assert.ok(keydownAt > checkpointAt, "检查点必须早于可能触发死循环的 wasm 按键");
 });
 
 test("native Flash saves mirror synchronously before the async IndexedDB write", () => {
@@ -76,6 +127,26 @@ test("buildSavePayload wraps base64 save data", () => {
     assert.equal(payload.romId, "fmj-1.0");
     assert.equal(payload.slot, 1);
     assert.equal(payload.data, "QUJD");
+});
+
+test("save payload carries an optional LCD screenshot", () => {
+    const screenshot = "data:image/png;base64,iVBORw0KGgo=";
+    const payload = G.buildSavePayload(
+        "fmj-1.0", "伏魔记 1.0", 1, "QUJD", "2026-08-05T00:00:00.000Z", screenshot
+    );
+    assert.equal(payload.screenshot, screenshot);
+    assert.equal(G.parseSavePayload(JSON.stringify(payload), "fmj-1.0").ok, true);
+});
+
+test("save screenshot only accepts bounded PNG data URLs", () => {
+    assert.equal(G.isValidScreenshotDataUrl("data:image/png;base64,iVBORw0KGgo="), true);
+    assert.equal(G.isValidScreenshotDataUrl("data:image/jpeg;base64,iVBORw0KGgo="), false);
+    assert.equal(G.isValidScreenshotDataUrl("javascript:alert(1)"), false);
+    assert.throws(() => G.buildSavePayload("fmj-1.0", "n", 0, "QUJD", undefined, "bad"));
+
+    const payload = G.buildSavePayload("fmj-1.0", "n", 0, "QUJD");
+    payload.screenshot = "data:image/svg+xml;base64,PHN2Zz4=";
+    assert.equal(G.parseSavePayload(payload, "fmj-1.0").ok, false);
 });
 
 test("buildSavePayload rejects empty or non-base64 data", () => {

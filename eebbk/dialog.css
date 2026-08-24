@@ -294,6 +294,20 @@
     display: block;
 }
 
+.save-slot-preview {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 159 / 96;
+    border: 4px solid #4c5449;
+    border-radius: 7px;
+    background: var(--lcd);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16);
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    object-fit: contain;
+}
+
 .save-slot-copy strong {
     font-size: 13px;
 }
@@ -415,12 +429,17 @@
 
     .save-slot-actions {
         grid-column: 1 / -1;
-        grid-row: 2;
         width: 100%;
-        /* 桌面态用 margin-top:auto 把按钮推到 flex 列底部；移动态卡片是 grid，
-           继承的 auto margin 在 Safari 上会触发轨道尺寸循环依赖，
-           使按钮块溢出底内边距、与下方存档框粘连。这里显式归零。 */
+        /* 不指定 grid-row：有预览时排在预览之后，无预览时自然落到第二行。
+           桌面态用 margin-top:auto 把按钮推到 flex 列底部；移动态卡片是 grid，
+           继承的 auto margin 在 Safari 上会触发轨道尺寸循环依赖，使按钮块溢出。 */
         margin-top: 0;
+    }
+
+    .save-slot-preview {
+        grid-column: 1 / -1;
+        width: min(100%, 238px);
+        justify-self: center;
     }
 
     .save-manager-actions .device-button {

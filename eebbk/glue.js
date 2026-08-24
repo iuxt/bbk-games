@@ -46,9 +46,39 @@
     return 'sav/gamesave' + slot + '-' + storageId;
   }
 
+  function slotScreenshotKey(storageId, slot) {
+    return slotKey(storageId, slot) + '.screenshot';
+  }
+
+  function isValidScreenshotDataUrl(value) {
+    return typeof value === 'string' &&
+      /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value) &&
+      value.length <= 256 * 1024;
+  }
+
   function autosaveKey(storageId) {
     if (!storageId) throw new Error('无效的游戏');
     return 'sav/autosave-' + storageId;
+  }
+
+  function recoveryCheckpointKey(storageId) {
+    return autosaveKey(storageId) + '.checkpoint';
+  }
+
+  function recoveryCheckpointBackupKey(storageId) {
+    return autosaveKey(storageId) + '.checkpoint.prev';
+  }
+
+  /* 普通重新打开时优先恢复离开页面时的精确快照。浏览器刷新往往是用户在
+     游戏死循环后的自救操作，此时不能再读取那份死循环快照，而是回退到按键前的
+     检查点。备用检查点比最新检查点更保守：即使用户卡死后又试按了一次键，
+     也不会把唯一可用的回退点覆盖掉。 */
+  function chooseLaunchSnapshot(opts) {
+    const resume = (opts && opts.resume) || '';
+    const checkpoint = (opts && opts.checkpoint) || '';
+    const checkpointBackup = (opts && opts.checkpointBackup) || '';
+    if (opts && opts.isReload) return checkpointBackup || checkpoint || '';
+    return resume || checkpoint || checkpointBackup || '';
   }
 
   function nativeSaveKey(storageId) {
@@ -56,12 +86,12 @@
     return 'sav/native-' + storageId;
   }
 
-  function buildSavePayload(storageId, gameName, slot, base64Data, exportedAt) {
+  function buildSavePayload(storageId, gameName, slot, base64Data, exportedAt, screenshot) {
     if (!isValidBase64(base64Data)) {
       throw new Error('存档数据为空或不是合法 base64');
     }
     slotKey(storageId, slot);
-    return {
+    const payload = {
       app: 'bbk-games',
       type: 'eebbk-save-slot',
       version: 1,
@@ -71,6 +101,11 @@
       data: base64Data,
       exportedAt: exportedAt || new Date().toISOString()
     };
+    if (screenshot) {
+      if (!isValidScreenshotDataUrl(screenshot)) throw new Error('存档截图格式无效');
+      payload.screenshot = screenshot;
+    }
+    return payload;
   }
 
   function parseSavePayload(source, expectedStorageId) {
@@ -89,6 +124,9 @@
         !isValidBase64(payload.data) ||
         typeof payload.romId !== 'string' || !payload.romId) {
       return { ok: false, error: '这不是有效的 EEBBK 存档。' };
+    }
+    if (payload.screenshot !== undefined && !isValidScreenshotDataUrl(payload.screenshot)) {
+      return { ok: false, error: '存档中的截图无效。' };
     }
     if (expectedStorageId && payload.romId !== expectedStorageId) {
       return { ok: false, error: '该存档属于其他游戏，不能导入到当前游戏。' };
@@ -200,7 +238,12 @@
     isValidBase64: isValidBase64,
     romStorageId: romStorageId,
     slotKey: slotKey,
+    slotScreenshotKey: slotScreenshotKey,
+    isValidScreenshotDataUrl: isValidScreenshotDataUrl,
     autosaveKey: autosaveKey,
+    recoveryCheckpointKey: recoveryCheckpointKey,
+    recoveryCheckpointBackupKey: recoveryCheckpointBackupKey,
+    chooseLaunchSnapshot: chooseLaunchSnapshot,
     nativeSaveKey: nativeSaveKey,
     buildSavePayload: buildSavePayload,
     parseSavePayload: parseSavePayload,
@@ -258,6 +301,9 @@
   let gameLoaded = false;
   let exited = false;    /* runtime has exited (power-off / fatal error) */
   let animId = 0;
+  let recoveryHasRendered = false;
+  let recoveryCheckpointReady = false;
+  let recoveryNeedsInitialCheckpoint = false;
 
   const BBK = global.BBK4980Glue;   // 复用已导出的纯函数
 
@@ -599,6 +645,34 @@
     writeLS(BBK.autosaveKey(currentRom.id) + '.ts', String(Date.now()));
   }
 
+  /* 快照要在把按键送进内核之前捕获。如果该按键令游戏软件陷入死循环，
+     页面刷新就可以回到上一个仍可交互的场景。只有在上次按键后观察到过 LCD
+     变化才可写下一份，避免用户对着已卡死的画面连续试按时不断覆盖回退点。 */
+  function checkpointBeforeInput() {
+    if (!recoveryCheckpointReady || !BBK.shouldAutosave(currentRom.id)) return;
+    const cap = captureState();
+    if (!cap) return;
+    const key = BBK.recoveryCheckpointKey(currentRom.id);
+    const previous = readLS(key);
+    if (previous && previous !== cap.b64) {
+      writeLS(BBK.recoveryCheckpointBackupKey(currentRom.id), previous);
+    }
+    writeLS(key, cap.b64);
+    writeLS(key + '.ts', String(Date.now()));
+    recoveryCheckpointReady = false;
+  }
+
+  function resetRecoveryTracking(romId) {
+    recoveryHasRendered = false;
+    recoveryCheckpointReady = false;
+    recoveryNeedsInitialCheckpoint = !!romId && !readLS(BBK.recoveryCheckpointKey(romId));
+  }
+
+  function sendEmulatorKey(key) {
+    checkpointBeforeInput();
+    Module._web_keydown(key);
+  }
+
   function launchHome() {
     const mode = BBK.decideHomeLaunch({ exited: exited, started: started });
     if (mode === 'pending-reload') {
@@ -732,6 +806,7 @@
       const copy = document.createElement('span');
       const title = document.createElement('strong');
       const detail = document.createElement('small');
+      const screenshot = readSlotScreenshot(slot);
       const actions = document.createElement('span');
       card.className = 'save-slot-card' + (data ? ' has-save' : '');
       num.className = 'save-slot-number';
@@ -750,6 +825,15 @@
       copy.appendChild(detail);
       card.appendChild(num);
       card.appendChild(copy);
+      if (screenshot) {
+        const preview = document.createElement('img');
+        preview.className = 'save-slot-preview';
+        preview.src = screenshot;
+        preview.alt = '存档槽 ' + (slot + 1) + ' 的画面预览';
+        preview.width = 159;
+        preview.height = 96;
+        card.appendChild(preview);
+      }
       card.appendChild(actions);
       frag.appendChild(card);
     }
@@ -757,11 +841,22 @@
   }
 
   /* ---------- Save manager: slot actions ---------- */
+  function captureScreenPreview() {
+    if (!started || exited || !canvas.width || !canvas.height) return '';
+    try {
+      const screenshot = canvas.toDataURL('image/png');
+      return BBK.isValidScreenshotDataUrl(screenshot) ? screenshot : '';
+    } catch (err) {
+      console.warn('Save screenshot capture failed:', err);
+      return '';
+    }
+  }
+
   function saveToSlot(slot) {
     const cap = captureState();
     if (!cap) { setSaveMsg('error', '没有可保存的游戏进度。'); return; }
     if (readSlot(slot) && !confirm('覆盖存档槽 ' + (slot + 1) + ' 的现有存档？')) return;
-    writeSlot(slot, cap.b64, String(Date.now()));
+    writeSlot(slot, cap.b64, String(Date.now()), captureScreenPreview());
     renderSaveSlots();
     setSaveMsg('status', '当前进度已保存到槽位 ' + (slot + 1) + '。');
   }
@@ -784,7 +879,14 @@
     const b64 = readSlot(slot);
     if (!b64) return;
     try {
-      const payload = BBK.buildSavePayload(currentRom.id, currentRom.name, slot, b64);
+      const payload = BBK.buildSavePayload(
+        currentRom.id,
+        currentRom.name,
+        slot,
+        b64,
+        undefined,
+        readSlotScreenshot(slot)
+      );
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -813,7 +915,12 @@
     file.text().then(function (src) {
       const parsed = BBK.parseSavePayload(src, currentRom.id);
       if (!parsed.ok) throw new Error(parsed.error);
-      writeSlot(importSlotTarget, parsed.payload.data, String(Date.now()));
+      writeSlot(
+        importSlotTarget,
+        parsed.payload.data,
+        String(Date.now()),
+        parsed.payload.screenshot || ''
+      );
       renderSaveSlots();
       setSaveMsg('status', '备份已导入到槽位 ' + (importSlotTarget + 1) + '。');
     }).catch(function (e) {
@@ -993,7 +1100,14 @@
     }
     scheduleNativeSaveIfDirty();
     // 高刷空步进和 LCD RAM 未变化时都不触碰 canvas。
-    if (frameChanged) render();
+    if (frameChanged) {
+      render();
+      if (recoveryHasRendered || recoveryNeedsInitialCheckpoint) {
+        recoveryCheckpointReady = true;
+      }
+      recoveryHasRendered = true;
+      recoveryNeedsInitialCheckpoint = false;
+    }
     animId = requestAnimationFrame(frame);
   }
 
@@ -1129,6 +1243,7 @@
       return restoreNativeSave(nativeSaveRomId, session).then(function () {
         if (quickState) restoreState(quickState);
         gameLoaded = true;
+        resetRecoveryTracking(nativeSaveRomId);
         startEmulator();   /* power on if not already */
         if (wasRunning) resumeEmulator();
         console.log('Loaded game:', name, '(' + (size / 1024).toFixed(1) + ' KB)');
@@ -1169,12 +1284,19 @@
   function readSlot(slot) {
     return currentRom.id ? readLS(BBK.slotKey(currentRom.id, slot)) : '';
   }
-  function writeSlot(slot, b64, ts) {
+  function writeSlot(slot, b64, ts, screenshot) {
     writeLS(BBK.slotKey(currentRom.id, slot), b64);
     writeLS(BBK.slotKey(currentRom.id, slot) + '.ts', ts);
+    const screenshotKey = BBK.slotScreenshotKey(currentRom.id, slot);
+    if (BBK.isValidScreenshotDataUrl(screenshot)) writeLS(screenshotKey, screenshot);
+    else removeLS(screenshotKey);
   }
   function readSlotTs(slot) {
     return readLS(BBK.slotKey(currentRom.id, slot) + '.ts');
+  }
+  function readSlotScreenshot(slot) {
+    const screenshot = readLS(BBK.slotScreenshotKey(currentRom.id, slot));
+    return BBK.isValidScreenshotDataUrl(screenshot) ? screenshot : '';
   }
 
   /* ---------- Event bindings ---------- */
@@ -1325,7 +1447,7 @@
     try { btn.setPointerCapture(e.pointerId); } catch (_) {}
     /* 核心按键是事件型（无 keyup）：每次按下只触发一次，
        长按不会自动重复，必须抬起后再按下才会再次触发。 */
-    Module._web_keydown(key);
+    sendEmulatorKey(key);
   });
 
   /* ---------- Keyboard ---------- */
@@ -1337,7 +1459,7 @@
       if (!e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
       }
-      Module._web_keydown(key);
+      sendEmulatorKey(key);
     }
   });
 
@@ -1349,7 +1471,20 @@
 
   const pendingId = readLS('pendingRomId');
   const pendingName = readLS('pendingRomName');
-  const hasAuto = currentRom.id ? !!readLS(BBK.autosaveKey(currentRom.id)) : false;
+  let isReload = false;
+  try {
+    const nav = global.performance && global.performance.getEntriesByType
+      ? global.performance.getEntriesByType('navigation')[0] : null;
+    isReload = !!(nav && nav.type === 'reload') ||
+      !!(global.performance && global.performance.navigation && global.performance.navigation.type === 1);
+  } catch (e) {}
+  const launchSnapshot = currentRom.id ? BBK.chooseLaunchSnapshot({
+    isReload: isReload,
+    resume: readLS(BBK.autosaveKey(currentRom.id)),
+    checkpoint: readLS(BBK.recoveryCheckpointKey(currentRom.id)),
+    checkpointBackup: readLS(BBK.recoveryCheckpointBackupKey(currentRom.id))
+  }) : '';
+  const hasAuto = !!launchSnapshot;
   const decision = BBK.decideLaunch({
     pendingId: pendingId,
     currentRomId: currentRom.id,
@@ -1374,7 +1509,7 @@
     Promise.all([ensureModule(), romPromise])
       .then(function (results) {
         const buf = results[1];
-        const auto = decision.applyAutosave ? readLS(BBK.autosaveKey(romId)) : '';
+        const auto = decision.applyAutosave ? launchSnapshot : '';
         // 加载顺序：ROM → 原生 Flash 存档 → 可选的系统级快速快照。
         return loadGame(buf, romName, romId, auto);
       })
