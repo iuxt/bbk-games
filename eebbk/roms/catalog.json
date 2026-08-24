@@ -24,7 +24,7 @@
   {"id": "疯狂校园", "name": "疯狂校园", "py": "fengkuangxiaoyuan", "initial": "fkxy"},
   {"id": "封魔录", "name": "封魔录", "py": "fengmolu", "initial": "fml"},
   {"id": "丰收", "name": "丰收", "py": "fengshou", "initial": "fs"},
-  {"id": "伏魔记", "name": "伏魔记", "py": "fumoji", "initial": "fmj"},
+  {"id": "伏魔记", "name": "伏魔记完美版1.0", "py": "fumojiwanmeiban 1.0", "initial": "fmjwmb"},
   {"id": "fmj-1.0", "name": "伏魔记 1.0", "py": "fumoji 1.0", "initial": "fmj"},
   {"id": "fmj-1.1", "name": "伏魔记 1.1", "py": "fumoji 1.1", "initial": "fmj"},
   {"id": "fmj-1.2", "name": "伏魔记 1.2", "py": "fumoji 1.2", "initial": "fmj"},
