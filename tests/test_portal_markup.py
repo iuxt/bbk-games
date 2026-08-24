@@ -279,18 +279,21 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         )
         self.assertIn("../index.html", self.parser.links)
 
-    def test_screen_fills_lcd_panel_without_pixel_scale_controls(self):
+    def test_screen_fills_lcd_panel_and_exposes_runtime_speed_control(self):
         markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")
         # 画面区存在；canvas 显示尺寸由 portal.css 的
         # .lcd-panel-screen canvas { width:100%; height:auto } 接管，填满 LCD 面板。
         self.assertIn('id="screen-wrapper"', markup)
         self.assertIn('id="screen"', markup)
-        # 已移除会阻止画面填满的固定像素「缩放」控件，
-        # 以及从未接线的「LCD 残影」「速度」控件。
+        # 已移除会阻止画面填满的固定像素「缩放」控件与未接线的 LCD 残影控件。
         self.assertNotIn("emu-settings", markup)
         self.assertNotIn("scale-select", markup)
         self.assertNotIn('id="ghosting"', markup)
         self.assertNotIn("cpu-rate", markup)
+        # 运行速度由前端逻辑步进控制，提供有限且安全的倍率。
+        self.assertIn('id="speed-rate"', markup)
+        for value in ("1", "1.5", "2", "3"):
+            self.assertIn(f'<option value="{value}">', markup)
 
     def test_catalog_lists_every_bundled_rom_exactly_once(self):
         catalog_path = ROOT / "eebbk" / "roms" / "catalog.json"
@@ -341,6 +344,19 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
     def test_dialog_css_has_system_tag_style(self):
         css = (ROOT / "eebbk" / "dialog.css").read_text(encoding="utf-8")
         self.assertIn(".rom-tag", css, "dialog.css 缺少 .rom-tag 系统标签样式")
+
+    def test_mobile_speed_control_uses_the_three_column_footer_layout(self):
+        style_css = (ROOT / "eebbk" / "style.css").read_text(encoding="utf-8")
+        dialog_css = (ROOT / "eebbk" / "dialog.css").read_text(encoding="utf-8")
+        self.assertIn(
+            "grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(0, 1fr))",
+            style_css,
+        )
+        self.assertNotIn(
+            ".footer-actions",
+            dialog_css,
+            "dialog.css 不应覆盖模拟器底部速度/游戏/存档三列布局",
+        )
 
     def test_save_slot_rows_never_shrink_below_content(self):
         # 回归：WebKit/Safari 在高度受限的网格里会把 auto 行压到卡片 min-height

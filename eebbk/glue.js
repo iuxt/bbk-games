@@ -213,15 +213,25 @@
     return true;
   }
 
+  const SPEED_RATES = [1, 1.5, 2, 3];
+
+  function normalizeSpeedRate(value) {
+    const rate = Number(value);
+    return SPEED_RATES.indexOf(rate) >= 0 ? rate : 1;
+  }
+
   /* 固定逻辑帧步进决策（纯函数，便于单测）。
      web_run_frame 每次代表 1/60 秒硬件时间（见 wasm sys_step），故逻辑帧须恒为 60fps。
      裸 requestAnimationFrame 跟随显示器刷新率：120Hz 屏会把游戏跑成约 2 倍速。
-     本函数按墙钟增量累积，每凑满 1000/60 ms 产出一步，从而与刷新率解耦。
+     本函数按墙钟增量和用户倍率累积；1x 每满 1000/60 ms 产出一步，2x 每满
+     1000/120 ms 产出一步，从而既与刷新率解耦，又能让 CPU 与硬件定时器同步快进。
      - deltaMs 为负（系统时间回退）按 0 处理。
+     - 默认补步上限随倍率增长，始终容纳约 100ms 的正常抖动。
      - deltaMs 过大时由 maxSteps 触顶并清零余量，避免标签页切回后追帧螺旋。 */
   function planLogicSteps(deltaMs, prevAcc, opts) {
-    const STEP_MS = 1000 / 60;
-    const maxSteps = (opts && opts.maxSteps) || 6;
+    const speed = normalizeSpeedRate(opts && opts.speed);
+    const STEP_MS = 1000 / (60 * speed);
+    const maxSteps = (opts && opts.maxSteps) || Math.ceil(6 * speed);
     let acc = (prevAcc || 0) + (deltaMs > 0 ? deltaMs : 0);
     let steps = 0;
     while (acc >= STEP_MS && steps < maxSteps) {
@@ -255,6 +265,7 @@
     saveManagerEnabledFor: saveManagerEnabledFor,
     isDictionarySystem: isDictionarySystem,
     shouldAutosave: shouldAutosave,
+    normalizeSpeedRate: normalizeSpeedRate,
     planLogicSteps: planLogicSteps
   };
 
@@ -291,6 +302,7 @@
   const currentGameName  = document.getElementById('current-game-name');
   const dictRow          = document.getElementById('dict-row');
   const gameRow          = document.getElementById('game-row');
+  const speedSelect      = document.getElementById('speed-rate');
 
   /* ---------- state ---------- */
   let Module = null;
@@ -304,6 +316,7 @@
   let recoveryHasRendered = false;
   let recoveryCheckpointReady = false;
   let recoveryNeedsInitialCheckpoint = false;
+  let speedRate = 1;
 
   const BBK = global.BBK4980Glue;   // 复用已导出的纯函数
 
@@ -334,6 +347,17 @@
   function readLS(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
   function writeLS(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
   function removeLS(key) { try { localStorage.removeItem(key); } catch (e) {} }
+
+  const SPEED_STORAGE_KEY = 'eebbk/speed-rate';
+
+  function setSpeedRate(value, persist) {
+    speedRate = BBK.normalizeSpeedRate(value);
+    speedSelect.value = String(speedRate);
+    if (persist) writeLS(SPEED_STORAGE_KEY, String(speedRate));
+    /* 丢弃旧倍率下尚未凑满一步的墙钟余量，避免切换瞬间突跳。 */
+    lastFrameTs = 0;
+    frameAcc = 0;
+  }
 
   /* ---------- IndexedDB native save helpers ---------- */
   function openNativeSaveDb() {
@@ -1080,7 +1104,7 @@
   function frame(ts) {
     if (!running || !started) return;
     if (!lastFrameTs) lastFrameTs = ts;
-    const plan = planLogicSteps(ts - lastFrameTs, frameAcc);
+    const plan = planLogicSteps(ts - lastFrameTs, frameAcc, { speed: speedRate });
     lastFrameTs = ts;
     frameAcc = plan.acc;
     let frameChanged = false;
@@ -1300,6 +1324,10 @@
   }
 
   /* ---------- Event bindings ---------- */
+  speedSelect.addEventListener('change', function () {
+    setSpeedRate(speedSelect.value, true);
+  });
+
   gamePickerOpen.addEventListener('click', openPicker);
   gamePickerClose.addEventListener('click', closePicker);
   gamePickerUse.addEventListener('click', useSelectedGame);
@@ -1465,6 +1493,7 @@
 
   /* ---------- Bootstrap ----------
      目录先独立加载；仅当需要进入词典或 ROM 时才下载核心、wasm 与 4 MiB 固件。 */
+  setSpeedRate(readLS(SPEED_STORAGE_KEY), false);
   restoreCurrentRomFromStorage();
   syncTouchpadMode();
   loadCatalog();

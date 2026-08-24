@@ -130,6 +130,37 @@
     touch-action: manipulation;
 }
 
+.speed-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 36px;
+    padding: 0 7px 0 11px;
+    border: 1px solid var(--key-edge);
+    border-radius: 8px;
+    color: #eef0e7;
+    background: var(--key);
+    box-shadow: inset 0 -3px 0 var(--key-edge), 0 2px 5px rgba(37, 45, 35, .18);
+    white-space: nowrap;
+}
+
+.speed-control span {
+    font-size: 10px;
+    letter-spacing: 0;
+}
+
+.speed-control select {
+    min-width: 58px;
+    height: 26px;
+    padding: 0 5px;
+    border: 1px solid rgba(224, 231, 209, .35);
+    border-radius: 5px;
+    color: #eef0e7;
+    background: var(--key-edge);
+    font: 800 11px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    cursor: pointer;
+}
+
 .footer-action:hover,
 .footer-action:focus-visible {
     background: #596257;
@@ -176,8 +207,22 @@
 
     .footer-actions {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(0, 1fr));
         width: 100%;
+    }
+
+    .speed-control,
+    .footer-action {
+        min-width: 0;
+    }
+
+    .speed-control {
+        justify-content: space-between;
+    }
+
+    .speed-control select {
+        min-width: 0;
+        width: 54px;
     }
 
     .footer-link {

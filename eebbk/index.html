@@ -12,8 +12,8 @@
     <title>电子词典模拟器 — 步步高朗文4980</title>
     <link rel="icon" href="../favicon.png">
     <link rel="stylesheet" href="../css/portal.css?v=2">
-    <link rel="stylesheet" href="style.css?v=6">
-    <link rel="stylesheet" href="dialog.css?v=4">
+    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="dialog.css?v=5">
 </head>
 <body>
     <main class="device-shell utility-shell">
@@ -92,6 +92,15 @@
         <footer class="device-footer utility-footer">
             <span>SIMULATOR · 朗文4980</span>
             <nav class="footer-actions" aria-label="模拟器辅助功能">
+                <label class="speed-control" for="speed-rate">
+                    <span>运行速度</span>
+                    <select id="speed-rate" aria-label="运行速度">
+                        <option value="1">1×</option>
+                        <option value="1.5">1.5×</option>
+                        <option value="2">2×</option>
+                        <option value="3">3×</option>
+                    </select>
+                </label>
                 <button id="game-picker-open" class="footer-action" type="button"
                         aria-haspopup="dialog" aria-controls="game-picker" aria-expanded="false">
                     选择游戏
@@ -172,6 +181,6 @@
         <p class="noscript-note">模拟器需要启用 JavaScript。<a href="../index.html">返回游戏中心</a></p>
     </noscript>
 
-    <script src="glue.js?v=14"></script>
+    <script src="glue.js?v=15"></script>
 </body>
 </html>

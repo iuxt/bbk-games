@@ -296,6 +296,16 @@ test("shouldAutosave：home / local / 空 都跳过", () => {
     assert.equal(G.shouldAutosave(""), false);
 });
 
+test("normalizeSpeedRate：只接受页面提供的运行倍率", () => {
+    assert.equal(G.normalizeSpeedRate("1"), 1);
+    assert.equal(G.normalizeSpeedRate("1.5"), 1.5);
+    assert.equal(G.normalizeSpeedRate(2), 2);
+    assert.equal(G.normalizeSpeedRate(3), 3);
+    assert.equal(G.normalizeSpeedRate(""), 1);
+    assert.equal(G.normalizeSpeedRate("2.5"), 1);
+    assert.equal(G.normalizeSpeedRate(Infinity), 1);
+});
+
 test("planLogicSteps：达到一帧即出一步", () => {
     const r = G.planLogicSteps(1000 / 60, 0);
     assert.equal(r.steps, 1);
@@ -321,6 +331,26 @@ test("planLogicSteps：60Hz 序列约 60 逻辑帧/秒", () => {
     assert.ok(Math.abs(total - 60) <= 1, `期望约 60 步，实际 ${total}`);
 });
 
+test("planLogicSteps：2x 在 60Hz 下推进约 120 个逻辑帧/秒", () => {
+    let acc = 0, total = 0;
+    for (let i = 0; i < 60; i++) {
+        const r = G.planLogicSteps(1000 / 60, acc, { speed: 2 });
+        total += r.steps;
+        acc = r.acc;
+    }
+    assert.ok(Math.abs(total - 120) <= 1, `期望约 120 步，实际 ${total}`);
+});
+
+test("planLogicSteps：3x 在 120Hz 下推进约 180 个逻辑帧/秒", () => {
+    let acc = 0, total = 0;
+    for (let i = 0; i < 120; i++) {
+        const r = G.planLogicSteps(1000 / 120, acc, { speed: 3 });
+        total += r.steps;
+        acc = r.acc;
+    }
+    assert.ok(Math.abs(total - 180) <= 1, `期望约 180 步，实际 ${total}`);
+});
+
 test("planLogicSteps：累积两个半帧才出一步", () => {
     const half = 1000 / 120;
     let r = G.planLogicSteps(half, 0);
@@ -338,6 +368,12 @@ test("planLogicSteps：超大 delta 触顶防追帧螺旋", () => {
     const r = G.planLogicSteps(1000, 0);
     assert.ok(r.steps >= 1 && r.steps <= 6);
     assert.equal(r.acc, 0);                    // 触顶清零
+});
+
+test("planLogicSteps：高倍率同步扩大补步上限", () => {
+    const r = G.planLogicSteps(1000, 0, { speed: 2 });
+    assert.equal(r.steps, 12);
+    assert.equal(r.acc, 0);
 });
 
 test("planLogicSteps：负 delta 不倒退", () => {
