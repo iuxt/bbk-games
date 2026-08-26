@@ -369,6 +369,22 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
             "dialog.css 的 .save-slot-list 缺少 minmax(min-content, 1fr) 行高约束",
         )
 
+    def test_save_slots_keep_save_and_load_visible_and_use_a_backup_menu(self):
+        script = (ROOT / "eebbk" / "glue.js").read_text(encoding="utf-8")
+        css = (ROOT / "eebbk" / "dialog.css").read_text(encoding="utf-8")
+
+        self.assertIn("function makeSlotActions(slot, hasSave)", script)
+        self.assertIn("makeSlotBtn('保存', 'save'", script)
+        self.assertIn("makeSlotBtn('读取', 'load'", script)
+        self.assertIn("function makeSlotMore(slot, hasSave)", script)
+        self.assertIn("more.className = 'slot-more'", script)
+        self.assertIn("moreToggle.textContent = '•••'", script)
+        self.assertIn("makeSlotBtn('导入备份', 'import'", script)
+        self.assertIn("makeSlotBtn('导出备份', 'export'", script)
+        self.assertNotIn("makeSlotBtn('覆盖保存'", script)
+        self.assertIn(".slot-more-menu", css)
+        self.assertIn("position: absolute", css)
+
 
 if __name__ == "__main__":
     unittest.main()

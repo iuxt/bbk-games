@@ -255,6 +255,7 @@
 }
 
 .save-slot-card {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -287,6 +288,7 @@
 .save-slot-copy {
     display: block;
     min-width: 0;
+    padding-right: 46px;
 }
 
 .save-slot-copy strong,
@@ -322,13 +324,14 @@
 }
 
 .save-slot-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
     gap: 7px;
     margin-top: auto;
 }
 
 .slot-action {
+    flex: 1 1 0;
+    min-width: 0;
     min-height: 38px;
     border: 1px solid var(--key-edge);
     border-radius: 8px;
@@ -345,13 +348,82 @@
     box-shadow: inset 0 -3px 0 #7d3a2f;
 }
 
-.slot-action:active {
+.slot-more {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 2;
+}
+
+.slot-more-toggle {
+    display: grid;
+    width: 42px;
+    height: 38px;
+    place-items: center;
+    border: 1px solid var(--key-edge);
+    border-radius: 8px;
+    color: #eef0e7;
+    background: var(--key);
+    box-shadow: inset 0 -3px 0 var(--key-edge);
+    font: 800 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: 1px;
+    font-weight: 800;
+    cursor: pointer;
+    list-style: none;
+}
+
+.slot-more-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.slot-more[open] .slot-more-toggle {
+    color: var(--lcd-ink);
+    background: var(--lcd);
+    box-shadow: inset 0 -3px 0 rgba(57, 69, 50, .28);
+}
+
+.slot-more-menu {
+    position: absolute;
+    top: calc(100% + 7px);
+    right: 0;
+    z-index: 3;
+    display: grid;
+    width: 142px;
+    gap: 4px;
+    padding: 6px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--shell);
+    box-shadow: 0 10px 28px rgba(20, 25, 19, .24), inset 0 1px 0 rgba(255, 255, 255, .55);
+}
+
+.slot-menu-action {
+    min-height: 38px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 7px;
+    color: var(--ink);
+    background: var(--paper);
+    font-size: 11px;
+    font-weight: 800;
+    text-align: left;
+    cursor: pointer;
+}
+
+.slot-menu-action:hover {
+    background: var(--lcd);
+}
+
+.slot-action:active,
+.slot-more-toggle:active,
+.slot-menu-action:active {
     transform: translateY(2px);
 }
 
-.slot-action:disabled {
+.slot-action:disabled,
+.slot-menu-action:disabled {
     cursor: not-allowed;
-    opacity: .38;
+    opacity: .35;
     transform: none;
 }
 
@@ -425,6 +497,11 @@
         align-items: center;
         min-height: 0;
         padding: 10px;
+    }
+
+    .slot-more {
+        top: 10px;
+        right: 10px;
     }
 
     .save-slot-actions {

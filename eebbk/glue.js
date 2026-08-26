@@ -802,15 +802,41 @@
   }
 
   /* ---------- Save manager: slot rendering ---------- */
-  function makeSlotBtn(label, action, slot, disabled) {
+  function makeSlotBtn(label, action, slot, className, disabled) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'slot-action' + ((action === 'save' || action === 'load') ? ' slot-action-primary' : '');
+    b.className = className;
     b.dataset.saveAction = action;
     b.dataset.slot = String(slot);
     b.textContent = label;
     b.disabled = !!disabled;
     return b;
+  }
+
+  function makeSlotActions(slot, hasSave) {
+    const actions = document.createElement('div');
+    actions.className = 'save-slot-actions';
+    actions.appendChild(makeSlotBtn('保存', 'save', slot,
+      'slot-action' + (hasSave ? '' : ' slot-action-primary'), false));
+    actions.appendChild(makeSlotBtn('读取', 'load', slot,
+      'slot-action' + (hasSave ? ' slot-action-primary' : ''), !hasSave));
+    return actions;
+  }
+
+  function makeSlotMore(slot, hasSave) {
+    const more = document.createElement('details');
+    const moreToggle = document.createElement('summary');
+    const menu = document.createElement('div');
+    more.className = 'slot-more';
+    moreToggle.className = 'slot-more-toggle';
+    moreToggle.setAttribute('aria-label', '存档槽 ' + (slot + 1) + ' 的更多操作');
+    moreToggle.textContent = '•••';
+    menu.className = 'slot-more-menu';
+    menu.appendChild(makeSlotBtn('导入备份', 'import', slot, 'slot-menu-action', false));
+    menu.appendChild(makeSlotBtn('导出备份', 'export', slot, 'slot-menu-action', !hasSave));
+    more.appendChild(moreToggle);
+    more.appendChild(menu);
+    return more;
   }
 
   function fmtSize(b64) {
@@ -831,7 +857,6 @@
       const title = document.createElement('strong');
       const detail = document.createElement('small');
       const screenshot = readSlotScreenshot(slot);
-      const actions = document.createElement('span');
       card.className = 'save-slot-card' + (data ? ' has-save' : '');
       num.className = 'save-slot-number';
       num.textContent = String(slot + 1).padStart(2, '0');
@@ -840,15 +865,11 @@
       detail.textContent = data
         ? '已有存档 · ' + fmtSize(data) + (ts ? ' · ' + new Date(Number(ts)).toLocaleString('zh-CN', {hour12:false}) : '')
         : '空档案';
-      actions.className = 'save-slot-actions';
-      actions.appendChild(makeSlotBtn('保存', 'save', slot, false));
-      actions.appendChild(makeSlotBtn('读取', 'load', slot, !data));
-      actions.appendChild(makeSlotBtn('导出', 'export', slot, !data));
-      actions.appendChild(makeSlotBtn('导入', 'import', slot, false));
       copy.appendChild(title);
       copy.appendChild(detail);
       card.appendChild(num);
       card.appendChild(copy);
+      card.appendChild(makeSlotMore(slot, !!data));
       if (screenshot) {
         const preview = document.createElement('img');
         preview.className = 'save-slot-preview';
@@ -858,7 +879,7 @@
         preview.height = 96;
         card.appendChild(preview);
       }
-      card.appendChild(actions);
+      card.appendChild(makeSlotActions(slot, !!data));
       frag.appendChild(card);
     }
     saveSlotList.appendChild(frag);
@@ -1387,8 +1408,23 @@
   });
 
   saveSlotList.addEventListener('click', function (e) {
+    const moreToggle = e.target.closest('.slot-more-toggle');
+    if (moreToggle) {
+      const current = moreToggle.parentElement;
+      saveSlotList.querySelectorAll('.slot-more[open]').forEach(function (menu) {
+        if (menu !== current) menu.removeAttribute('open');
+      });
+      return;
+    }
     const btn = e.target.closest('[data-save-action]');
-    if (!btn) return;
+    if (!btn) {
+      saveSlotList.querySelectorAll('.slot-more[open]').forEach(function (menu) {
+        menu.removeAttribute('open');
+      });
+      return;
+    }
+    const openMenu = btn.closest('.slot-more');
+    if (openMenu) openMenu.removeAttribute('open');
     const slot = Number(btn.dataset.slot);
     switch (btn.dataset.saveAction) {
       case 'save':   saveToSlot(slot); break;
