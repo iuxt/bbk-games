@@ -118,6 +118,46 @@ class ChooseMarkupTests(unittest.TestCase):
         self.assertIn(":focus-visible", css)
 
 
+class BayeBackupMarkupTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.markup = (ROOT / "sanguobaye" / "backup.html").read_text(
+            encoding="utf-8"
+        )
+        cls.css = (ROOT / "css" / "portal.css").read_text(encoding="utf-8")
+
+    def test_uses_version_tabs_above_three_slot_cards(self):
+        self.assertIn('id="version-tabs" role="tablist"', self.markup)
+        self.assertIn('class=\\"backup-version-tab\\" role=\\"tab\\"', self.markup)
+        self.assertIn('id="save-panel" role="tabpanel"', self.markup)
+        self.assertIn('id="save-slot-grid"', self.markup)
+        self.assertIn('class=\\"backup-slot-card\\"', self.markup)
+        self.assertIn('>备份</button>', self.markup)
+        self.assertIn('>还原</button>', self.markup)
+
+    def test_restore_button_targets_its_own_slot(self):
+        self.assertIn("function pickRestoreFile(slot)", self.markup)
+        self.assertIn("restoreTargetSlot = slot", self.markup)
+        self.assertIn("doRestore(parsed, targetSlot, file.name)", self.markup)
+        self.assertNotIn('id="slot-picker"', self.markup)
+        self.assertNotIn('id="restore-btn"', self.markup)
+        self.assertNotIn('id="export-grid"', self.markup)
+
+    def test_slot_cards_are_responsive_and_keep_two_actions(self):
+        self.assertIn(".backup-version-tabs", self.css)
+        self.assertIn(".backup-slot-grid", self.css)
+        self.assertIn(".backup-slot-card.has-save", self.css)
+        self.assertIn(".backup-slot-actions", self.css)
+        self.assertIn(
+            "grid-template-columns: repeat(2, minmax(0, 1fr))",
+            self.css,
+        )
+        self.assertIn(
+            ".backup-slot-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }",
+            self.css,
+        )
+
+
 class MobileGameMarkupTests(unittest.TestCase):
     def test_mobile_pages_keep_scripts_inside_document(self):
         for page in ("sanguobaye/m.html", "mota/index.html"):

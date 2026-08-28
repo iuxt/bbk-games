@@ -362,48 +362,109 @@ button { color: inherit; }
     }
 }
 
-/* backup.html：还原区目标槽选择与还原按钮 */
-.slot-label { margin: 14px 0 8px; font-size: 11px; font-weight: 800; letter-spacing: .04em; opacity: .65; }
-.slot-picker { display: flex; gap: 8px; }
-.slot-chip {
-    flex: 1;
-    padding: 10px 8px;
+/* 三国霸业备份页：版本 Tab + 三个独立存档槽 */
+.backup-version-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+.backup-version-tab {
+    min-width: 0;
+    min-height: 48px;
+    padding: 9px 8px;
     border: 1px solid var(--line);
     border-radius: 8px;
     background: var(--paper);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 800;
+    line-height: 1.35;
     cursor: pointer;
     transition: transform .16s ease, background-color .16s ease;
 }
-.slot-chip.is-active {
+.backup-version-tab.is-active {
     color: #eef0e7;
     background: var(--key);
     border-color: var(--key-edge);
     box-shadow: inset 0 -3px 0 var(--key-edge);
 }
-.slot-chip:active { transform: translateY(2px); }
+.backup-version-tab:active { transform: translateY(2px); }
 
-/* 备份页游戏选择器：游戏名较长，允许换行 */
-#game-picker { flex-wrap: wrap; }
-#game-picker .game-chip { flex: 1 1 30%; font-size: 11px; }
-.restore-btn {
-    width: 100%;
-    margin-top: 12px;
-    padding: 13px;
-    border: 0;
-    border-radius: 8px;
-    color: #eef0e7;
+.backup-slot-help {
+    margin: -2px 0 10px;
+    font-size: 11px;
+    line-height: 1.55;
+    opacity: .65;
+}
+.backup-slot-grid {
+    display: grid;
+    gap: 10px;
+}
+.backup-slot-card {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--paper);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+}
+.backup-slot-card.has-save {
+    border-color: rgba(173, 76, 61, .42);
+    box-shadow: inset 4px 0 0 var(--accent), inset 0 1px 0 rgba(255,255,255,.45);
+}
+.backup-slot-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.backup-slot-number {
+    display: grid;
+    place-items: center;
+    flex: 0 0 43px;
+    width: 43px;
+    height: 43px;
+    border-radius: 7px;
+    color: #dbe1c3;
     background: var(--key);
-    box-shadow: inset 0 -4px 0 var(--key-edge);
-    font-size: 14px;
+    box-shadow: inset 0 -4px 0 var(--key-edge), 0 3px 7px rgba(37,45,35,.18);
+    font: 800 11px/1 ui-monospace, monospace;
+}
+.backup-slot-copy { min-width: 0; }
+.backup-slot-copy strong,
+.backup-slot-copy small { display: block; }
+.backup-slot-copy strong { font-size: 13px; }
+.backup-slot-copy small { margin-top: 5px; font-size: 11px; opacity: .62; }
+.backup-slot-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+}
+.backup-slot-button {
+    width: 100%;
+    min-height: 40px;
+    padding: 10px 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--paper);
+    box-shadow: inset 0 -3px 0 rgba(73,81,69,.18);
+    font-size: 12px;
     font-weight: 800;
     cursor: pointer;
     transition: transform .16s ease;
 }
-.restore-btn:active { transform: translateY(2px); }
-.restore-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+.backup-slot-button.is-primary {
+    color: #eef0e7;
+    border-color: var(--key-edge);
+    background: var(--key);
+    box-shadow: inset 0 -3px 0 var(--key-edge);
+}
+.backup-slot-button:active { transform: translateY(2px); }
+.backup-slot-button:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+
+@media (min-width: 760px) {
+    .backup-slot-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 
 /* 游戏页：游戏画面内嵌 LCD 屏幕 */
 .game-title { margin-bottom: 10px; }

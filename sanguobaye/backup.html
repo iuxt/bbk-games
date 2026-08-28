@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="../css/portal.css">
 
     <script src="../js/jquery.min.js"></script>
-    <script src="js/backup.js?ver=6"></script>
+    <script src="js/backup.js?ver=7"></script>
     <script>
         // 三国霸业三个版本各自拥有独立存档空间。
         $(function () {
@@ -98,13 +98,20 @@
                            "文件名 " + a.download + "。请妥善保存，可用于日后还原。", "ok");
             }
 
-            // 还原：文件选择 → 解析
-            var pendingRestore = null;
-            var targetSlot = 0;
+            // 还原按钮直接绑定槽位，选择文件后立即写入对应槽位。
+            var restoreTargetSlot = null;
+
+            function pickRestoreFile(slot) {
+                restoreTargetSlot = slot;
+                var input = document.getElementById("restore-file");
+                input.value = "";
+                input.click();
+            }
 
             function onFilePicked(input) {
                 var file = input.files && input.files[0];
-                if (!file) return;
+                var targetSlot = restoreTargetSlot;
+                if (!file || targetSlot === null) return;
 
                 var reader = new FileReader();
                 reader.onload = function () {
@@ -112,65 +119,35 @@
                     try {
                         data = JSON.parse(reader.result);
                     } catch (e) {
-                        rejectFile(file.name, "文件格式无效", "无法解析存档文件，请确认是本站导出的 .json 文件。");
+                        rejectFile("文件格式无效", "无法解析存档文件，请确认是本站导出的 .json 文件。");
                         return;
                     }
 
                     var parsed = B.parseBackup(data);
                     if (!parsed) {
-                        rejectFile(file.name, "存档格式错误", "这不是有效的 " + profile.name + " 存档备份。");
+                        rejectFile("存档格式错误", "这不是有效的 " + profile.name + " 存档备份。");
                         return;
                     }
                     if (!B.canRestore(parsed, profile)) {
                         var src = B.getProfile(parsed.profileId);
                         var srcName = src ? src.name : parsed.profileId;
-                        rejectFile(file.name, "存档版本不匹配",
+                        rejectFile("存档版本不匹配",
                                    "该备份属于「" + srcName +
                                    "」，与当前「" + profile.name + "」不符。请先切换到对应版本再还原。");
                         return;
                     }
 
-                    pendingRestore = parsed;
-                    $("#restore-file-name").text(file.name);
-
-                    // 默认目标槽 = 文件来源槽
-                    targetSlot = (typeof parsed.slot === "number") ? parsed.slot : 0;
-                    if (targetSlot >= profile.slots) targetSlot = 0;
-                    syncSlotPicker();
-                    $("#restore-btn").prop("disabled", false);
-
-                    var fromSlot = (typeof parsed.slot === "number") ? (parsed.slot + 1) : "?";
-                    var help = "来源：存档 " + fromSlot + "。选择目标槽后点「还原存档」。";
-                    showResult("已读取存档文件", help, "info");
+                    doRestore(parsed, targetSlot, file.name);
                 };
                 reader.readAsText(file);
             }
 
-            function rejectFile(name, title, help) {
-                pendingRestore = null;
-                $("#restore-btn").prop("disabled", true);
-                $("#restore-file-name").text(name);
+            function rejectFile(title, help) {
+                restoreTargetSlot = null;
                 showResult(title, help, "warn");
             }
 
-            function pickSlot(n) {
-                targetSlot = n;
-                syncSlotPicker();
-            }
-
-            // 仅同步目标槽选择器，避免误清版本 / 游戏选择器（同样带 slot-chip 类）的高亮
-            function syncSlotPicker() {
-                $("#slot-picker .slot-chip").each(function () {
-                    var active = (Number($(this).data("slot")) === targetSlot);
-                    $(this).attr("aria-checked", active ? "true" : "false");
-                    $(this).toggleClass("is-active", active);
-                });
-            }
-
-            function doRestore() {
-                if (!pendingRestore) return;
-                var parsed = pendingRestore;
-
+            function doRestore(parsed, targetSlot, fileName) {
                 var ok = B.applyRestore(
                     profile,
                     targetSlot,
@@ -182,44 +159,52 @@
                 if (!ok) {
                     showResult("存档写入失败",
                                "浏览器存储不可用（可能配额已满）。还原中止。", "warn");
+                    restoreTargetSlot = null;
                     return;
                 }
 
-                var note = "已写入「" + profile.name + "」存档 " +
-                    (targetSlot + 1) + "。";
-                note += "进入对应版本游戏后载入该存档即可。";
-                showResult("还原成功", note, "ok");
+                showResult(
+                    "存档 " + (targetSlot + 1) + " 还原成功",
+                    "已从 " + fileName + " 写入「" + profile.name + "」。进入游戏后读取该存档即可。",
+                    "ok"
+                );
+                restoreTargetSlot = null;
+                renderSlots();
             }
 
-            // 按 profile 动态渲染导出按钮
-            function renderExport() {
-                var $grid = $("#export-grid").empty();
-                for (var n = 0; n < profile.slots; n++) {
-                    (function (slot) {
-                        var key = ("0" + (slot + 1)).slice(-2);
-                        $("<button class=\"game-card game-link save-action\" type=\"button\"></button>")
-                            .append('<span class="game-key" aria-hidden="true">' + key + "</span>")
-                            .append('<span class="game-copy"><strong>导出存档 ' + (slot + 1) +
-                                    '</strong><small>下载为 .json 文件</small></span>')
-                            .append('<span class="game-arrow" aria-hidden="true">›</span>')
-                            .on("click", function () { exportSlot(slot); })
-                            .appendTo($grid);
-                    })(n);
+            function slotPayload(slot) {
+                try {
+                    return B.buildExportPayload(profile, slot, readKey);
+                } catch (e) {
+                    return null;
                 }
-                $("#export-slot-count").text(profile.slots + " SLOTS");
             }
 
-            // 按 profile 动态渲染目标槽选择器
-            function renderSlotPicker() {
-                var $picker = $("#slot-picker").empty();
+            // 与电子词典模拟器一致：每个槽位是一张独立卡片，操作不再跨区跳转。
+            function renderSlots() {
+                var $grid = $("#save-slot-grid").empty();
                 for (var n = 0; n < profile.slots; n++) {
                     (function (slot) {
-                        $("<button type=\"button\" class=\"slot-chip\" data-slot=\"" + slot + "\">存档 " +
-                          (slot + 1) + "</button>")
-                            .attr("aria-checked", slot === targetSlot ? "true" : "false")
-                            .toggleClass("is-active", slot === targetSlot)
-                            .on("click", function () { pickSlot(slot); })
-                            .appendTo($picker);
+                        var hasSave = !!slotPayload(slot);
+                        var $card = $("<article class=\"backup-slot-card\"></article>")
+                            .toggleClass("has-save", hasSave);
+                        var $head = $("<div class=\"backup-slot-head\"></div>")
+                            .append('<span class="backup-slot-number" aria-hidden="true">' +
+                                    ("0" + (slot + 1)).slice(-2) + "</span>")
+                            .append('<span class="backup-slot-copy"><strong>存档槽 ' +
+                                    (slot + 1) + "</strong><small>" +
+                                    (hasSave ? "已有存档" : "空档案") + "</small></span>");
+                        var $actions = $("<div class=\"backup-slot-actions\"></div>");
+                        $("<button type=\"button\" class=\"backup-slot-button\">备份</button>")
+                            .prop("disabled", !hasSave)
+                            .attr("aria-label", "备份存档槽 " + (slot + 1))
+                            .on("click", function () { exportSlot(slot); })
+                            .appendTo($actions);
+                        $("<button type=\"button\" class=\"backup-slot-button is-primary\">还原</button>")
+                            .attr("aria-label", "还原到存档槽 " + (slot + 1))
+                            .on("click", function () { pickRestoreFile(slot); })
+                            .appendTo($actions);
+                        $card.append($head).append($actions).appendTo($grid);
                     })(n);
                 }
             }
@@ -229,26 +214,50 @@
                 var next = B.getProfile(id);
                 if (!next || next.id === profile.id) return;
                 profile = next;
-                pendingRestore = null;
-                targetSlot = 0;
-                $("#restore-btn").prop("disabled", true);
-                $("#restore-file-name").text("点击选取 .json 备份文件");
+                restoreTargetSlot = null;
+                showResult("等待操作", profile.name + " · 选择槽位进行备份或还原", "info");
                 render();
+            }
+
+            function moveVersionFocus(index) {
+                var count = B.BAYE_LIBS.length;
+                var nextIndex = (index + count) % count;
+                var next = B.BAYE_LIBS[nextIndex];
+                pickProfile("baye/" + next.id);
+                $("#version-tab-" + next.id).trigger("focus");
             }
 
             // 切换这里只影响备份目标，不改变游戏启动版本。
             function renderVersionPicker() {
-                var $picker = $("#game-picker").empty();
+                var $picker = $("#version-tabs").empty();
                 for (var n = 0; n < B.BAYE_LIBS.length; n++) {
-                    (function (lib) {
+                    (function (lib, tabIndex) {
                         var id = "baye/" + lib.id;
-                        $("<button type=\"button\" class=\"slot-chip game-chip\" data-game-id=\"" + id +
-                          "\">" + lib.name + "</button>")
-                            .attr("aria-checked", id === profile.id ? "true" : "false")
+                        var active = id === profile.id;
+                        $("<button type=\"button\" class=\"backup-version-tab\" role=\"tab\" data-game-id=\"" +
+                          id + "\">" + lib.name + "</button>")
+                            .attr("id", "version-tab-" + lib.id)
+                            .attr("aria-selected", active ? "true" : "false")
+                            .attr("tabindex", active ? "0" : "-1")
                             .toggleClass("is-active", id === profile.id)
                             .on("click", function () { pickProfile(id); })
+                            .on("keydown", function (event) {
+                                if (event.key === "ArrowLeft") {
+                                    event.preventDefault();
+                                    moveVersionFocus(tabIndex - 1);
+                                } else if (event.key === "ArrowRight") {
+                                    event.preventDefault();
+                                    moveVersionFocus(tabIndex + 1);
+                                } else if (event.key === "Home") {
+                                    event.preventDefault();
+                                    moveVersionFocus(0);
+                                } else if (event.key === "End") {
+                                    event.preventDefault();
+                                    moveVersionFocus(B.BAYE_LIBS.length - 1);
+                                }
+                            })
                             .appendTo($picker);
-                    })(B.BAYE_LIBS[n]);
+                    })(B.BAYE_LIBS[n], n);
                 }
             }
 
@@ -256,12 +265,9 @@
                 document.title = "备份 / 还原 · " + profile.name;
                 $("#page-game-name").text(profile.name);
                 $("#lib-name").text(targetLabel()).show();
-                $("#game-picker-title").text("选择版本");
-                $("#game-section .section-heading span").text("VERSIONS");
-                $("#game-section").show();
                 renderVersionPicker();
-                renderExport();
-                renderSlotPicker();
+                $("#save-panel").attr("aria-labelledby", "version-tab-" + profile.id.split("/")[1]);
+                renderSlots();
             }
 
             // 初始化页面文案
@@ -269,9 +275,8 @@
             $("#portal-no-footer").text(portalNo);
             render();
 
-            // 文件输入与还原按钮仍使用内联事件。
+            // 隐藏文件输入由每张槽位卡的「还原」按钮触发。
             window.onFilePicked = onFilePicked;
-            window.doRestore = doRestore;
         });
     </script>
 </head>
@@ -293,45 +298,23 @@
             <p id="result-help" class="lcd-result-help"><span id="page-game-name">游戏</span> · 导出存档槽为文件备份，或上传文件还原</p>
         </section>
 
-        <section class="game-section" id="game-section" aria-labelledby="game-picker-title" hidden>
+        <section class="game-section" aria-labelledby="version-picker-title">
             <div class="section-heading">
-                <h2 id="game-picker-title">选择版本</h2>
+                <h2 id="version-picker-title">选择版本</h2>
                 <span>VERSIONS</span>
             </div>
-            <div class="slot-picker" id="game-picker" role="radiogroup" aria-label="目标版本"></div>
+            <div class="backup-version-tabs" id="version-tabs" role="tablist" aria-label="三国霸业版本"></div>
         </section>
 
-        <section class="game-section" aria-labelledby="backup-title">
+        <section class="game-section" id="save-panel" role="tabpanel" aria-labelledby="version-tab-SGBY">
             <div class="section-heading">
-                <h2 id="backup-title">备份存档</h2>
-                <span id="export-slot-count">3 SLOTS</span>
+                <h2>存档槽</h2>
+                <span>3 SLOTS</span>
             </div>
-            <div class="save-grid" id="export-grid"></div>
-        </section>
-
-        <section class="game-section" aria-labelledby="restore-title">
-            <div class="section-heading">
-                <h2 id="restore-title">还原存档</h2>
-                <span>UPLOAD</span>
-            </div>
-
-            <label class="game-card game-link save-action upload-card">
-                <span class="game-key" aria-hidden="true">↑</span>
-                <span class="game-copy">
-                    <strong>选择存档文件</strong>
-                    <small id="restore-file-name">点击选取 .json 备份文件</small>
-                </span>
-                <span class="game-arrow" aria-hidden="true">›</span>
-                <input type="file" id="restore-file" hidden
-                       accept=".json,application/json"
-                       onclick="this.value=null" onchange="onFilePicked(this)">
-            </label>
-
-            <p class="slot-label">还原到目标槽</p>
-            <div class="slot-picker" id="slot-picker" role="radiogroup" aria-label="目标存档槽"></div>
-
-            <button type="button" class="restore-btn" id="restore-btn" disabled
-                    onclick="doRestore()">还原存档</button>
+            <p class="backup-slot-help">每个槽位可单独下载备份，或从 .json 文件直接还原。</p>
+            <div class="backup-slot-grid" id="save-slot-grid" aria-live="polite"></div>
+            <input type="file" id="restore-file" class="sr-only"
+                   accept=".json,application/json" onchange="onFilePicked(this)">
         </section>
 
         <footer class="device-footer utility-footer">
