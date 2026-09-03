@@ -46,6 +46,13 @@ test("slotKey, autosave/recovery keys and nativeSaveKey format and range", () =>
     assert.equal(G.autosaveKey("fmj-1.0"), "sav/autosave-fmj-1.0");
     assert.equal(G.recoveryCheckpointKey("fmj-1.0"), "sav/autosave-fmj-1.0.checkpoint");
     assert.equal(G.recoveryCheckpointBackupKey("fmj-1.0"), "sav/autosave-fmj-1.0.checkpoint.prev");
+    assert.deepEqual(G.resumeSnapshotKeys("fmj-1.0"), [
+        "sav/autosave-fmj-1.0",
+        "sav/autosave-fmj-1.0.ts",
+        "sav/autosave-fmj-1.0.checkpoint",
+        "sav/autosave-fmj-1.0.checkpoint.ts",
+        "sav/autosave-fmj-1.0.checkpoint.prev",
+    ]);
     assert.equal(G.nativeSaveKey("fmj-1.0"), "sav/native-fmj-1.0");
     assert.throws(() => G.slotKey("fmj-1.0", 3));
     assert.throws(() => G.slotKey("fmj-1.0", -1));
@@ -98,6 +105,22 @@ test("恢复检查点在按键送入 wasm 前捕获", () => {
     const keydownAt = sendBody.indexOf("Module._web_keydown(key)");
     assert.ok(checkpointAt >= 0, "每次模拟器按键前必须尝试建立检查点");
     assert.ok(keydownAt > checkpointAt, "检查点必须早于可能触发死循环的 wasm 按键");
+});
+
+test("重置游戏会清除整机续玩快照，并阻止 pagehide 将其写回", () => {
+    const resetStart = glueSource.indexOf("function resetCurrentGame()");
+    const launchStart = glueSource.indexOf("function launchHome()", resetStart);
+    assert.ok(resetStart >= 0 && launchStart > resetStart);
+    const resetBody = glueSource.slice(resetStart, launchStart);
+    assert.match(resetBody, /suppressSnapshotAutosave\s*=\s*true/);
+    assert.match(resetBody, /clearResumeSnapshots\(currentRom\.id\)/);
+    assert.match(resetBody, /persistNativeSave\(\)/, "重置不应删除游戏自己的 Flash 存档");
+    assert.match(resetBody, /location\.reload\(\)/);
+
+    const autoSaveStart = glueSource.indexOf("function handleAutoSave()");
+    const dragStart = glueSource.indexOf("/* ---------- Drag & drop", autoSaveStart);
+    const autoSaveBody = glueSource.slice(autoSaveStart, dragStart);
+    assert.match(autoSaveBody, /if \(!suppressSnapshotAutosave\) autosaveCurrent\(\)/);
 });
 
 test("native Flash saves mirror synchronously before the async IndexedDB write", () => {

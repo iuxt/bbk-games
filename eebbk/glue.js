@@ -69,6 +69,18 @@
     return autosaveKey(storageId) + '.checkpoint.prev';
   }
 
+  function resumeSnapshotKeys(storageId) {
+    const autosave = autosaveKey(storageId);
+    const checkpoint = recoveryCheckpointKey(storageId);
+    return [
+      autosave,
+      autosave + '.ts',
+      checkpoint,
+      checkpoint + '.ts',
+      recoveryCheckpointBackupKey(storageId)
+    ];
+  }
+
   /* 普通重新打开时优先恢复离开页面时的精确快照。浏览器刷新往往是用户在
      游戏死循环后的自救操作，此时不能再读取那份死循环快照，而是回退到按键前的
      检查点。备用检查点比最新检查点更保守：即使用户卡死后又试按了一次键，
@@ -253,6 +265,7 @@
     autosaveKey: autosaveKey,
     recoveryCheckpointKey: recoveryCheckpointKey,
     recoveryCheckpointBackupKey: recoveryCheckpointBackupKey,
+    resumeSnapshotKeys: resumeSnapshotKeys,
     chooseLaunchSnapshot: chooseLaunchSnapshot,
     nativeSaveKey: nativeSaveKey,
     buildSavePayload: buildSavePayload,
@@ -293,6 +306,7 @@
   const fileInput        = document.getElementById('file-input');
   const saveManager      = document.getElementById('save-manager');
   const saveManagerOpen  = document.getElementById('save-manager-open');
+  const resetGameBtn     = document.getElementById('reset-game-btn');
   const saveManagerClose = document.getElementById('save-manager-close');
   const saveGameName     = document.getElementById('save-game-name');
   const saveSlotList     = document.getElementById('save-slot-list');
@@ -316,6 +330,7 @@
   let recoveryHasRendered = false;
   let recoveryCheckpointReady = false;
   let recoveryNeedsInitialCheckpoint = false;
+  let suppressSnapshotAutosave = false;
   let speedRate = 1;
 
   const BBK = global.BBK4980Glue;   // 复用已导出的纯函数
@@ -474,6 +489,7 @@
     writeLS('currentRomName', currentRom.name);
     currentGameName.textContent = currentRom.name;
     saveManagerOpen.disabled = !BBK.saveManagerEnabledFor(currentRom.id);
+    resetGameBtn.disabled = !BBK.shouldAutosave(currentRom.id);
     syncTouchpadMode();
   }
 
@@ -690,6 +706,22 @@
     recoveryHasRendered = false;
     recoveryCheckpointReady = false;
     recoveryNeedsInitialCheckpoint = !!romId && !readLS(BBK.recoveryCheckpointKey(romId));
+  }
+
+  function clearResumeSnapshots(romId) {
+    BBK.resumeSnapshotKeys(romId).forEach(removeLS);
+  }
+
+  function resetCurrentGame() {
+    if (!BBK.shouldAutosave(currentRom.id)) return;
+    if (!global.confirm('重置当前游戏？\n\n将清除自动续玩的运行进度并重新启动游戏；游戏内存档和“存档管理”中的三个槽位会保留。')) return;
+    /* pagehide 会执行自动保存；先设置抑制标记，避免刚清掉的整机快照在
+       reload 前又被写回。原生 Flash 仍同步写入 localStorage 镜像。 */
+    suppressSnapshotAutosave = true;
+    pauseEmulator();
+    clearResumeSnapshots(currentRom.id);
+    persistNativeSave();
+    location.reload();
   }
 
   function sendEmulatorKey(key) {
@@ -1394,6 +1426,7 @@
   });
 
   saveManagerOpen.addEventListener('click', openSaveManager);
+  resetGameBtn.addEventListener('click', resetCurrentGame);
   saveManagerClose.addEventListener('click', closeSaveManager);
   saveManager.addEventListener('click', function (e) {
     if (e.target === e.currentTarget) closeSaveManager();
@@ -1462,7 +1495,7 @@
 
   function handleAutoSave() {
     if (!gameLoaded || exited) return;
-    autosaveCurrent();
+    if (!suppressSnapshotAutosave) autosaveCurrent();
     persistNativeSave();
   }
   document.addEventListener('visibilitychange', function () {

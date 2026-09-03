@@ -359,6 +359,7 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertIn('id="game-picker-use"', markup)
         self.assertIn('id="save-manager"', markup)
         self.assertIn('id="save-manager-open"', markup)
+        self.assertIn('id="reset-game-btn"', markup)
         self.assertIn('id="save-slot-list"', markup)
         self.assertIn('id="file-input"', markup)
         self.assertIn('id="save-input"', markup)
@@ -385,11 +386,11 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         css = (ROOT / "eebbk" / "dialog.css").read_text(encoding="utf-8")
         self.assertIn(".rom-tag", css, "dialog.css 缺少 .rom-tag 系统标签样式")
 
-    def test_mobile_speed_control_uses_the_three_column_footer_layout(self):
+    def test_mobile_footer_uses_two_columns_for_four_controls(self):
         style_css = (ROOT / "eebbk" / "style.css").read_text(encoding="utf-8")
         dialog_css = (ROOT / "eebbk" / "dialog.css").read_text(encoding="utf-8")
         self.assertIn(
-            "grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(0, 1fr))",
+            "grid-template-columns: repeat(2, minmax(0, 1fr))",
             style_css,
         )
         self.assertNotIn(
