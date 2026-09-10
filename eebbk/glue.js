@@ -392,6 +392,10 @@
   const dictRow          = document.getElementById('dict-row');
   const gameRow          = document.getElementById('game-row');
   const speedSelect      = document.getElementById('speed-rate');
+  const interfaceToggle  = document.getElementById('interface-mode');
+  const gameScreenHost   = document.getElementById('game-screen-host');
+  const realisticDevice  = document.getElementById('realistic-device');
+  const devicePowerStatus = document.getElementById('device-power-status');
 
   /* ---------- state ---------- */
   let Module = null;
@@ -399,7 +403,9 @@
   let runtimeScriptPromise = null;
   let running = false;   /* rAF loop active */
   let started = false;   /* emulator powered on (home UI or game) */
-  let fullKeyboard = false;
+  let deviceAsleep = false;
+  let powerStarting = false;
+  let deviceSkin = null;
   let gameLoaded = false;
   let exited = false;    /* runtime has exited (power-off / fatal error) */
   let animId = 0;
@@ -569,11 +575,11 @@
     syncTouchpadMode();
   }
 
-  /* 全键盘始终提供输入法，简版保留词典 / 游戏各自的附加键。 */
+  /* 游戏界面保留词典 / 游戏各自的附加键。 */
   function syncTouchpadMode() {
     const dictMode = BBK.isDictionarySystem(currentRom.id);
-    if (dictRow) dictRow.hidden = !dictMode && !fullKeyboard;
-    if (gameRow) gameRow.hidden = dictMode || fullKeyboard;
+    if (dictRow) dictRow.hidden = !dictMode;
+    if (gameRow) gameRow.hidden = dictMode;
   }
 
   function restoreCurrentRomFromStorage() {
@@ -1135,7 +1141,7 @@
   }
 
   function resumeEmulator() {
-    if (!started || exited || running || dialogIsOpen()) return;
+    if (!started || exited || deviceAsleep || running || dialogIsOpen()) return;
     lastFrameTs = 0;
     frameAcc = 0;
     running = true;
@@ -1153,6 +1159,38 @@
     placeholder.classList.remove('show');
     canvas.classList.add('show');
     resumeEmulator();
+  }
+
+  /* wasm 的 0 号键不触发硬件电源：前端用熄屏/暂停保留内存，再次开机继续。 */
+  function toggleDevicePower() {
+    if (dialogIsOpen() || powerStarting) return;
+    if (exited) { location.reload(); return; }
+    if (!started) {
+      powerStarting = true;
+      ensureModule().then(function() {
+        startEmulator();
+      }).catch(function() {}).finally(function() { powerStarting = false; });
+      return;
+    }
+    deviceAsleep = !deviceAsleep;
+    wrapper.classList.toggle('is-asleep', deviceAsleep);
+    devicePowerStatus.textContent = deviceAsleep ? '设备已关机，按开关继续' : '设备已开机';
+    clearPressedKeys();
+    if (deviceAsleep) {
+      pauseEmulator();
+      handleAutoSave();
+    } else {
+      resumeEmulator();
+    }
+  }
+
+  function resetDevice() {
+    if (dialogIsOpen()) return;
+    if (BBK.shouldAutosave(currentRom.id)) {
+      resetCurrentGame();
+    } else if (global.confirm('重新启动电子词典？')) {
+      location.reload();
+    }
   }
 
   /* ---------- Main loop ----------
@@ -1538,19 +1576,26 @@
     reader.readAsArrayBuffer(f);
   });
 
-  /* ---------- Mobile keyboard layout ---------- */
-  const fullKeyboardPanel = document.getElementById('full-keyboard');
-  const keyboardLayoutButtons = document.querySelectorAll('[data-keyboard-layout]');
-  keyboardLayoutButtons.forEach(function(button) {
-    button.addEventListener('click', function() {
-      fullKeyboard = button.dataset.keyboardLayout === 'full';
-      fullKeyboardPanel.hidden = !fullKeyboard;
-      keyboardLayoutButtons.forEach(function(item) {
-        item.setAttribute('aria-pressed', String(item === button));
-      });
-      syncTouchpadMode();
-      clearPressedKeys();
-    });
+  /* ---------- Display settings ---------- */
+  function setInterfaceMode(value) {
+    const realistic = value === 'realistic';
+    interfaceToggle.checked = realistic;
+    document.documentElement.classList.toggle('realistic-interface', realistic);
+    if (realistic) {
+      if (!deviceSkin) deviceSkin = global.BBK4980Skin.mount(realisticDevice);
+      deviceSkin.layer.appendChild(wrapper);
+    } else {
+      gameScreenHost.appendChild(wrapper);
+    }
+    gameScreenHost.hidden = realistic;
+    realisticDevice.hidden = !realistic;
+    touchpad.hidden = realistic;
+    if (realistic) deviceSkin.show();
+    writeLS('bbk4980.interfaceMode', realistic ? 'realistic' : 'game');
+    clearPressedKeys();
+  }
+  interfaceToggle.addEventListener('change', function() {
+    setInterfaceMode(interfaceToggle.checked ? 'realistic' : 'game');
   });
 
   /* ---------- Touchpad + physical keyboard ---------- */
@@ -1558,13 +1603,15 @@
   const pressedKeys = new Map();
 
   function canAcceptKey() {
-    return started && !exited && gamePicker.hidden && saveManager.hidden;
+    return started && !exited && !deviceAsleep && gamePicker.hidden && saveManager.hidden;
   }
 
   function syncPressedKeys() {
     const activeKeys = new Set(pressedKeys.values());
-    touchpad.querySelectorAll('[data-key]').forEach(function(btn) {
-      btn.classList.toggle('is-pressed', activeKeys.has(Number(btn.dataset.key)));
+    [touchpad, realisticDevice].forEach(function(surface) {
+      surface.querySelectorAll('[data-key]').forEach(function(btn) {
+        btn.classList.toggle('is-pressed', activeKeys.has(Number(btn.dataset.key)));
+      });
     });
   }
 
@@ -1575,24 +1622,38 @@
 
   /* click 同时支持触屏、鼠标及按钮获得焦点后的 Enter / Space 激活。
      内核按键是事件型（无 keyup），一次激活只发送一次，不模拟长按连发。 */
-  touchpad.addEventListener('click', function(e) {
-    if (!canAcceptKey()) return;
-    const btn = e.target.closest('.btn');
-    if (!btn || !touchpad.contains(btn)) return;
-    const key = Number(btn.dataset.key);
-    if (!Number.isInteger(key) || key <= 0 || key > 0x3b) return;
-    sendEmulatorKey(key);
-    // 指针点击后移开焦点，让下一次 Enter 恢复为模拟器的输入键。
-    if (e.detail > 0) btn.blur();
+  [touchpad, realisticDevice].forEach(function(surface) {
+    surface.addEventListener('click', function(e) {
+      const btn = e.target.closest('[data-key], [data-device-action]');
+      if (!btn || !surface.contains(btn)) return;
+      if (btn.dataset.deviceAction === 'power') {
+        toggleDevicePower();
+      } else if (btn.dataset.deviceAction === 'reset') {
+        resetDevice();
+      } else {
+        if (!canAcceptKey()) return;
+        const key = Number(btn.dataset.key);
+        if (!Number.isInteger(key) || key <= 0 || key > 0x3b) return;
+        sendEmulatorKey(key);
+      }
+      // 指针点击后移开焦点，让下一次 Enter 恢复为模拟器的输入键。
+      if (e.detail > 0) btn.blur();
+    });
   });
 
   document.addEventListener('keydown', function(e) {
-    if (!canAcceptKey() || e.defaultPrevented || e.isComposing || e.keyCode === 229) return;
+    if (e.defaultPrevented || e.isComposing || e.keyCode === 229) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
     const target = e.target;
     if (target && (target.isContentEditable || target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))) return;
     // 原生按钮与链接的 Enter / Space 由浏览器处理，避免一次操作触发两个键。
     if ((e.key === 'Enter' || e.key === ' ') && target && target.closest('button, a, summary')) return;
+    if (e.key === 'F1') {
+      e.preventDefault();
+      if (!e.repeat) toggleDevicePower();
+      return;
+    }
+    if (!canAcceptKey()) return;
     const key = pcKeyToEmuKey(e);
     if (key !== undefined && key !== 0) {
       e.preventDefault();
@@ -1613,6 +1674,7 @@
 
   /* ---------- Bootstrap ----------
      目录先独立加载；仅当需要进入词典或 ROM 时才下载核心、wasm 与 4 MiB 固件。 */
+  setInterfaceMode(readLS('bbk4980.interfaceMode'));
   setSpeedRate(readLS(SPEED_STORAGE_KEY), false);
   restoreCurrentRomFromStorage();
   syncTouchpadMode();

@@ -21,6 +21,8 @@ const emuRuntime = [
     "style.css",
     "dialog.css",
     "glue.js",
+    "device-skin.js",
+    "assets/longman-4980.png",
     "gam4980.js",
     "gam4980.wasm",
     "gam4980.data",
@@ -53,6 +55,7 @@ for (const directory of directories) {
     const emuOut = path.join(client, "eebbk");
     await mkdir(emuOut, { recursive: true });
     for (const rel of emuRuntime) {
+        await mkdir(path.dirname(path.join(emuOut, rel)), { recursive: true });
         await cp(path.join(emuSrc, rel), path.join(emuOut, rel)).catch(() => {
             throw new Error(
                 `eebbk 运行时文件缺失：eebbk/${rel}\n` +

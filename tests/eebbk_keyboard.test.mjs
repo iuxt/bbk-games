@@ -4,8 +4,10 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 await import('../eebbk/glue.js');
+await import('../eebbk/device-skin.js');
 const { pcKeyToEmuKey } = globalThis.BBK4980Glue;
 const source = fs.readFileSync(new URL('../eebbk/glue.js', import.meta.url), 'utf8');
+const skinCss = fs.readFileSync(new URL('../eebbk/style.css', import.meta.url), 'utf8');
 
 test('physical shortcuts match the seven device function keys', () => {
   const keys = {
@@ -34,10 +36,15 @@ function inputHarness() {
   const touchpad = Object.assign(events(), {
     querySelectorAll: () => [button], contains: node => node === button,
   });
+  const realisticDevice = Object.assign(events(), {
+    querySelectorAll: () => [button], contains: node => node === button,
+  });
   const document = Object.assign(events(), { getElementById: () => touchpad });
   const sent = [];
   const context = {
-    global: events(), document, started: true, exited: false,
+    global: events(), document, realisticDevice, started: true, exited: false, deviceAsleep: false,
+    toggleDevicePower() { context.deviceAsleep = !context.deviceAsleep; },
+    resetDevice() {},
     gamePicker: { hidden: true }, saveManager: { hidden: true },
     sendEmulatorKey: key => sent.push(key), pcKeyToEmuKey,
   };
@@ -53,7 +60,7 @@ function inputHarness() {
     document.handlers.keydown(event);
     return event;
   };
-  return { context, sent, pressed, button, touchpad, document, keydown };
+  return { context, sent, pressed, button, touchpad, realisticDevice, document, keydown };
 }
 
 test('keyboard respects dialogs, native controls and shortcuts, and clears pressed state', () => {
@@ -95,52 +102,115 @@ test('a keycap label click sends one device key, including keyboard activation',
   assert.deepEqual(h.sent, [41, 41]);
 });
 
-test('full keyboard covers every supported non-power device key', () => {
-  const markup = fs.readFileSync(new URL('../eebbk/index.html', import.meta.url), 'utf8');
-  const codes = new Set([...markup.matchAll(/data-key="(\d+)"/g)].map(match => Number(match[1])));
-  assert.deepEqual([...codes].sort((a, b) => a - b), Array.from({ length: 59 }, (_, i) => i + 1));
-  for (const [, code, label] of markup.matchAll(/data-key="(\d+)" aria-label="([A-Z0-9])"/g)) {
-    assert.equal(pcKeyToEmuKey({ key: label }), Number(code), label);
+test('photo keyboard covers all sixty keys and stays inside the device without overlapping keys', () => {
+  const skin = globalThis.BBK4980Skin;
+  assert.deepEqual(skin.keys.map(key => key.code).sort((a, b) => a - b), Array.from({ length: 60 }, (_, i) => i));
+  for (const key of skin.keys) {
+    if (/^[A-Z0-9]$/.test(key.label)) assert.equal(pcKeyToEmuKey({ key: key.label }), key.code);
+    const box = skin.position(key.rect);
+    assert.ok(box.left >= 0 && box.top >= 0);
+    assert.ok(box.left + box.width <= skin.photo.crop.width);
+    assert.ok(box.top + box.height <= skin.photo.crop.height);
+    for (const other of skin.keys.filter(other => other.code > key.code)) {
+      const b = skin.position(other.rect);
+      const overlap = Math.min(box.left + box.width, b.left + b.width) > Math.max(box.left, b.left)
+        && Math.min(box.top + box.height, b.top + b.height) > Math.max(box.top, b.top);
+      assert.equal(overlap, false, `${key.label} overlaps ${other.label}`);
+    }
   }
+  // Specific landmarks from the supplied photo, rather than a generic QWERTY layout.
+  const byCode = code => skin.keys.find(key => key.code === code).rect;
+  assert.ok(byCode(54)[0] > byCode(51)[0], 'space is to the right of P');
+  assert.ok(byCode(58)[0] > byCode(53)[0], 'page up is to the right of up');
+  assert.ok(byCode(59)[0] > byCode(56)[0], 'page down is to the right of down');
+  assert.ok(byCode(47)[2] > byCode(46)[2], 'input uses the wide bottom key');
 });
 
-test('mobile layout switch preserves dictionary/game extras without sending emulator input', () => {
-  const buttons = ['game', 'full'].map(layout => ({
-    dataset: { keyboardLayout: layout },
-    addEventListener(name, fn) { this.click = fn; },
-    setAttribute(name, value) { this[name] = value; },
-  }));
-  const fullPanel = { hidden: true };
+test('photo leveling keeps the image and key hotspots on the same rotated plane', () => {
+  const angle = skinCss.match(/--photo-leveling-rotation:\s*([^;]+);/)?.[1].trim();
+  assert.ok(angle && angle !== '0deg', 'the supplied photo needs a small leveling rotation');
+  for (const selector of ['.device-photo', '.device-hotspots']) {
+    const block = skinCss.match(new RegExp(selector.replace('.', '\\.') + '\\s*\\{([\\s\\S]*?)\\}'))?.[1] || '';
+    assert.match(block, /transform:\s*rotate\(var\(--photo-leveling-rotation\)\)/);
+  }
+  assert.match(skinCss, /\.device-hotspots[\s\S]*?transform-origin:\s*339\.5px 226px/);
+});
+
+test('settings move the same screen between interfaces, persist selection and mount the photo once', () => {
+  const storage = new Map();
+  const wrapper = { canvas: {} };
+  const container = () => ({ appendChild(child) { child.parent = this; } });
+  const gameScreenHost = container();
+  const layer = container();
+  let mounts = 0;
   const context = vm.createContext({
-    fullKeyboard: false,
-    currentRom: { id: 'game' },
-    BBK: globalThis.BBK4980Glue,
-    dictRow: {}, gameRow: {},
-    document: {
-      getElementById: () => fullPanel,
-      querySelectorAll: () => buttons,
-    },
-    clearPressedKeys() {},
-    sendEmulatorKey() { assert.fail('layout switching must not send a device key'); },
+    interfaceToggle: { checked: false, addEventListener(name, fn) { this.change = fn; } },
+    document: { documentElement: { classList: { toggle() {} } } },
+    deviceSkin: null, wrapper, gameScreenHost, realisticDevice: {}, touchpad: {},
+    global: { BBK4980Skin: { mount() { mounts++; return { layer, show() {} }; } } },
+    writeLS: (key, value) => storage.set(key, value), clearPressedKeys() {},
   });
-  const syncFunction = source.match(/  function syncTouchpadMode\(\) \{[\s\S]*?\n  \}/)[0];
-  vm.runInContext(syncFunction + source.slice(
-    source.indexOf('  /* ---------- Mobile keyboard layout ---------- */'),
+  vm.runInContext(source.slice(
+    source.indexOf('  /* ---------- Display settings ---------- */'),
     source.indexOf('  /* ---------- Touchpad + physical keyboard ---------- */'),
   ), context);
-  buttons[1].click();
-  assert.equal(fullPanel.hidden, false);
-  assert.equal(buttons[1]['aria-pressed'], 'true');
-  assert.equal(context.dictRow.hidden, false);
-  assert.equal(context.gameRow.hidden, true);
-  buttons[0].click();
-  assert.equal(fullPanel.hidden, true);
-  assert.equal(buttons[1]['aria-pressed'], 'false');
-  assert.equal(context.dictRow.hidden, true);
-  assert.equal(context.gameRow.hidden, false);
-  context.currentRom.id = globalThis.BBK4980Glue.HOME_ROM_ID;
-  buttons[1].click();
-  buttons[0].click();
-  assert.equal(context.dictRow.hidden, false);
-  assert.equal(context.gameRow.hidden, true);
+  vm.runInContext("setInterfaceMode('');", context);
+  assert.equal(context.interfaceToggle.checked, false);
+  assert.equal(context.realisticDevice.hidden, true);
+  assert.equal(wrapper.parent, gameScreenHost);
+  for (let i = 0; i < 2; i++) {
+    context.interfaceToggle.checked = true;
+    context.interfaceToggle.change();
+    assert.equal(wrapper.parent, layer);
+    assert.equal(context.touchpad.hidden, true);
+    assert.equal(context.realisticDevice.hidden, false);
+    assert.equal(storage.get('bbk4980.interfaceMode'), 'realistic');
+    context.interfaceToggle.checked = false;
+    context.interfaceToggle.change();
+    assert.equal(wrapper.parent, gameScreenHost);
+    assert.equal(context.touchpad.hidden, false);
+  }
+  assert.equal(mounts, 1);
+});
+
+test('photo keys send the same input and F1 bypasses the asleep input gate without repeating', () => {
+  const h = inputHarness();
+  h.realisticDevice.handlers.click({ target: { closest: () => h.button }, detail: 1 });
+  assert.deepEqual(h.sent, [41]);
+  h.keydown({ key: 'F1' });
+  assert.equal(h.context.deviceAsleep, true);
+  h.keydown({ key: 'F1', repeat: true });
+  assert.equal(h.context.deviceAsleep, true);
+  h.keydown();
+  assert.deepEqual(h.sent, [41]);
+  h.button.dataset.deviceAction = 'power';
+  h.button.dataset.key = '0';
+  h.realisticDevice.handlers.click({ target: { closest: () => h.button }, detail: 1 });
+  assert.equal(h.context.deviceAsleep, false);
+  assert.deepEqual(h.sent, [41], 'power never sends ignored key zero to wasm');
+});
+
+test('power button suspends and resumes the same runtime and respects open dialogs', () => {
+  const calls = [];
+  let blank = false;
+  const context = vm.createContext({
+    started: true, exited: false, deviceAsleep: false, powerStarting: false,
+    dialogIsOpen: () => false,
+    wrapper: { classList: { toggle(name, value) { blank = value; } } },
+    devicePowerStatus: {}, clearPressedKeys() {},
+    pauseEmulator() { calls.push('pause'); },
+    resumeEmulator() { calls.push('resume'); },
+    handleAutoSave() { calls.push('save'); },
+  });
+  vm.runInContext(source.slice(source.indexOf('  function toggleDevicePower()'), source.indexOf('  function resetDevice()')), context);
+  vm.runInContext('toggleDevicePower()', context);
+  assert.equal(blank, true);
+  assert.equal(context.started, true);
+  assert.deepEqual(calls, ['pause', 'save']);
+  vm.runInContext('toggleDevicePower()', context);
+  assert.equal(blank, false);
+  assert.deepEqual(calls, ['pause', 'save', 'resume']);
+  context.dialogIsOpen = () => true;
+  vm.runInContext('toggleDevicePower()', context);
+  assert.equal(context.deviceAsleep, false);
 });

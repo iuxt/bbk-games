@@ -386,7 +386,7 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         css = (ROOT / "eebbk" / "dialog.css").read_text(encoding="utf-8")
         self.assertIn(".rom-tag", css, "dialog.css 缺少 .rom-tag 系统标签样式")
 
-    def test_mobile_footer_uses_two_columns_for_four_controls(self):
+    def test_mobile_footer_uses_two_columns_for_grouped_controls(self):
         style_css = (ROOT / "eebbk" / "style.css").read_text(encoding="utf-8")
         dialog_css = (ROOT / "eebbk" / "dialog.css").read_text(encoding="utf-8")
         self.assertIn(
@@ -398,6 +398,15 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
             dialog_css,
             "dialog.css 不应覆盖模拟器底部速度/游戏/存档三列布局",
         )
+
+    def test_display_mode_is_a_switch_inside_the_control_bank(self):
+        markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")
+        footer = markup[markup.index('<footer class="device-footer utility-footer">'):markup.index("</footer>")]
+        self.assertIn('id="interface-mode" type="checkbox" role="switch"', footer)
+        self.assertIn('class="switch-track"', footer)
+        self.assertNotIn('class="footer-action control-switch', footer)
+        self.assertNotIn('class="speed-control control-switch', footer)
+        self.assertNotIn('id="display-settings"', markup)
 
     def test_save_slot_rows_never_shrink_below_content(self):
         # 回归：WebKit/Safari 在高度受限的网格里会把 auto 行压到卡片 min-height
