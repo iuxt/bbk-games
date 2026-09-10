@@ -50,11 +50,56 @@
 
 #restart-btn:active { transform: translateY(2px); }
 
-/* 游戏简版：功能区、十字方向区与输入区，桌面也可点击。 */
+/* 桌面仅显示按键说明，虚拟键盘在窄屏 / 触屏上提供两种布局。 */
 #touchpad {
+    display: none;
     max-width: 460px;
     margin: 14px auto 0;
     touch-action: pan-y;
+}
+
+#touchpad .keyboard-layout-switch {
+    display: flex;
+    gap: 7px;
+    margin-bottom: 12px;
+}
+
+#touchpad .keyboard-layout-switch button {
+    flex: 1;
+    min-height: 44px;
+    border: 1px solid var(--key-edge);
+    border-radius: 8px;
+    color: var(--lcd-ink);
+    background: var(--paper);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+#touchpad .keyboard-layout-switch button[aria-pressed="true"] {
+    color: #eef0e7;
+    background: var(--key);
+}
+
+#touchpad .full-keyboard { margin-top: 7px; }
+
+#touchpad .typing-row {
+    display: grid;
+    grid-template-columns: repeat(var(--key-count), minmax(0, 1fr));
+    gap: 3px;
+    margin-top: 7px;
+}
+
+#touchpad .typing-row .btn {
+    min-height: 44px;
+    padding-inline: 0;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+#touchpad .modifier-keys {
+    margin-top: 7px;
 }
 
 #touchpad .function-keys {
@@ -239,6 +284,8 @@
     }
 
     .desktop-controls { display: none; }
+
+    #touchpad { display: block; }
 
     .utility-footer {
         align-items: flex-start;

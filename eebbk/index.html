@@ -12,7 +12,7 @@
     <title>电子词典模拟器 — 步步高朗文4980</title>
     <link rel="icon" href="../favicon.png">
     <link rel="stylesheet" href="../css/portal.css?v=2">
-    <link rel="stylesheet" href="style.css?v=9">
+    <link rel="stylesheet" href="style.css?v=10">
     <link rel="stylesheet" href="dialog.css?v=8">
 </head>
 <body>
@@ -45,7 +45,11 @@
             </div>
         </section>
 
-        <div id="touchpad" aria-label="模拟器游戏按键">
+        <div id="touchpad" aria-label="模拟器虚拟键盘">
+            <div class="keyboard-layout-switch" role="group" aria-label="键盘布局">
+                <button type="button" data-keyboard-layout="game" aria-pressed="true" aria-controls="full-keyboard">游戏按键</button>
+                <button type="button" data-keyboard-layout="full" aria-pressed="false" aria-controls="full-keyboard">全键盘</button>
+            </div>
             <div class="function-keys" role="group" aria-label="功能键">
                 <button class="btn" type="button" data-key="1" aria-label="目录"><span>目录</span><small>F2</small></button>
                 <button class="btn" type="button" data-key="41" aria-label="帮助"><span>帮助</span><small>F9</small></button>
@@ -53,6 +57,63 @@
                 <button class="btn" type="button" data-key="43" aria-label="插入"><span>插入</span><small>F11 / Ins</small></button>
                 <button class="btn" type="button" data-key="44" aria-label="修改"><span>修改</span><small>F12</small></button>
                 <button class="btn" type="button" data-key="45" aria-label="删除"><span>删除</span><small>Del / ⌫</small></button>
+            </div>
+            <div id="full-keyboard" class="full-keyboard" role="group" aria-label="数字、字母与词典功能键" hidden>
+                <div class="function-keys">
+                    <button class="btn" type="button" data-key="2" aria-label="双解"><span>双解</span><small>F3</small></button>
+                    <button class="btn" type="button" data-key="3" aria-label="英汉"><span>英汉</span><small>F4</small></button>
+                    <button class="btn" type="button" data-key="4" aria-label="汉英"><span>汉英</span><small>F5</small></button>
+                    <button class="btn" type="button" data-key="5" aria-label="会话"><span>会话</span><small>F6</small></button>
+                    <button class="btn" type="button" data-key="6" aria-label="下载"><span>下载</span><small>F7</small></button>
+                    <button class="btn" type="button" data-key="7" aria-label="发音"><span>发音</span><small>F8</small></button>
+                </div>
+                <div class="typing-row" style="--key-count: 10">
+                    <button class="btn" type="button" data-key="8" aria-label="1">1</button>
+                    <button class="btn" type="button" data-key="9" aria-label="2">2</button>
+                    <button class="btn" type="button" data-key="10" aria-label="3">3</button>
+                    <button class="btn" type="button" data-key="11" aria-label="4">4</button>
+                    <button class="btn" type="button" data-key="12" aria-label="5">5</button>
+                    <button class="btn" type="button" data-key="13" aria-label="6">6</button>
+                    <button class="btn" type="button" data-key="14" aria-label="7">7</button>
+                    <button class="btn" type="button" data-key="15" aria-label="8">8</button>
+                    <button class="btn" type="button" data-key="48" aria-label="9">9</button>
+                    <button class="btn" type="button" data-key="49" aria-label="0">0</button>
+                </div>
+                <div class="typing-row" style="--key-count: 10">
+                    <button class="btn" type="button" data-key="16" aria-label="Q">Q</button>
+                    <button class="btn" type="button" data-key="17" aria-label="W">W</button>
+                    <button class="btn" type="button" data-key="18" aria-label="E">E</button>
+                    <button class="btn" type="button" data-key="19" aria-label="R">R</button>
+                    <button class="btn" type="button" data-key="20" aria-label="T">T</button>
+                    <button class="btn" type="button" data-key="21" aria-label="Y">Y</button>
+                    <button class="btn" type="button" data-key="22" aria-label="U">U</button>
+                    <button class="btn" type="button" data-key="23" aria-label="I">I</button>
+                    <button class="btn" type="button" data-key="50" aria-label="O">O</button>
+                    <button class="btn" type="button" data-key="51" aria-label="P">P</button>
+                </div>
+                <div class="typing-row" style="--key-count: 9">
+                    <button class="btn" type="button" data-key="24" aria-label="A">A</button>
+                    <button class="btn" type="button" data-key="25" aria-label="S">S</button>
+                    <button class="btn" type="button" data-key="26" aria-label="D">D</button>
+                    <button class="btn" type="button" data-key="27" aria-label="F">F</button>
+                    <button class="btn" type="button" data-key="28" aria-label="G">G</button>
+                    <button class="btn" type="button" data-key="29" aria-label="H">H</button>
+                    <button class="btn" type="button" data-key="30" aria-label="J">J</button>
+                    <button class="btn" type="button" data-key="31" aria-label="K">K</button>
+                    <button class="btn" type="button" data-key="52" aria-label="L">L</button>
+                </div>
+                <div class="typing-row" style="--key-count: 7">
+                    <button class="btn" type="button" data-key="33" aria-label="Z">Z</button>
+                    <button class="btn" type="button" data-key="34" aria-label="X">X</button>
+                    <button class="btn" type="button" data-key="35" aria-label="C">C</button>
+                    <button class="btn" type="button" data-key="36" aria-label="V">V</button>
+                    <button class="btn" type="button" data-key="37" aria-label="B">B</button>
+                    <button class="btn" type="button" data-key="38" aria-label="N">N</button>
+                    <button class="btn" type="button" data-key="39" aria-label="M">M</button>
+                </div>
+                <div class="modifier-keys">
+                    <button class="btn" type="button" data-key="40" aria-label="中英切换"><span>中／英</span><small>Shift</small></button>
+                </div>
             </div>
             <div class="navigation-keys">
                 <div class="direction-keys" role="group" aria-label="方向键">
@@ -197,6 +258,6 @@
         <p class="noscript-note">模拟器需要启用 JavaScript。<a href="../index.html">返回游戏中心</a></p>
     </noscript>
 
-    <script src="glue.js?v=20"></script>
+    <script src="glue.js?v=21"></script>
 </body>
 </html>

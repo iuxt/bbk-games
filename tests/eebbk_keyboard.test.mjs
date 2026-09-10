@@ -94,3 +94,53 @@ test('a keycap label click sends one device key, including keyboard activation',
   h.touchpad.handlers.click(event);
   assert.deepEqual(h.sent, [41, 41]);
 });
+
+test('full keyboard covers every supported non-power device key', () => {
+  const markup = fs.readFileSync(new URL('../eebbk/index.html', import.meta.url), 'utf8');
+  const codes = new Set([...markup.matchAll(/data-key="(\d+)"/g)].map(match => Number(match[1])));
+  assert.deepEqual([...codes].sort((a, b) => a - b), Array.from({ length: 59 }, (_, i) => i + 1));
+  for (const [, code, label] of markup.matchAll(/data-key="(\d+)" aria-label="([A-Z0-9])"/g)) {
+    assert.equal(pcKeyToEmuKey({ key: label }), Number(code), label);
+  }
+});
+
+test('mobile layout switch preserves dictionary/game extras without sending emulator input', () => {
+  const buttons = ['game', 'full'].map(layout => ({
+    dataset: { keyboardLayout: layout },
+    addEventListener(name, fn) { this.click = fn; },
+    setAttribute(name, value) { this[name] = value; },
+  }));
+  const fullPanel = { hidden: true };
+  const context = vm.createContext({
+    fullKeyboard: false,
+    currentRom: { id: 'game' },
+    BBK: globalThis.BBK4980Glue,
+    dictRow: {}, gameRow: {},
+    document: {
+      getElementById: () => fullPanel,
+      querySelectorAll: () => buttons,
+    },
+    clearPressedKeys() {},
+    sendEmulatorKey() { assert.fail('layout switching must not send a device key'); },
+  });
+  const syncFunction = source.match(/  function syncTouchpadMode\(\) \{[\s\S]*?\n  \}/)[0];
+  vm.runInContext(syncFunction + source.slice(
+    source.indexOf('  /* ---------- Mobile keyboard layout ---------- */'),
+    source.indexOf('  /* ---------- Touchpad + physical keyboard ---------- */'),
+  ), context);
+  buttons[1].click();
+  assert.equal(fullPanel.hidden, false);
+  assert.equal(buttons[1]['aria-pressed'], 'true');
+  assert.equal(context.dictRow.hidden, false);
+  assert.equal(context.gameRow.hidden, true);
+  buttons[0].click();
+  assert.equal(fullPanel.hidden, true);
+  assert.equal(buttons[1]['aria-pressed'], 'false');
+  assert.equal(context.dictRow.hidden, true);
+  assert.equal(context.gameRow.hidden, false);
+  context.currentRom.id = globalThis.BBK4980Glue.HOME_ROM_ID;
+  buttons[1].click();
+  buttons[0].click();
+  assert.equal(context.dictRow.hidden, false);
+  assert.equal(context.gameRow.hidden, true);
+});

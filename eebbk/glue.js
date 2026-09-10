@@ -399,6 +399,7 @@
   let runtimeScriptPromise = null;
   let running = false;   /* rAF loop active */
   let started = false;   /* emulator powered on (home UI or game) */
+  let fullKeyboard = false;
   let gameLoaded = false;
   let exited = false;    /* runtime has exited (power-off / fatal error) */
   let animId = 0;
@@ -568,11 +569,11 @@
     syncTouchpadMode();
   }
 
-  /* 功能键在两种模式都可用；底部附加键在输入法和游戏 R 键之间切换。 */
+  /* 全键盘始终提供输入法，简版保留词典 / 游戏各自的附加键。 */
   function syncTouchpadMode() {
     const dictMode = BBK.isDictionarySystem(currentRom.id);
-    if (dictRow) dictRow.hidden = !dictMode;
-    if (gameRow) gameRow.hidden = dictMode;
+    if (dictRow) dictRow.hidden = !dictMode && !fullKeyboard;
+    if (gameRow) gameRow.hidden = dictMode || fullKeyboard;
   }
 
   function restoreCurrentRomFromStorage() {
@@ -1535,6 +1536,21 @@
       }).catch(function () {});
     };
     reader.readAsArrayBuffer(f);
+  });
+
+  /* ---------- Mobile keyboard layout ---------- */
+  const fullKeyboardPanel = document.getElementById('full-keyboard');
+  const keyboardLayoutButtons = document.querySelectorAll('[data-keyboard-layout]');
+  keyboardLayoutButtons.forEach(function(button) {
+    button.addEventListener('click', function() {
+      fullKeyboard = button.dataset.keyboardLayout === 'full';
+      fullKeyboardPanel.hidden = !fullKeyboard;
+      keyboardLayoutButtons.forEach(function(item) {
+        item.setAttribute('aria-pressed', String(item === button));
+      });
+      syncTouchpadMode();
+      clearPressedKeys();
+    });
   });
 
   /* ---------- Touchpad + physical keyboard ---------- */
