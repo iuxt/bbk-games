@@ -254,7 +254,82 @@
     return { steps: steps, acc: acc };
   }
 
+  /* ---------- PC key → emulator key mapping ---------- */
+  const KEY_ENTER  = 0x2f;
+  const KEY_EXIT   = 0x2e;
+  const KEY_UP     = 0x35;
+  const KEY_DOWN   = 0x38;
+  const KEY_LEFT   = 0x37;
+  const KEY_RIGHT  = 0x39;
+  const KEY_PGUP   = 0x3a;
+  const KEY_PGDN   = 0x3b;
+  const KEY_HELP   = 0x29;
+  const KEY_SEARCH = 0x2a;
+  const KEY_INSERT = 0x2b;
+  const KEY_MODIFY = 0x2c;
+  const KEY_DEL    = 0x2d;
+  const KEY_SPACE  = 0x36;
+  const KEY_SHIFT  = 0x28;
+  const KEY_INPUT  = 0x20;
+
+  const KEY_ON_OFF    = 0x00;
+  const KEY_HOME_MENU = 0x01;
+  const KEY_EC_SJ     = 0x02;
+  const KEY_EC_SW     = 0x03;
+  const KEY_CE        = 0x04;
+  const KEY_DLG       = 0x05;
+  const KEY_DOWNLOAD  = 0x06;
+  const KEY_SPK       = 0x07;
+
+  function letterKey(ch) {
+    if (typeof ch !== 'string' || ch.length !== 1) return 0;
+    const base = ch.toUpperCase().charCodeAt(0);
+    if (base >= 65 && base <= 90) {
+      const map = [0x18,0x25,0x23,0x1a,0x12,0x1b,0x1c,0x1d,  // A-H
+                   0x17,0x1e,0x1f,0x34,0x27,0x26,0x32,0x33,   // I-P
+                   0x10,0x13,0x19,0x14,0x16,0x24,0x11,0x22,   // Q-X
+                   0x15,0x21];                                  // Y-Z
+      return map[base - 65] || 0;
+    }
+    if (base >= 48 && base <= 57) {
+      const map = [0x31,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,0x30];
+      return map[base - 48];
+    }
+    return 0;
+  }
+
+  function pcKeyToEmuKey(e) {
+    switch (e.key) {
+      case 'F1': return KEY_ON_OFF;
+      case 'F2': return KEY_HOME_MENU;
+      case 'F3': return KEY_EC_SJ;
+      case 'F4': return KEY_EC_SW;
+      case 'F5': return KEY_CE;
+      case 'F6': return KEY_DLG;
+      case 'F7': return KEY_DOWNLOAD;
+      case 'F8': return KEY_SPK;
+      case 'F9': return KEY_HELP;
+      case 'F10': return KEY_SEARCH;
+      case 'F11': case 'Insert': return KEY_INSERT;
+      case 'F12': return KEY_MODIFY;
+      case 'Enter':   return KEY_ENTER;
+      case 'Escape':  return KEY_EXIT;
+      case 'ArrowUp':    return KEY_UP;
+      case 'ArrowDown':  return KEY_DOWN;
+      case 'ArrowLeft':  return KEY_LEFT;
+      case 'ArrowRight': return KEY_RIGHT;
+      case 'PageUp':   return KEY_PGUP;
+      case 'PageDown': return KEY_PGDN;
+      case 'Backspace': case 'Delete': return KEY_DEL;
+      case ' ': return KEY_SPACE;
+      case 'Shift': return KEY_SHIFT;
+      case 'CapsLock': return KEY_INPUT;
+      default: return letterKey(e.key);
+    }
+  }
+
   global.BBK4980Glue = {
+    pcKeyToEmuKey: pcKeyToEmuKey,
     bytesToBase64: bytesToBase64,
     base64ToBytes: base64ToBytes,
     isValidBase64: isValidBase64,
@@ -493,7 +568,7 @@
     syncTouchpadMode();
   }
 
-  /* 目录/输入法/删除 仅在运行电子词典系统时显示；游戏（含占位）只保留一个 R 键。 */
+  /* 功能键在两种模式都可用；底部附加键在输入法和游戏 R 键之间切换。 */
   function syncTouchpadMode() {
     const dictMode = BBK.isDictionarySystem(currentRom.id);
     if (dictRow) dictRow.hidden = !dictMode;
@@ -1026,75 +1101,6 @@
     resumeEmulator();
   }
 
-  /* ---------- PC key → emulator key mapping ---------- */
-  const KEY_ENTER  = 0x2f;
-  const KEY_EXIT   = 0x2e;
-  const KEY_UP     = 0x35;
-  const KEY_DOWN   = 0x38;
-  const KEY_LEFT   = 0x37;
-  const KEY_RIGHT  = 0x39;
-  const KEY_PGUP   = 0x3a;
-  const KEY_PGDN   = 0x3b;
-  const KEY_HELP   = 0x29;
-  const KEY_SEARCH = 0x2a;
-  const KEY_INSERT = 0x2b;
-  const KEY_MODIFY = 0x2c;
-  const KEY_DEL    = 0x2d;
-  const KEY_SPACE  = 0x36;
-  const KEY_SHIFT  = 0x28;
-  const KEY_INPUT  = 0x20;
-
-  const KEY_ON_OFF    = 0x00;
-  const KEY_HOME_MENU = 0x01;
-  const KEY_EC_SJ     = 0x02;
-  const KEY_EC_SW     = 0x03;
-  const KEY_CE        = 0x04;
-  const KEY_DLG       = 0x05;
-  const KEY_DOWNLOAD  = 0x06;
-  const KEY_SPK       = 0x07;
-
-  function letterKey(ch) {
-    const base = ch.toUpperCase().charCodeAt(0);
-    if (base >= 65 && base <= 90) {
-      const map = [0x18,0x25,0x23,0x1a,0x12,0x1b,0x1c,0x1d,  // A-H
-                   0x17,0x1e,0x1f,0x34,0x27,0x26,0x32,0x33,   // I-P
-                   0x10,0x13,0x19,0x14,0x16,0x24,0x11,0x22,   // Q-X
-                   0x15,0x21];                                  // Y-Z
-      return map[base - 65] || 0;
-    }
-    if (base >= 48 && base <= 57) {
-      const map = [0x31,0x08,0x09,0x0a,0x0b,0x0c,0x0d,0x0e,0x0f,0x30];
-      return map[base - 48];
-    }
-    return 0;
-  }
-
-  function pcKeyToEmuKey(e) {
-    switch (e.key) {
-      case 'F1': return KEY_ON_OFF;
-      case 'F2': return KEY_HOME_MENU;
-      case 'F3': return KEY_EC_SJ;
-      case 'F4': return KEY_EC_SW;
-      case 'F5': return KEY_CE;
-      case 'F6': return KEY_DLG;
-      case 'F7': return KEY_DOWNLOAD;
-      case 'F8': return KEY_SPK;
-      case 'Enter':   return KEY_ENTER;
-      case 'Escape':  return KEY_EXIT;
-      case 'ArrowUp':    return KEY_UP;
-      case 'ArrowDown':  return KEY_DOWN;
-      case 'ArrowLeft':  return KEY_LEFT;
-      case 'ArrowRight': return KEY_RIGHT;
-      case 'PageUp':   return KEY_PGUP;
-      case 'PageDown': return KEY_PGDN;
-      case 'Backspace': case 'Delete': return KEY_DEL;
-      case ' ': return KEY_SPACE;
-      case 'Shift': return KEY_SHIFT;
-      case 'CapsLock': return KEY_INPUT;
-      default: return letterKey(e.key);
-    }
-  }
-
   /* ---------- Canvas rendering ----------
      wasm 直接维护紧凑 RGBA 帧缓冲；ImageData 引用同一块内存，正常帧不再复制 61KB。
      若 wasm memory 因增长而换 buffer，只重建一次视图。 */
@@ -1531,33 +1537,62 @@
     reader.readAsArrayBuffer(f);
   });
 
-  /* ---------- Touchpad (on-screen keys, touch / narrow screens) ---------- */
+  /* ---------- Touchpad + physical keyboard ---------- */
   const touchpad = document.getElementById('touchpad');
+  const pressedKeys = new Map();
 
-  touchpad.addEventListener('pointerdown', function(e) {
-    if (!started || exited) return;
+  function canAcceptKey() {
+    return started && !exited && gamePicker.hidden && saveManager.hidden;
+  }
+
+  function syncPressedKeys() {
+    const activeKeys = new Set(pressedKeys.values());
+    touchpad.querySelectorAll('[data-key]').forEach(function(btn) {
+      btn.classList.toggle('is-pressed', activeKeys.has(Number(btn.dataset.key)));
+    });
+  }
+
+  function clearPressedKeys() {
+    pressedKeys.clear();
+    syncPressedKeys();
+  }
+
+  /* click 同时支持触屏、鼠标及按钮获得焦点后的 Enter / Space 激活。
+     内核按键是事件型（无 keyup），一次激活只发送一次，不模拟长按连发。 */
+  touchpad.addEventListener('click', function(e) {
+    if (!canAcceptKey()) return;
     const btn = e.target.closest('.btn');
-    if (!btn) return;
-    const key = parseInt(btn.dataset.key, 10);
-    if (isNaN(key)) return;
-    e.preventDefault();
-    try { btn.setPointerCapture(e.pointerId); } catch (_) {}
-    /* 核心按键是事件型（无 keyup）：每次按下只触发一次，
-       长按不会自动重复，必须抬起后再按下才会再次触发。 */
+    if (!btn || !touchpad.contains(btn)) return;
+    const key = Number(btn.dataset.key);
+    if (!Number.isInteger(key) || key <= 0 || key > 0x3b) return;
     sendEmulatorKey(key);
+    // 指针点击后移开焦点，让下一次 Enter 恢复为模拟器的输入键。
+    if (e.detail > 0) btn.blur();
   });
 
-  /* ---------- Keyboard ---------- */
   document.addEventListener('keydown', function(e) {
-    if (!started) return;   /* accept keys whenever the device is powered on */
+    if (!canAcceptKey() || e.defaultPrevented || e.isComposing || e.keyCode === 229) return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    const target = e.target;
+    if (target && (target.isContentEditable || target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))) return;
+    // 原生按钮与链接的 Enter / Space 由浏览器处理，避免一次操作触发两个键。
+    if ((e.key === 'Enter' || e.key === ' ') && target && target.closest('button, a, summary')) return;
     const key = pcKeyToEmuKey(e);
     if (key !== undefined && key !== 0) {
-      // Only prevent default for unmodified keys (don't break Ctrl+W, Alt+D, etc.)
-      if (!e.ctrlKey && !e.altKey && !e.metaKey) {
-        e.preventDefault();
-      }
+      e.preventDefault();
+      pressedKeys.set(e.code || e.key, key);
+      syncPressedKeys();
       sendEmulatorKey(key);
     }
+  });
+
+  document.addEventListener('keyup', function(e) {
+    pressedKeys.delete(e.code || e.key);
+    syncPressedKeys();
+  });
+  global.addEventListener('blur', clearPressedKeys);
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) clearPressedKeys();
   });
 
   /* ---------- Bootstrap ----------

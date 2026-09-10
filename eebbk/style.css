@@ -50,22 +50,64 @@
 
 #restart-btn:active { transform: translateY(2px); }
 
-/* 触控虚拟按键（仅触屏 / 窄屏显示，样式与 RPG touchpad 一致） */
+/* 游戏简版：功能区、十字方向区与输入区，桌面也可点击。 */
 #touchpad {
-    display: none;
-    margin-top: 14px;
+    max-width: 460px;
+    margin: 14px auto 0;
+    touch-action: pan-y;
 }
 
-#touchpad .kb-row {
-    display: flex;
-    gap: 8px;
+#touchpad .function-keys {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
 }
 
-#touchpad .kb-row + .kb-row { margin-top: 8px; }
+#touchpad .navigation-keys {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) minmax(94px, 1fr);
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+#touchpad .direction-keys {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(44px, 52px));
+    grid-template-rows: repeat(3, 48px);
+    gap: 4px;
+}
+
+#touchpad .key-up { grid-area: 1 / 2; }
+#touchpad .key-left { grid-area: 2 / 1; }
+#touchpad .key-down { grid-area: 3 / 2; }
+#touchpad .key-right { grid-area: 2 / 3; }
+
+#touchpad .action-keys {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+}
+
+#touchpad .extra-keys {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 7px;
+    margin-top: 16px;
+}
+
+#touchpad [hidden] { display: none; }
 
 #touchpad .btn {
-    flex: 1;
-    height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    min-width: 0;
+    min-height: 52px;
+    padding: 6px 2px 9px;
     border: 0;
     border-radius: 8px;
     color: #eef0e7;
@@ -82,20 +124,23 @@
     user-select: none;
 }
 
-#touchpad .btn:active { transform: translateY(2px); }
+#touchpad .btn small {
+    font: 500 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+#touchpad .direction-keys .btn { min-height: 44px; }
+
+#touchpad .btn:active,
+#touchpad .btn.is-pressed { transform: translateY(2px); }
+
+#touchpad .btn:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+}
 
 #touchpad .btn.enter {
     background: var(--accent);
     box-shadow: inset 0 -4px 0 #7d3a2f;
-}
-
-/* 游戏模式只保留一个 R 键，居中且与词典功能键同宽 */
-#touchpad #game-row {
-    justify-content: center;
-}
-
-#touchpad #game-row .btn {
-    flex: 0 1 33.333%;
 }
 
 /* 拖拽悬停高亮 */
@@ -185,7 +230,7 @@
     text-decoration: none;
 }
 
-/* 桌面显示键盘映射；触屏 / 窄屏显示虚拟按键（与 RPG 行为一致） */
+/* 触屏 / 窄屏通过键帽查看映射，省去额外的键盘说明。 */
 @media (max-width: 759px), (pointer: coarse) {
     .utility-shell {
         -webkit-user-select: none;
@@ -194,11 +239,6 @@
     }
 
     .desktop-controls { display: none; }
-
-    #touchpad {
-        display: block;
-        touch-action: none;
-    }
 
     .utility-footer {
         align-items: flex-start;

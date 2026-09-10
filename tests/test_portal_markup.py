@@ -365,14 +365,14 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertIn('id="save-input"', markup)
         self.assertIn('dialog.css', markup)
 
-    def test_touchpad_switches_dictionary_keys_for_game_r_key(self):
+    def test_touchpad_keeps_function_keys_and_switches_extra_key(self):
         markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")
-        # 电子词典功能键：目录 / 输入法 / 删除
+        # 两种模式共用功能键；输入法 / R 是各自的附加键。
         self.assertIn('id="dict-row"', markup)
         self.assertIn('data-key="1" aria-label="目录"', markup)
         self.assertIn('data-key="32" aria-label="输入法"', markup)
         self.assertIn('data-key="45" aria-label="删除"', markup)
-        # 游戏模式：去掉上述三个按钮，只保留一个 R 键（data-key="19"）
+        # 游戏附加 R 键（data-key="19"）
         self.assertIn('id="game-row"', markup)
         self.assertIn('data-key="19" aria-label="字母 R"', markup)
 
