@@ -760,6 +760,7 @@
 
   /* ---------- Hot-switch + power-off fallback ---------- */
   function autosaveCurrent() {
+    flushRecoveryCheckpoints();
     if (!BBK.shouldAutosave(currentRom.id)) return;  // home / local / 空 都不持久化
     const cap = captureState();
     if (!cap) return;
@@ -767,30 +768,58 @@
     writeLS(BBK.autosaveKey(currentRom.id) + '.ts', String(Date.now()));
   }
 
-  /* 快照要在把按键送进内核之前捕获。如果该按键令游戏软件陷入死循环，
-     页面刷新就可以回到上一个仍可交互的场景。只有在上次按键后观察到过 LCD
-     变化才可写下一份，避免用户对着已卡死的画面连续试按时不断覆盖回退点。 */
+  /* 按键前只复制二进制快照；编码和同步存储最多每 250ms 合并一次，移出输入回调。
+     保留最近两个不同的检查点供刷新回退。退出/切换时立即落盘；只有 LCD 变化后
+     才可再捕获，避免在游戏卡死后连续试按覆盖恢复点。 */
+  let recoveryWriteTimer = null;
+  let pendingRecoveryCheckpoints = [];
+
+  function flushRecoveryCheckpoints() {
+    if (recoveryWriteTimer !== null) clearTimeout(recoveryWriteTimer);
+    recoveryWriteTimer = null;
+    const pending = pendingRecoveryCheckpoints;
+    pendingRecoveryCheckpoints = [];
+    if (!pending.length) return;
+    const romId = pending[0].romId;
+    const key = BBK.recoveryCheckpointKey(romId);
+    let previous = readLS(key);
+    let backup = '';
+    pending.forEach(function (cap) {
+      const b64 = BBK.bytesToBase64(cap.bytes);
+      if (previous && previous !== b64) backup = previous;
+      previous = b64;
+    });
+    if (backup) writeLS(BBK.recoveryCheckpointBackupKey(romId), backup);
+    writeLS(key, previous);
+    writeLS(key + '.ts', String(pending[pending.length - 1].updatedAt));
+  }
+
   function checkpointBeforeInput() {
     if (!recoveryCheckpointReady || !BBK.shouldAutosave(currentRom.id)) return;
-    const cap = captureState();
+    const cap = captureStateBytes();
     if (!cap) return;
-    const key = BBK.recoveryCheckpointKey(currentRom.id);
-    const previous = readLS(key);
-    if (previous && previous !== cap.b64) {
-      writeLS(BBK.recoveryCheckpointBackupKey(currentRom.id), previous);
+    const latest = pendingRecoveryCheckpoints[pendingRecoveryCheckpoints.length - 1];
+    if (!latest || !cap.bytes.every(function (byte, i) { return byte === latest.bytes[i]; })) {
+      pendingRecoveryCheckpoints.push({ romId: currentRom.id, bytes: cap.bytes, updatedAt: Date.now() });
+      if (pendingRecoveryCheckpoints.length > 2) pendingRecoveryCheckpoints.shift();
     }
-    writeLS(key, cap.b64);
-    writeLS(key + '.ts', String(Date.now()));
+    if (recoveryWriteTimer === null) recoveryWriteTimer = setTimeout(flushRecoveryCheckpoints, 250);
     recoveryCheckpointReady = false;
   }
 
   function resetRecoveryTracking(romId) {
+    flushRecoveryCheckpoints();
     recoveryHasRendered = false;
     recoveryCheckpointReady = false;
     recoveryNeedsInitialCheckpoint = !!romId && !readLS(BBK.recoveryCheckpointKey(romId));
   }
 
   function clearResumeSnapshots(romId) {
+    if (pendingRecoveryCheckpoints.length && pendingRecoveryCheckpoints[0].romId === romId) {
+      clearTimeout(recoveryWriteTimer);
+      recoveryWriteTimer = null;
+      pendingRecoveryCheckpoints = [];
+    }
     BBK.resumeSnapshotKeys(romId).forEach(removeLS);
   }
 
@@ -1236,6 +1265,7 @@
   /* ---------- Fatal error / power-off: stop the loop and surface in the UI ---------- */
   function fatalError(title, detail) {
     if (exited) return;
+    flushRecoveryCheckpoints();
     persistNativeSave();
     exited = true;
     running = false;
@@ -1375,14 +1405,19 @@
   }
 
   /* ---------- Save/Load state (via wasm _web_save / _web_load) ---------- */
-  function captureState() {
+  function captureStateBytes() {
     if (exited || !gameLoaded || !Module) return null;
     const size = Module._web_save_size();
     const ptr = Module._malloc(size);
     Module._web_save(ptr);
     const bytes = new Uint8Array(Module.HEAPU8.buffer, ptr, size).slice();
     Module._free(ptr);
-    return { b64: BBK.bytesToBase64(bytes), size: size };
+    return { bytes: bytes, size: size };
+  }
+
+  function captureState() {
+    const cap = captureStateBytes();
+    return cap ? { b64: BBK.bytesToBase64(cap.bytes), size: cap.size } : null;
   }
 
   function restoreState(b64) {
@@ -1539,6 +1574,7 @@
   restartBtn.addEventListener('click', function() { location.reload(); });
 
   function handleAutoSave() {
+    flushRecoveryCheckpoints();
     if (!gameLoaded || exited) return;
     if (!suppressSnapshotAutosave) autosaveCurrent();
     persistNativeSave();
@@ -1620,12 +1656,29 @@
     syncPressedKeys();
   }
 
-  /* click 同时支持触屏、鼠标及按钮获得焦点后的 Enter / Space 激活。
-     内核按键是事件型（无 keyup），一次激活只发送一次，不模拟长按连发。 */
+  /* 指针按下即发送一次，不做长按连发；click 保留键盘/辅助技术激活。
+     已处理的指针 click 只清理焦点，避免松手时再发一次。电源/重置仍由 click 激活。 */
+  const pointerActivatedKeys = new WeakSet();
   [touchpad, realisticDevice].forEach(function(surface) {
+    surface.addEventListener('pointerdown', function(e) {
+      if (e.button !== 0) return;
+      const btn = e.target.closest('[data-key]');
+      if (!btn || !surface.contains(btn) || btn.disabled || btn.dataset.deviceAction) return;
+      pointerActivatedKeys.add(btn);
+      e.preventDefault();
+      btn.blur();
+      if (!canAcceptKey()) return;
+      const key = Number(btn.dataset.key);
+      if (Number.isInteger(key) && key > 0 && key <= 0x3b) sendEmulatorKey(key);
+    });
     surface.addEventListener('click', function(e) {
       const btn = e.target.closest('[data-key], [data-device-action]');
-      if (!btn || !surface.contains(btn)) return;
+      if (!btn || !surface.contains(btn) || btn.disabled) return;
+      if (e.detail > 0 && pointerActivatedKeys.has(btn)) {
+        pointerActivatedKeys.delete(btn);
+        btn.blur();
+        return;
+      }
       if (btn.dataset.deviceAction === 'power') {
         toggleDevicePower();
       } else if (btn.dataset.deviceAction === 'reset') {

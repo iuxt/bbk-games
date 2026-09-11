@@ -1347,20 +1347,26 @@
     }, interval);
     return game.updateInterval;
   };
+  // Reuse the canvas context and pixel storage until the logical screen size changes.
+  var screenContext = null;
+  var screenImage = null;
   global.sysDrawScreen = function(buffer, wid, hgt) {
-    var canvas = getLCD();
-    var w = wid;
-    var h = hgt;
-    var img = canvas.createImageData(wid, hgt);
-    for (var y = 0; y < h; y += 1) {
-      for (var x = 0; x < w; x += 1) {
-        var ind = w * y + x;
-        var pixel = buffer[ind];
-        imageDot(img, x, y, w, pixel);
-      }
+    if (!screenContext) screenContext = getLCD();
+    if (!screenImage || screenImage.width !== wid || screenImage.height !== hgt) {
+      screenImage = screenContext.createImageData(wid, hgt);
+      screenContext.imageSmoothingEnabled = false;
     }
-    canvas.imageSmoothingEnabled = false;
-    canvas.putImageData(img, 0, 0);
+    var data = screenImage.data;
+    var red = renderPeixel[0], green = renderPeixel[1], blue = renderPeixel[2];
+    for (var i = 0, offset = 0; i < wid * hgt; i += 1, offset += 4) {
+      var pixel = buffer[i];
+      // Keep Uint8ClampedArray conversion, including fractional theme colors and alpha.
+      data[offset] = pixel.r * red;
+      data[offset + 1] = pixel.g * green;
+      data[offset + 2] = pixel.b * blue;
+      data[offset + 3] = pixel.a;
+    }
+    screenContext.putImageData(screenImage, 0, 0);
   };
   global.sysExit = function() {
     console.log("Exit");

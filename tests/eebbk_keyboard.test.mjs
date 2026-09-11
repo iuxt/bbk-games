@@ -102,6 +102,50 @@ test('a keycap label click sends one device key, including keyboard activation',
   assert.deepEqual(h.sent, [41, 41]);
 });
 
+test('pointer press sends immediately, release click is deduplicated, and keyboard click still works', () => {
+  for (const surfaceName of ['touchpad', 'realisticDevice']) {
+    const h = inputHarness();
+    const surface = h[surfaceName];
+    const event = { target: { closest: () => h.button }, button: 0, detail: 1, preventDefault() {} };
+    surface.handlers.pointerdown(event);
+    assert.deepEqual(h.sent, [41], 'input must arrive before releasing the finger');
+    surface.handlers.click(event);
+    assert.deepEqual(h.sent, [41], 'release must not send a second key');
+    surface.handlers.click({ ...event, detail: 0 });
+    assert.deepEqual(h.sent, [41, 41], 'keyboard/assistive activation stays supported');
+    // A cancelled gesture has no click; it must not swallow the next press.
+    surface.handlers.pointerdown(event);
+    surface.handlers.pointerdown(event);
+    surface.handlers.click(event);
+    assert.deepEqual(h.sent, [41, 41, 41, 41]);
+  }
+});
+
+test('pointer keys respect disabled controls, dialogs and device state; power waits for click', () => {
+  const h = inputHarness();
+  const event = { target: { closest: () => h.button }, button: 0, detail: 1, preventDefault() {} };
+  h.touchpad.handlers.pointerdown({ ...event, button: 2 });
+  h.button.disabled = true;
+  h.touchpad.handlers.pointerdown(event);
+  h.button.disabled = false;
+  for (const [obj, prop, value] of [
+    [h.context.gamePicker, 'hidden', false], [h.context.saveManager, 'hidden', false],
+    [h.context, 'deviceAsleep', true], [h.context, 'exited', true], [h.context, 'started', false],
+  ]) {
+    const original = obj[prop];
+    obj[prop] = value;
+    h.touchpad.handlers.pointerdown(event);
+    obj[prop] = original;
+    h.touchpad.handlers.click(event);
+  }
+  assert.deepEqual(h.sent, []);
+  h.button.dataset.deviceAction = 'power';
+  h.touchpad.handlers.pointerdown(event);
+  assert.equal(h.context.deviceAsleep, false);
+  h.touchpad.handlers.click(event);
+  assert.equal(h.context.deviceAsleep, true);
+});
+
 test('photo keyboard covers all sixty keys and stays inside the device without overlapping keys', () => {
   const skin = globalThis.BBK4980Skin;
   assert.ok(Math.abs(skin.photo.screen.width / skin.photo.screen.height - 159 / 96) < 1e-9,
