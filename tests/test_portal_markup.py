@@ -223,7 +223,7 @@ class MobileGameMarkupTests(unittest.TestCase):
         for page in pages:
             with self.subTest(page=page.relative_to(ROOT)):
                 markup = page.read_text(encoding="utf-8")
-                self.assertIn("game-page.js?v=1", markup)
+                self.assertIn("game-page.js?v=2", markup)
 
         script = (ROOT / "js" / "game-page.js").read_text(encoding="utf-8")
         self.assertIn('"touchmove"', script)
@@ -245,11 +245,11 @@ class SimulatorMarkupTests(unittest.TestCase):
         self.assertEqual(self.parser.h1_count, 1)
         self.assertEqual(
             self.parser.stylesheets,
-            ["../css/portal.css?v=2", "app.css?v=8"],
+            ["../css/portal.css?v=2", "app.css?v=9"],
         )
         self.assertEqual(
             self.parser.scripts,
-            ["../js/game-page.js?v=1", "srs-anchor.js?v=2", "app.js?v=14"],
+            ["../js/game-page.js?v=2", "srs-anchor.js?v=2", "app.js?v=14"],
         )
         self.assertIn("../index.html", self.parser.links)
 

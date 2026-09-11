@@ -10,7 +10,7 @@
     <title>三国霸业 · BBK 经典游戏</title>
     <link rel="icon" href="../favicon.png">
     <link rel="stylesheet" href="../css/portal.css">
-    <script src="../js/game-page.js?v=1"></script>
+    <script src="../js/game-page.js?v=2"></script>
     <style>
         /* 虚拟按键 - 与魔塔 / RPG 页面同款 */
         #touchpad {
@@ -39,7 +39,16 @@
             -webkit-touch-callout: none;
             user-select: none;
         }
-        #touchpad .btn:active { transform: translateY(2px); }
+        #touchpad .btn:active,
+        #touchpad .btn.is-pointer-pressed {
+            transform: translateY(2px);
+            filter: brightness(.88);
+            box-shadow: inset 0 -1px 0 var(--key-edge);
+        }
+        #touchpad .btn.enter:active,
+        #touchpad .btn.enter.is-pointer-pressed {
+            box-shadow: inset 0 -1px 0 #7d3a2f;
+        }
         #touchpad .btn.enter {
             background: var(--accent);
             box-shadow: inset 0 -4px 0 #7d3a2f;

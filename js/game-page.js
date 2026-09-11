@@ -71,10 +71,80 @@
         return true;
     }
 
+    function installVirtualKeyPressFeedback(documentObject) {
+        var pressedPointers = Object.create(null);
+        var selector = "#touchpad .btn, .device-key";
+
+        documentObject = documentObject || global.document;
+        if (!documentObject || !documentObject.addEventListener) {
+            return false;
+        }
+
+        function findKey(target) {
+            var element = target && target.nodeType === 1 ?
+                target : target && target.parentElement;
+            return element && element.closest ? element.closest(selector) : null;
+        }
+
+        function press(event) {
+            var key;
+
+            if (event.button !== undefined && event.button !== 0) {
+                return;
+            }
+            key = findKey(event.target);
+            if (!key || key.disabled) {
+                return;
+            }
+            pressedPointers[event.pointerId] = key;
+            key.classList.add("is-pointer-pressed");
+        }
+
+        function release(event) {
+            var key = pressedPointers[event.pointerId];
+            var pointerId;
+
+            if (!key) {
+                return;
+            }
+            delete pressedPointers[event.pointerId];
+            for (pointerId in pressedPointers) {
+                if (pressedPointers[pointerId] === key) {
+                    return;
+                }
+            }
+            key.classList.remove("is-pointer-pressed");
+        }
+
+        function releaseAll() {
+            var pointerId;
+
+            for (pointerId in pressedPointers) {
+                pressedPointers[pointerId].classList.remove("is-pointer-pressed");
+                delete pressedPointers[pointerId];
+            }
+        }
+
+        documentObject.addEventListener("pointerdown", press, true);
+        documentObject.addEventListener("pointerup", release, true);
+        documentObject.addEventListener("pointercancel", release, true);
+        documentObject.addEventListener("visibilitychange", function () {
+            if (documentObject.hidden) {
+                releaseAll();
+            }
+        });
+        if (global.addEventListener) {
+            global.addEventListener("blur", releaseAll);
+        }
+        return true;
+    }
+
     global.BBKGamePage = {
         isIPhoneSafari: isIPhoneSafari,
-        installPullToRefreshGuard: installPullToRefreshGuard
+        installPullToRefreshGuard: installPullToRefreshGuard,
+        installVirtualKeyPressFeedback: installVirtualKeyPressFeedback
     };
 
     installPullToRefreshGuard();
+    installVirtualKeyPressFeedback();
 }(typeof window !== "undefined" ? window : globalThis));

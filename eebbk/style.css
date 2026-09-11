@@ -231,7 +231,9 @@
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
 }
-.device-key:active, .device-key.is-pressed { background: rgba(255, 255, 255, .25); }
+.device-key:active,
+.device-key.is-pressed,
+.device-key.is-pointer-pressed { background: rgba(255, 255, 255, .25); }
 .device-key:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 
 .realistic-interface #desktop-controls { display: none; }
@@ -361,7 +363,18 @@
 #touchpad .direction-keys .btn { min-height: 44px; }
 
 #touchpad .btn:active,
-#touchpad .btn.is-pressed { transform: translateY(2px); }
+#touchpad .btn.is-pressed,
+#touchpad .btn.is-pointer-pressed {
+    transform: translateY(2px);
+    filter: brightness(.88);
+    box-shadow: inset 0 -1px 0 var(--key-edge);
+}
+
+#touchpad .btn.enter:active,
+#touchpad .btn.enter.is-pressed,
+#touchpad .btn.enter.is-pointer-pressed {
+    box-shadow: inset 0 -1px 0 #7d3a2f;
+}
 
 #touchpad .btn:focus-visible {
     outline: 3px solid var(--accent);

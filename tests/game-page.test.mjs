@@ -108,3 +108,37 @@ test("guard blocks a page-top pull but keeps nested list scrolling", () => {
         }
     }
 });
+
+test("virtual keys keep an explicit pressed state for the pointer lifetime", () => {
+    const listeners = {};
+    const classes = new Set();
+    const key = {
+        nodeType: 1,
+        disabled: false,
+        closest(selector) {
+            assert.equal(selector, "#touchpad .btn, .device-key");
+            return this;
+        },
+        classList: {
+            add(name) { classes.add(name); },
+            remove(name) { classes.delete(name); }
+        }
+    };
+    const documentObject = {
+        hidden: false,
+        addEventListener(type, listener) {
+            listeners[type] = listener;
+        }
+    };
+
+    assert.equal(GamePage.installVirtualKeyPressFeedback(documentObject), true);
+    listeners.pointerdown({ target: key, pointerId: 7, button: 0 });
+    assert.equal(classes.has("is-pointer-pressed"), true);
+    listeners.pointerup({ pointerId: 7 });
+    assert.equal(classes.has("is-pointer-pressed"), false);
+
+    listeners.pointerdown({ target: key, pointerId: 8, button: 0 });
+    documentObject.hidden = true;
+    listeners.visibilitychange();
+    assert.equal(classes.has("is-pointer-pressed"), false);
+});
