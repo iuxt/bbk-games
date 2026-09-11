@@ -291,41 +291,21 @@
 
 #touchpad .function-keys {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 7px;
 }
 
-#touchpad .navigation-keys {
-    display: grid;
-    grid-template-columns: minmax(140px, 1fr) minmax(94px, 1fr);
-    align-items: center;
-    gap: 12px;
+#touchpad .game-keys {
     margin-top: 16px;
 }
 
-#touchpad .direction-keys {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(44px, 52px));
-    grid-template-rows: repeat(3, 48px);
-    gap: 4px;
+#touchpad .kb-row {
+    display: flex;
+    gap: 8px;
 }
 
-#touchpad .key-up { grid-area: 1 / 2; }
-#touchpad .key-left { grid-area: 2 / 1; }
-#touchpad .key-down { grid-area: 3 / 2; }
-#touchpad .key-right { grid-area: 2 / 3; }
-
-#touchpad .action-keys {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 7px;
-}
-
-#touchpad .extra-keys {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 7px;
-    margin-top: 16px;
+#touchpad .kb-row + .kb-row {
+    margin-top: 8px;
 }
 
 #touchpad [hidden] { display: none; }
@@ -356,11 +336,25 @@
     user-select: none;
 }
 
+#touchpad .kb-row .btn {
+    flex: 1 1 0;
+}
+
 #touchpad .btn small {
     font: 500 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-#touchpad .direction-keys .btn { min-height: 44px; }
+#touchpad .direction-key {
+    font-size: 21px;
+}
+
+#touchpad .space-key {
+    margin-top: 8px;
+}
+
+#touchpad .space-key .btn {
+    min-height: 42px;
+}
 
 #touchpad .btn:active,
 #touchpad .btn.is-pressed,

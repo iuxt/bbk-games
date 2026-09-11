@@ -213,7 +213,7 @@
     return !!id && id !== HOME_ROM_ID;
   }
 
-  /* 电子词典系统（home）才需要 目录/输入法/删除 功能键；游戏运行时替换为 R 键。 */
+  /* 电子词典系统（home）使用输入法键；游戏运行时在同一位置替换为 R 键。 */
   function isDictionarySystem(id) {
     return id === HOME_ROM_ID;
   }
@@ -575,7 +575,7 @@
     syncTouchpadMode();
   }
 
-  /* 游戏界面保留词典 / 游戏各自的附加键。 */
+  /* 三行主按键的中间位置按词典 / 游戏模式切换输入法与 R。 */
   function syncTouchpadMode() {
     const dictMode = BBK.isDictionarySystem(currentRom.id);
     if (dictRow) dictRow.hidden = !dictMode;

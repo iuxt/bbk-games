@@ -365,16 +365,16 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertIn('id="save-input"', markup)
         self.assertIn('dialog.css', markup)
 
-    def test_touchpad_keeps_function_keys_and_switches_extra_key(self):
+    def test_touchpad_matches_rpg_layout_without_directory_or_delete(self):
         markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")
-        # 两种模式共用功能键；输入法 / R 是各自的附加键。
+        # 主操作区沿用 RPG 的三行三列顺序，输入法 / R 共用中间键位。
+        self.assertEqual(markup.count('class="kb-row"'), 3)
         self.assertIn('id="dict-row"', markup)
-        self.assertIn('data-key="1" aria-label="目录"', markup)
         self.assertIn('data-key="32" aria-label="输入法"', markup)
-        self.assertIn('data-key="45" aria-label="删除"', markup)
-        # 游戏附加 R 键（data-key="19"）
         self.assertIn('id="game-row"', markup)
         self.assertIn('data-key="19" aria-label="字母 R"', markup)
+        self.assertNotIn('data-key="1" aria-label="目录"', markup)
+        self.assertNotIn('data-key="45" aria-label="删除"', markup)
 
     def test_drops_legacy_save_buttons(self):
         markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")

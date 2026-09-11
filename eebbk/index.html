@@ -13,7 +13,7 @@
     <title>电子词典模拟器 — 步步高朗文4980</title>
     <link rel="icon" href="../favicon.png">
     <link rel="stylesheet" href="../css/portal.css?v=2">
-    <link rel="stylesheet" href="style.css?v=17">
+    <link rel="stylesheet" href="style.css?v=18">
     <link rel="stylesheet" href="dialog.css?v=8">
     <script src="../js/game-page.js?v=2"></script>
 </head>
@@ -69,35 +69,31 @@
 
         <div id="touchpad" aria-label="模拟器虚拟键盘">
             <div class="function-keys" role="group" aria-label="功能键">
-                <button class="btn" type="button" data-key="1" aria-label="目录"><span>目录</span><small>F2</small></button>
                 <button class="btn" type="button" data-key="41" aria-label="帮助"><span>帮助</span><small>F9</small></button>
                 <button class="btn" type="button" data-key="42" aria-label="查找"><span>查找</span><small>F10</small></button>
                 <button class="btn" type="button" data-key="43" aria-label="插入"><span>插入</span><small>F11 / Ins</small></button>
                 <button class="btn" type="button" data-key="44" aria-label="修改"><span>修改</span><small>F12</small></button>
-                <button class="btn" type="button" data-key="45" aria-label="删除"><span>删除</span><small>Del / ⌫</small></button>
             </div>
-            <div class="navigation-keys">
-                <div class="direction-keys" role="group" aria-label="方向键">
-                    <button class="btn key-up" type="button" data-key="53" aria-label="方向上">↑</button>
-                    <button class="btn key-left" type="button" data-key="55" aria-label="方向左">←</button>
-                    <button class="btn key-down" type="button" data-key="56" aria-label="方向下">↓</button>
-                    <button class="btn key-right" type="button" data-key="57" aria-label="方向右">→</button>
-                </div>
-                <div class="action-keys" role="group" aria-label="翻页与输入">
+            <div class="game-keys" role="group" aria-label="方向、翻页与输入键">
+                <div class="kb-row">
                     <button class="btn" type="button" data-key="58" aria-label="上页"><span>上页</span><small>PgUp</small></button>
+                    <button class="btn direction-key" type="button" data-key="53" aria-label="方向上">↑</button>
                     <button class="btn" type="button" data-key="59" aria-label="下页"><span>下页</span><small>PgDn</small></button>
+                </div>
+                <div class="kb-row">
+                    <button class="btn direction-key" type="button" data-key="55" aria-label="方向左">←</button>
+                    <button class="btn direction-key" type="button" data-key="56" aria-label="方向下">↓</button>
+                    <button class="btn direction-key" type="button" data-key="57" aria-label="方向右">→</button>
+                </div>
+                <div class="kb-row">
                     <button class="btn" type="button" data-key="46" aria-label="跳出"><span>跳出</span><small>Esc</small></button>
+                    <button id="dict-row" class="btn mode-key" type="button" data-key="32" aria-label="输入法" hidden><span>输入法</span><small>CapsLock</small></button>
+                    <button id="game-row" class="btn mode-key" type="button" data-key="19" aria-label="字母 R"><span>R</span><small>重复行动</small></button>
                     <button class="btn enter" type="button" data-key="47" aria-label="输入"><span>输入</span><small>Enter</small></button>
                 </div>
             </div>
-            <div class="extra-keys">
+            <div class="space-key">
                 <button class="btn" type="button" data-key="54" aria-label="空格"><span>空格</span><small>Space</small></button>
-                <div id="dict-row" hidden>
-                    <button class="btn" type="button" data-key="32" aria-label="输入法"><span>输入法</span><small>CapsLock</small></button>
-                </div>
-                <div id="game-row">
-                    <button class="btn" type="button" data-key="19" aria-label="字母 R">R</button>
-                </div>
             </div>
         </div>
 
