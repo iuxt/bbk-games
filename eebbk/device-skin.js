@@ -7,7 +7,8 @@
     src: 'assets/longman-4980.png',
     width: 2048, height: 946,
     crop: { x: 740, y: 26, width: 835, height: 920 },
-    screen: { x: 827, y: 132, width: 505, height: 240 },
+    lcd: { x: 827, y: 132, width: 505, height: 250 },
+    screen: { x: 886, y: 139, width: 391, height: 236.0754717 },
   };
   const keys = [
     [0, '开关', 897, 585, 52, 42],

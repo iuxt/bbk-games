@@ -104,6 +104,12 @@ test('a keycap label click sends one device key, including keyboard activation',
 
 test('photo keyboard covers all sixty keys and stays inside the device without overlapping keys', () => {
   const skin = globalThis.BBK4980Skin;
+  assert.ok(Math.abs(skin.photo.screen.width / skin.photo.screen.height - 159 / 96) < 1e-9,
+    'the gameplay viewport must preserve the native 159:96 aspect ratio');
+  assert.ok(skin.photo.screen.width < 505,
+    'the gameplay viewport must not cover the LCD status margins');
+  assert.ok(skin.photo.lcd.width > skin.photo.screen.width,
+    'the LCD shell must leave room for ornaments on both sides');
   assert.deepEqual(skin.keys.map(key => key.code).sort((a, b) => a - b), Array.from({ length: 60 }, (_, i) => i));
   for (const key of skin.keys) {
     if (/^[A-Z0-9]$/.test(key.label)) assert.equal(pcKeyToEmuKey({ key: key.label }), key.code);

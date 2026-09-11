@@ -408,6 +408,16 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertNotIn('class="speed-control control-switch', footer)
         self.assertNotIn('id="display-settings"', markup)
 
+    def test_realistic_screen_keeps_the_game_viewport_separate_from_side_ornaments(self):
+        markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")
+        css = (ROOT / "eebbk" / "style.css").read_text(encoding="utf-8")
+        self.assertIn('class="screen-viewport"', markup)
+        self.assertEqual(markup.count('class="screen-ornament '), 2)
+        self.assertIn("NUM</b><b>CAPS</b><b>SHF", markup)
+        self.assertEqual(markup.count("<i></i>"), 11)
+        self.assertIn("#realistic-device .screen-viewport", css)
+        self.assertIn("height: 236.0754717px", css)
+
     def test_save_slot_rows_never_shrink_below_content(self):
         # 回归：WebKit/Safari 在高度受限的网格里会把 auto 行压到卡片 min-height
         # （移动端为 0），导致按钮块溢出卡片底边、与下一槽位重叠（手机界面保存存档时）。
