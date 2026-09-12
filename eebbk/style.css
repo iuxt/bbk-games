@@ -7,11 +7,11 @@
     image-rendering: crisp-edges;
 }
 
-/* 原图以固定照片坐标排版，再整体缩放，屏幕与热区始终一起对齐。 */
+/* 原图以固定像素坐标排版，再整体缩放，屏幕与热区始终一起对齐。 */
 #realistic-device {
     position: relative;
     width: 100%;
-    aspect-ratio: 835 / 920;
+    aspect-ratio: 1184 / 1328;
     overflow: hidden;
     border-radius: 12px;
     background: var(--lcd);
@@ -20,27 +20,23 @@
 #realistic-device[hidden], #game-screen-host[hidden], #touchpad[hidden] { display: none; }
 
 .device-photo-layer {
-    --photo-leveling-rotation: -.55deg;
     position: absolute;
     left: 0;
     top: 0;
-    width: 835px;
-    height: 920px;
+    width: 1184px;
+    height: 1328px;
     transform-origin: top left;
 }
 
 .device-photo {
     position: absolute;
-    left: -740px;
-    top: -26px;
-    width: 2048px;
-    height: 946px;
+    left: 0;
+    top: 0;
+    width: 1184px;
+    height: 1328px;
     max-width: none;
     pointer-events: none;
     user-select: none;
-    /* 以 LCD 中心为轴校正照片本身的轻微顺时针倾斜。 */
-    transform: rotate(var(--photo-leveling-rotation));
-    transform-origin: 1079.5px 252px;
 }
 
 #realistic-device #screen-wrapper {
@@ -48,20 +44,17 @@
     position: absolute;
     z-index: 1;
     /* 外层铺满 LCD，159×96 游戏画面由 .screen-viewport 单独保持比例。 */
-    left: 87px;
-    top: 106px;
-    width: 505px;
-    height: 250px;
+    left: 109px;
+    top: 144px;
+    width: 731px;
+    height: 353px;
     margin: 0;
     padding: 0;
     border: 0;
-    border-radius: 3px;
+    border-radius: 5px;
     box-shadow: none;
     overflow: hidden;
     background: var(--simulator-lcd-bg);
-    transform-origin: top left;
-    /* 照片找平后只保留拍摄透视造成的细微仿射形变。 */
-    transform: matrix(1, .0025, -.0125, 1, 0, 0);
 }
 
 .screen-viewport { position: relative; }
@@ -69,10 +62,10 @@
 #realistic-device .screen-viewport {
     position: absolute;
     z-index: 1;
-    left: 59px;
-    top: 7px;
-    width: 391px;
-    height: 236.0754717px;
+    left: 84px;
+    top: 6px;
+    width: 567px;
+    height: 342.3396226px;
     overflow: hidden;
 }
 
@@ -83,8 +76,9 @@
 
 #realistic-device .screen-ornament {
     position: absolute;
-    top: 7px;
-    bottom: 7px;
+    top: 6px;
+    bottom: auto;
+    height: 236px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -93,14 +87,21 @@
     background:
         linear-gradient(to right, rgba(25, 38, 22, .08), transparent 35%, rgba(25, 38, 22, .08)),
         var(--simulator-lcd-bg);
+    transform-origin: top left;
 }
 
-#realistic-device .screen-ornament-left { left: 0; width: 59px; }
+#realistic-device .screen-ornament-left {
+    left: 0;
+    width: 59px;
+    transform: scale(1.4237288, 1.4505916);
+}
 #realistic-device .screen-ornament-right {
     right: 0;
     width: 55px;
     padding-top: 2px;
     padding-bottom: 11px;
+    transform: scale(1.4545455, 1.4505916);
+    transform-origin: top right;
 }
 
 .screen-ornament-left { justify-content: flex-start; }
@@ -375,9 +376,6 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    /* 与照片共用旋转角和旋转中心，点击热区始终贴住实体键帽。 */
-    transform: rotate(var(--photo-leveling-rotation));
-    transform-origin: 339.5px 226px;
 }
 .device-key {
     position: absolute;

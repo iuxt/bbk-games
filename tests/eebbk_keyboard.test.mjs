@@ -150,7 +150,7 @@ test('photo keyboard covers all sixty keys and stays inside the device without o
   const skin = globalThis.BBK4980Skin;
   assert.ok(Math.abs(skin.photo.screen.width / skin.photo.screen.height - 159 / 96) < 1e-9,
     'the gameplay viewport must preserve the native 159:96 aspect ratio');
-  assert.ok(skin.photo.screen.width < 505,
+  assert.ok(skin.photo.screen.width < skin.photo.lcd.width * 0.8,
     'the gameplay viewport must not cover the LCD status margins');
   assert.ok(skin.photo.lcd.width > skin.photo.screen.width,
     'the LCD shell must leave room for ornaments on both sides');
@@ -176,14 +176,12 @@ test('photo keyboard covers all sixty keys and stays inside the device without o
   assert.ok(byCode(47)[2] > byCode(46)[2], 'input uses the wide bottom key');
 });
 
-test('photo leveling keeps the image and key hotspots on the same rotated plane', () => {
-  const angle = skinCss.match(/--photo-leveling-rotation:\s*([^;]+);/)?.[1].trim();
-  assert.ok(angle && angle !== '0deg', 'the supplied photo needs a small leveling rotation');
-  for (const selector of ['.device-photo', '.device-hotspots']) {
-    const block = skinCss.match(new RegExp(selector.replace('.', '\\.') + '\\s*\\{([\\s\\S]*?)\\}'))?.[1] || '';
-    assert.match(block, /transform:\s*rotate\(var\(--photo-leveling-rotation\)\)/);
-  }
-  assert.match(skinCss, /\.device-hotspots[\s\S]*?transform-origin:\s*339\.5px 226px/);
+test('front-view skin uses the full image coordinate system without leveling transforms', () => {
+  const skin = globalThis.BBK4980Skin;
+  assert.deepEqual(skin.photo.crop, { x: 0, y: 0, width: 1184, height: 1328 });
+  assert.equal(skin.photo.width, skin.photo.crop.width);
+  assert.equal(skin.photo.height, skin.photo.crop.height);
+  assert.doesNotMatch(skinCss, /--photo-leveling-rotation/);
 });
 
 test('settings move the same screen between interfaces, persist selection and mount the photo once', () => {
