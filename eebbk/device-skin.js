@@ -4,7 +4,7 @@
 (function(global) {
   'use strict';
   const photo = {
-    src: 'assets/longman-4980.png?v=2',
+    src: 'assets/longman-4980.png?v=3',
     width: 1184, height: 1328,
     crop: { x: 0, y: 0, width: 1184, height: 1328 },
     lcd: { x: 109, y: 144, width: 731, height: 353 },
