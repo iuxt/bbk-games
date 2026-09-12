@@ -22,7 +22,7 @@ const emuRuntime = [
     "dialog.css",
     "glue.js",
     "device-skin.js",
-    "assets/longman-4980.png",
+    "assets/longman-4980-transparent.png",
     "gam4980.js",
     "gam4980.wasm",
     "gam4980.data",

@@ -178,7 +178,7 @@ test('photo keyboard covers all sixty keys and stays inside the device without o
 
 test('front-view skin uses the full image coordinate system without leveling transforms', () => {
   const skin = globalThis.BBK4980Skin;
-  assert.deepEqual(skin.photo.crop, { x: 0, y: 0, width: 1184, height: 1328 });
+  assert.deepEqual(skin.photo.crop, { x: 0, y: 0, width: 1254, height: 1254 });
   assert.equal(skin.photo.width, skin.photo.crop.width);
   assert.equal(skin.photo.height, skin.photo.crop.height);
   assert.doesNotMatch(skinCss, /--photo-leveling-rotation/);

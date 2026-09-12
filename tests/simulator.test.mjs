@@ -399,7 +399,7 @@ test("multi-target healing still aligns via the shared SRS anchor", () => {
     );
     assert.ok(preproccess, "ActionMagicHelpAll.preproccess not found");
     assert.ok(draw, "ActionMagicHelpAll.draw_9in0vv$ not found");
-    assert.match(appSource, /core\.js\?v=33/);
+    assert.match(appSource, /core\.js\?v=34/);
 
     // The SRS anchor module stays wired for the all-target heal: ResSrs
     // resolves its impact anchor through window.BBKSrsAnchor.compute

@@ -249,7 +249,7 @@ class SimulatorMarkupTests(unittest.TestCase):
         )
         self.assertEqual(
             self.parser.scripts,
-            ["../js/game-page.js?v=2", "srs-anchor.js?v=2", "app.js?v=14"],
+            ["../js/game-page.js?v=2", "srs-anchor.js?v=2", "app.js?v=15"],
         )
         self.assertIn("../index.html", self.parser.links)
 
@@ -427,8 +427,8 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertIn(".lcd-menu-pointers i:last-child::before", pointer_css)
         self.assertIn("border-left-width: 10px", pointer_css)
         self.assertIn("padding-top: 2px", css[css.index("#realistic-device .screen-ornament-right"):])
-        self.assertIn("transform: scale(1.4237288, 1.4505916)", css)
-        self.assertIn("transform: scale(1.4545455, 1.4505916)", css)
+        self.assertIn("transform: scale(1.2881356, 1.3201151)", css)
+        self.assertIn("transform: scale(1.3818182, 1.3201151)", css)
         self.assertIn("justify-content: space-between", css[css.index(".lcd-menu-pointers {"):])
         back_arrow_css = css[css.index(".lcd-back-arrow {"):css.index(".lcd-menu-pointers {")]
         self.assertIn("width: 15px", back_arrow_css)
@@ -442,7 +442,7 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertEqual(page_arrows.count("<i"), 4)
         self.assertEqual(page_arrows.count('class="is-down"'), 2)
         self.assertIn(".lcd-page-arrows i:nth-child(3)", css)
-        self.assertIn("height: 342.3396226px", css)
+        self.assertIn("height: 311.5471698px", css)
 
     def test_save_slot_rows_never_shrink_below_content(self):
         # 回归：WebKit/Safari 在高度受限的网格里会把 auto 行压到卡片 min-height

@@ -11,10 +11,10 @@
 #realistic-device {
     position: relative;
     width: 100%;
-    aspect-ratio: 1184 / 1328;
+    aspect-ratio: 1254 / 1254;
     overflow: hidden;
     border-radius: 12px;
-    background: var(--lcd);
+    background: transparent;
 }
 
 #realistic-device[hidden], #game-screen-host[hidden], #touchpad[hidden] { display: none; }
@@ -23,8 +23,8 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: 1184px;
-    height: 1328px;
+    width: 1254px;
+    height: 1254px;
     transform-origin: top left;
 }
 
@@ -32,8 +32,8 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: 1184px;
-    height: 1328px;
+    width: 1254px;
+    height: 1254px;
     max-width: none;
     pointer-events: none;
     user-select: none;
@@ -44,10 +44,10 @@
     position: absolute;
     z-index: 1;
     /* 外层铺满 LCD，159×96 游戏画面由 .screen-viewport 单独保持比例。 */
-    left: 109px;
-    top: 144px;
-    width: 731px;
-    height: 353px;
+    left: 215px;
+    top: 155px;
+    width: 668px;
+    height: 325px;
     margin: 0;
     padding: 0;
     border: 0;
@@ -62,10 +62,10 @@
 #realistic-device .screen-viewport {
     position: absolute;
     z-index: 1;
-    left: 84px;
-    top: 6px;
-    width: 567px;
-    height: 342.3396226px;
+    left: 76px;
+    top: 7px;
+    width: 516px;
+    height: 311.5471698px;
     overflow: hidden;
 }
 
@@ -76,7 +76,7 @@
 
 #realistic-device .screen-ornament {
     position: absolute;
-    top: 6px;
+    top: 7px;
     bottom: auto;
     height: 236px;
     display: flex;
@@ -93,14 +93,14 @@
 #realistic-device .screen-ornament-left {
     left: 0;
     width: 59px;
-    transform: scale(1.4237288, 1.4505916);
+    transform: scale(1.2881356, 1.3201151);
 }
 #realistic-device .screen-ornament-right {
     right: 0;
     width: 55px;
     padding-top: 2px;
     padding-bottom: 11px;
-    transform: scale(1.4545455, 1.4505916);
+    transform: scale(1.3818182, 1.3201151);
     transform-origin: top right;
 }
 
