@@ -413,9 +413,33 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         css = (ROOT / "eebbk" / "style.css").read_text(encoding="utf-8")
         self.assertIn('class="screen-viewport"', markup)
         self.assertEqual(markup.count('class="screen-ornament '), 2)
-        self.assertIn("NUM</b><b>CAPS</b><b>SHF", markup)
-        self.assertEqual(markup.count("<i></i>"), 11)
+        self.assertIn('class="lcd-clock" aria-label="8.8.8.8"', markup)
+        clock_markup = markup[markup.index('class="lcd-clock"'):markup.index("</span>", markup.index('class="lcd-clock"'))]
+        self.assertEqual(clock_markup.count('class="lcd-digit"'), 4)
+        self.assertIn("NUM</b><b>CAPS</b><b>SHIFT", markup)
+        for class_name in ("lcd-bracket-icon", "lcd-volume", "lcd-page-arrows", "lcd-battery", "lcd-back-arrow", "lcd-progress"):
+            self.assertIn(class_name, markup)
+        right_ornament = markup[markup.index('class="screen-ornament screen-ornament-right"'):markup.index("</div>", markup.index('class="screen-ornament screen-ornament-right"'))]
+        self.assertEqual(right_ornament.count("<i></i>"), 9)
+        pointer_css = css[css.index(".lcd-menu-pointers i {"):]
+        self.assertIn(".lcd-menu-pointers i::before", pointer_css)
+        self.assertIn(".lcd-menu-pointers i::after", pointer_css)
+        self.assertIn(".lcd-menu-pointers i:last-child::before", pointer_css)
+        self.assertIn("border-left-width: 10px", pointer_css)
+        self.assertIn("padding-top: 2px", css[css.index("#realistic-device .screen-ornament-right"):])
+        self.assertIn("justify-content: space-between", css[css.index(".lcd-menu-pointers {"):])
+        back_arrow_css = css[css.index(".lcd-back-arrow {"):css.index(".lcd-menu-pointers {")]
+        self.assertIn("width: 15px", back_arrow_css)
+        self.assertIn("width: 5px", back_arrow_css)
+        self.assertIn("border-right: 10px solid currentColor", back_arrow_css)
         self.assertIn("#realistic-device .screen-viewport", css)
+        self.assertIn("flex-direction: column", css[css.index(".lcd-page-arrows"):])
+        self.assertIn("top: 32px", css[css.index(".lcd-progress"):])
+        self.assertIn("bottom: 8px", css[css.index(".lcd-progress"):])
+        page_arrows = markup[markup.index('class="lcd-page-arrows"'):markup.index("</span>", markup.index('class="lcd-page-arrows"'))]
+        self.assertEqual(page_arrows.count("<i"), 4)
+        self.assertEqual(page_arrows.count('class="is-down"'), 2)
+        self.assertIn(".lcd-page-arrows i:nth-child(3)", css)
         self.assertIn("height: 236.0754717px", css)
 
     def test_save_slot_rows_never_shrink_below_content(self):

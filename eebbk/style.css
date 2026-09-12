@@ -96,88 +96,217 @@
 }
 
 #realistic-device .screen-ornament-left { left: 0; width: 59px; }
-#realistic-device .screen-ornament-right { right: 0; width: 55px; }
+#realistic-device .screen-ornament-right {
+    right: 0;
+    width: 55px;
+    padding-top: 2px;
+    padding-bottom: 11px;
+}
 
-.lcd-brand-grid {
-    width: 28px;
-    height: 9px;
-    background: radial-gradient(circle, currentColor 0 1.5px, transparent 2px) 0 0 / 7px 7px;
-    opacity: .58;
+.screen-ornament-left { justify-content: flex-start; }
+
+.lcd-clock {
+    position: absolute;
+    top: 8px;
+    left: 6px;
+    width: 46px;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    opacity: .48;
+}
+
+.lcd-clock .lcd-digit {
+    position: relative;
+    width: 8px;
+    height: 12px;
+}
+
+.lcd-clock .lcd-digit::before {
+    position: absolute;
+    top: 0;
+    left: 1px;
+    width: 6px;
+    height: 2px;
+    background: currentColor;
+    box-shadow: 0 5px currentColor, 0 10px currentColor;
+    border-radius: 1px;
+    content: "";
+}
+
+.lcd-clock .lcd-digit::after {
+    position: absolute;
+    top: 1px;
+    left: 0;
+    width: 2px;
+    height: 4px;
+    background: currentColor;
+    box-shadow: 6px 0 currentColor, 0 6px currentColor, 6px 6px currentColor;
+    border-radius: 1px;
+    content: "";
+}
+
+.lcd-clock b {
+    align-self: flex-end;
+    width: 2px;
+    height: 2px;
+    margin-bottom: 0;
+    border-radius: 50%;
+    background: currentColor;
 }
 
 .lcd-key-flags {
+    position: absolute;
+    top: 30px;
+    left: 25px;
     display: grid;
-    gap: 4px;
-    margin-top: 10px;
+    gap: 5px;
 }
-
 .lcd-key-flags b {
-    width: 26px;
-    height: 12px;
+    width: 27px;
+    height: 14px;
     border: 1px solid currentColor;
-    font: 700 7px/10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font: 700 6px/12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     letter-spacing: 0;
     text-align: center;
-    opacity: .72;
+    opacity: .53;
 }
 
-.lcd-mode-marks {
-    display: grid;
-    gap: 7px;
-    margin-top: 10px;
-}
-
-.lcd-mode-marks i {
-    position: relative;
-    width: 9px;
-    height: 9px;
-    border: 2px solid currentColor;
-    border-radius: 50%;
-    opacity: .65;
-}
-
-.lcd-mode-marks i::after {
+.lcd-bracket-icon {
     position: absolute;
-    top: 2px;
-    left: 11px;
-    width: 8px;
-    height: 2px;
-    background: currentColor;
+    top: 92px;
+    left: 31px;
+    width: 20px;
+    height: 12px;
+    opacity: .55;
+}
+.lcd-bracket-icon::before,
+.lcd-bracket-icon::after {
+    position: absolute;
+    top: 1px;
+    width: 5px;
+    height: 10px;
+    border: 1px solid currentColor;
     content: "";
 }
-
-.lcd-scroll-scale {
-    width: 20px;
-    height: 37px;
-    margin-top: auto;
-    background: repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 5px);
-    clip-path: polygon(0 0, 100% 0, 62% 50%, 100% 100%, 0 100%, 38% 50%);
-    opacity: .68;
+.lcd-bracket-icon::before { left: 0; border-right: 0; border-radius: 7px 0 0 7px; }
+.lcd-bracket-icon::after { right: 0; border-left: 0; border-radius: 0 7px 7px 0; }
+.lcd-bracket-icon i {
+    position: absolute;
+    top: 3px;
+    left: 7px;
+    width: 6px;
+    height: 6px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
 }
+
+.lcd-volume {
+    position: absolute;
+    top: 117px;
+    left: 32px;
+    width: 19px;
+    height: 15px;
+    opacity: .5;
+}
+.lcd-volume i {
+    position: absolute;
+    top: 4px;
+    left: 0;
+    width: 9px;
+    height: 8px;
+    background: currentColor;
+    clip-path: polygon(0 32%, 38% 32%, 100% 0, 100% 100%, 38% 68%, 0 68%);
+}
+.lcd-volume::before,
+.lcd-volume::after {
+    position: absolute;
+    border-right: 1px solid currentColor;
+    border-radius: 50%;
+    content: "";
+}
+.lcd-volume::before { top: 5px; right: 4px; width: 4px; height: 7px; }
+.lcd-volume::after { top: 2px; right: 0; width: 8px; height: 13px; }
+
+.lcd-page-arrows {
+    position: absolute;
+    top: 144px;
+    left: 38px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    opacity: .55;
+}
+.lcd-page-arrows i {
+    width: 7px;
+    height: 6px;
+    background: currentColor;
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.lcd-page-arrows .is-down { transform: rotate(180deg); }
+.lcd-page-arrows i:nth-child(3) { margin-top: 3px; }
+
+.lcd-progress {
+    position: absolute;
+    top: 32px;
+    bottom: 8px;
+    left: 8px;
+    width: 8px;
+    height: auto;
+    background: repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 4px);
+    clip-path: polygon(50% 0, 100% 7px, 100% calc(100% - 7px), 50% 100%, 0 calc(100% - 7px), 0 7px);
+    opacity: .5;
+}
+.lcd-progress i { display: none; }
 
 .lcd-battery {
-    position: relative;
-    width: 27px;
-    height: 13px;
-    border: 3px solid currentColor;
-    border-radius: 2px;
-    margin-top: 7px;
+    position: absolute;
+    top: 184px;
+    left: 28px;
+    width: 22px;
+    height: 10px;
+    border: 2px solid currentColor;
+    border-radius: 1px;
+    opacity: .6;
 }
-
 .lcd-battery::after {
     position: absolute;
     top: 2px;
-    right: -7px;
-    width: 4px;
-    height: 5px;
+    right: -5px;
+    width: 3px;
+    height: 4px;
     background: currentColor;
     content: "";
 }
+.lcd-battery i { position: absolute; inset: 2px 6px 2px 2px; background: currentColor; }
 
-.lcd-battery i {
+.lcd-back-arrow {
     position: absolute;
-    inset: 2px 7px 2px 2px;
+    top: 211px;
+    left: 33px;
+    width: 15px;
+    height: 10px;
+    opacity: .52;
+}
+.lcd-back-arrow::before {
+    position: absolute;
+    top: 3px;
+    left: 10px;
+    width: 5px;
+    height: 4px;
     background: currentColor;
+    content: "";
+}
+.lcd-back-arrow::after {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-top: 5px solid transparent;
+    border-right: 10px solid currentColor;
+    border-bottom: 5px solid transparent;
+    content: "";
 }
 
 .lcd-menu-pointers {
@@ -189,11 +318,43 @@
 }
 
 .lcd-menu-pointers i {
-    width: 13px;
-    height: 11px;
+    position: relative;
+    width: 15px;
+    height: 10px;
+    opacity: .52;
+}
+
+.lcd-menu-pointers i::before,
+.lcd-menu-pointers i::after {
+    position: absolute;
+    content: "";
+}
+
+.lcd-menu-pointers i::before {
+    top: 1px;
+    left: 0;
+    width: 8px;
+    height: 8px;
     background: currentColor;
-    clip-path: polygon(0 0, 100% 50%, 0 100%);
-    opacity: .68;
+}
+
+.lcd-menu-pointers i::after {
+    top: 0;
+    left: 8px;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 7px solid currentColor;
+}
+
+.lcd-menu-pointers i:last-child::before {
+    top: 3px;
+    width: 5px;
+    height: 4px;
+}
+
+.lcd-menu-pointers i:last-child::after {
+    left: 5px;
+    border-left-width: 10px;
 }
 
 #realistic-device #placeholder,
