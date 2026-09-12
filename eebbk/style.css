@@ -252,7 +252,7 @@
     padding: 14px;
     text-align: center;
     color: var(--lcd-ink);
-    background: var(--lcd);
+    background: var(--simulator-lcd-bg, var(--lcd));
     font: 800 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
