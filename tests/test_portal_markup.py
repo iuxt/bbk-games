@@ -373,7 +373,10 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertIn('id="dict-row"', markup)
         self.assertIn('data-key="32" aria-label="输入法"', markup)
         self.assertIn('id="game-row"', markup)
-        self.assertIn('data-key="19" aria-label="字母 R"', markup)
+        self.assertIn(
+            'data-key="19" aria-label="重复行动，字母 R"><span>重复行动</span><small>R</small>',
+            markup,
+        )
         self.assertNotIn('data-key="1" aria-label="目录"', markup)
         function_keys = re.findall(
             r'data-key="(4[1-5])" aria-label="([^"]+)"', markup
@@ -383,6 +386,8 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
             [("41", "帮助"), ("42", "查找"), ("43", "插入"),
              ("44", "修改"), ("45", "删除")],
         )
+        function_row = markup.split('<div class="function-keys"', 1)[1].split('</div>', 1)[0]
+        self.assertNotIn("<small>", function_row)
 
     def test_drops_legacy_save_buttons(self):
         markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")
