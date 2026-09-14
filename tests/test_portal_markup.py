@@ -1,6 +1,7 @@
 from html.parser import HTMLParser
 import json
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -365,7 +366,7 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertIn('id="save-input"', markup)
         self.assertIn('dialog.css', markup)
 
-    def test_touchpad_matches_rpg_layout_without_directory_or_delete(self):
+    def test_touchpad_matches_rpg_layout_with_five_function_keys(self):
         markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")
         # 主操作区沿用 RPG 的三行三列顺序，输入法 / R 共用中间键位。
         self.assertEqual(markup.count('class="kb-row"'), 3)
@@ -374,7 +375,14 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertIn('id="game-row"', markup)
         self.assertIn('data-key="19" aria-label="字母 R"', markup)
         self.assertNotIn('data-key="1" aria-label="目录"', markup)
-        self.assertNotIn('data-key="45" aria-label="删除"', markup)
+        function_keys = re.findall(
+            r'data-key="(4[1-5])" aria-label="([^"]+)"', markup
+        )
+        self.assertEqual(
+            function_keys,
+            [("41", "帮助"), ("42", "查找"), ("43", "插入"),
+             ("44", "修改"), ("45", "删除")],
+        )
 
     def test_drops_legacy_save_buttons(self):
         markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")

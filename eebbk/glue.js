@@ -426,6 +426,7 @@
   };
   let composing = false;   // 中文输入法组合中，避免拼音过程中误过滤
   let currentRom = { id: '', name: '' };
+  let currentRomData = null;  // 保留当前 ROM，重置时无需刷新页面或重新请求资源
 
   /* 原生游戏存档（Flash save RAM）与快速存档分开保存。
      每个 ROM 在 IndexedDB 中只有一份，由游戏自身决定内部槽位。 */
@@ -824,15 +825,23 @@
   }
 
   function resetCurrentGame() {
-    if (!BBK.shouldAutosave(currentRom.id)) return;
+    if (!BBK.shouldAutosave(currentRom.id) || !currentRomData) return;
     if (!global.confirm('重置当前游戏？\n\n将清除自动续玩的运行进度并重新启动游戏；游戏内存档和“存档管理”中的三个槽位会保留。')) return;
-    /* pagehide 会执行自动保存；先设置抑制标记，避免刚清掉的整机快照在
-       reload 前又被写回。原生 Flash 仍同步写入 localStorage 镜像。 */
+    /* 重置期间禁止可见性变化把旧运行状态重新写回；直接复用内存中的 ROM
+       重新初始化当前游戏，不刷新页面，也不重新请求 ROM / wasm / 固件。 */
     suppressSnapshotAutosave = true;
-    pauseEmulator();
+    clearPressedKeys();
     clearResumeSnapshots(currentRom.id);
-    persistNativeSave();
-    location.reload();
+    resetGameBtn.disabled = true;
+    loadGame(currentRomData, currentRom.name, currentRom.id)
+      .catch(function (err) {
+        console.warn('reset game failed:', err);
+        fatalError('重置失败', (err && err.message) ? err.message : String(err));
+      })
+      .finally(function () {
+        suppressSnapshotAutosave = false;
+        resetGameBtn.disabled = !BBK.shouldAutosave(currentRom.id) || !currentRomData;
+      });
   }
 
   function sendEmulatorKey(key) {
@@ -1387,6 +1396,8 @@
         if (wasRunning) resumeEmulator();
         throw new Error('ROM 文件无效或格式不受支持');
       }
+
+      currentRomData = data.slice(0);
 
       nativeSaveSession += 1;
       nativeSaveRomId = romId || '';

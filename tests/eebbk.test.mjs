@@ -107,15 +107,23 @@ test("恢复检查点在按键送入 wasm 前捕获", () => {
     assert.ok(keydownAt > checkpointAt, "检查点必须早于可能触发死循环的 wasm 按键");
 });
 
-test("重置游戏会清除整机续玩快照，并阻止 pagehide 将其写回", () => {
+test("重置游戏复用内存 ROM，不刷新页面或重新请求资源", () => {
     const resetStart = glueSource.indexOf("function resetCurrentGame()");
     const launchStart = glueSource.indexOf("function launchHome()", resetStart);
     assert.ok(resetStart >= 0 && launchStart > resetStart);
     const resetBody = glueSource.slice(resetStart, launchStart);
     assert.match(resetBody, /suppressSnapshotAutosave\s*=\s*true/);
     assert.match(resetBody, /clearResumeSnapshots\(currentRom\.id\)/);
-    assert.match(resetBody, /persistNativeSave\(\)/, "重置不应删除游戏自己的 Flash 存档");
-    assert.match(resetBody, /location\.reload\(\)/);
+    assert.match(resetBody, /loadGame\(currentRomData, currentRom\.name, currentRom\.id\)/);
+    assert.doesNotMatch(resetBody, /fetch\s*\(/);
+    assert.doesNotMatch(resetBody, /location\.reload\(\)/);
+    assert.match(resetBody, /suppressSnapshotAutosave\s*=\s*false/);
+
+    const loadStart = glueSource.indexOf("function loadGame(");
+    const saveLoadStart = glueSource.indexOf("/* ---------- Save/Load state", loadStart);
+    const loadBody = glueSource.slice(loadStart, saveLoadStart);
+    assert.match(loadBody, /persistNativeSave\(\)/, "重置仍应保留游戏自己的 Flash 存档");
+    assert.match(loadBody, /currentRomData\s*=\s*data\.slice\(0\)/);
 
     const autoSaveStart = glueSource.indexOf("function handleAutoSave()");
     const dragStart = glueSource.indexOf("/* ---------- Drag & drop", autoSaveStart);
