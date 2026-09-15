@@ -33,7 +33,7 @@ test("EEBBK wasm initializes in 16 MiB and reports clean LCD frames", async () =
   mod._free(biosPtr);
   assert.equal(mod.HEAPU8.buffer.byteLength, 16 * 1024 * 1024);
 
-  const rom = new Uint8Array(fs.readFileSync("eebbk/roms/伏魔记.gam"));
+  const rom = new Uint8Array(fs.readFileSync("eebbk/roms/伏魔记怀旧终曲v1.0(原版精修).gam"));
   const romPtr = mod._malloc(rom.byteLength);
   mod.HEAPU8.set(rom, romPtr);
   assert.equal(mod._web_load_game(romPtr, rom.byteLength), 1);
@@ -52,6 +52,35 @@ test("EEBBK wasm initializes in 16 MiB and reports clean LCD frames", async () =
   const frame = new Uint8Array(mod.HEAPU8.buffer, framePtr, 159 * 96 * 4);
   assert.equal(frame.length, 159 * 96 * 4);
   assert.equal(frame[3], 255);
+});
+
+test("EEBBK wasm delivers rapid keys in order instead of overwriting the pending key", async () => {
+  const mod = await createModule();
+  const biosPtr = mod._malloc(biosBytes.byteLength);
+  mod.HEAPU8.set(biosBytes, biosPtr);
+  assert.equal(mod._web_init(biosPtr, biosBytes.byteLength), 0);
+  mod._free(biosPtr);
+
+  const rom = new Uint8Array(fs.readFileSync("eebbk/roms/伏魔记怀旧终曲v1.0(原版精修).gam"));
+  const romPtr = mod._malloc(rom.byteLength);
+  mod.HEAPU8.set(rom, romPtr);
+  assert.equal(mod._web_load_game(romPtr, rom.byteLength), 1);
+  mod._free(romPtr);
+  for (let i = 0; i < 600; i += 1) mod._web_run_frame();
+
+  const statePtr = mod._malloc(mod._web_save_size());
+  const delivered = [];
+  mod._web_keydown(0x2a);
+  mod._web_keydown(0x2d);
+  for (let i = 0; i < 30 && delivered.length < 2; i += 1) {
+    mod._web_run_frame();
+    mod._web_save(statePtr);
+    const key = mod.HEAPU8[statePtr + 0x2008 + 0x0f];
+    if (key && delivered[delivered.length - 1] !== key) delivered.push(key);
+  }
+  mod._free(statePtr);
+
+  assert.deepEqual(delivered, [0x2a, 0x2d], "查找必须先于删除交给游戏固件");
 });
 
 test("EEBBK wasm rejects malformed ROMs without replacing the running game", async () => {
@@ -73,7 +102,7 @@ test("EEBBK wasm rejects malformed ROMs without replacing the running game", asy
   assert.equal(mod._web_load_game(badPtr, badHeader.byteLength), 0);
   mod._free(badPtr);
 
-  const rom = new Uint8Array(fs.readFileSync("eebbk/roms/伏魔记.gam"));
+  const rom = new Uint8Array(fs.readFileSync("eebbk/roms/伏魔记怀旧终曲v1.0(原版精修).gam"));
   const romPtr = mod._malloc(rom.byteLength);
   mod.HEAPU8.set(rom, romPtr);
   assert.equal(mod._web_load_game(romPtr, rom.byteLength), 1);
@@ -87,7 +116,7 @@ test("EEBBK wasm native save RAM round-trips the 80 KiB libretro layout", async 
   assert.equal(mod._web_init(biosPtr, biosBytes.byteLength), 0);
   mod._free(biosPtr);
 
-  const rom = new Uint8Array(fs.readFileSync("eebbk/roms/伏魔记.gam"));
+  const rom = new Uint8Array(fs.readFileSync("eebbk/roms/伏魔记怀旧终曲v1.0(原版精修).gam"));
   const romPtr = mod._malloc(rom.byteLength);
   mod.HEAPU8.set(rom, romPtr);
   assert.equal(mod._web_load_game(romPtr, rom.byteLength), 1);

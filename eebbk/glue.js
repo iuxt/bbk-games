@@ -1723,6 +1723,8 @@
       e.preventDefault();
       pressedKeys.set(e.code || e.key, key);
       syncPressedKeys();
+      // 功能快捷键是一次性动作；浏览器的按住自动连发会重复开关游戏功能。
+      if (e.repeat && (key === 0x2a || key === 0x2d)) return;
       sendEmulatorKey(key);
     }
   });

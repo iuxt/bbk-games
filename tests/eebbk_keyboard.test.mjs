@@ -91,6 +91,15 @@ test('keyboard respects dialogs, native controls and shortcuts, and clears press
   assert.equal(h.pressed.size, 0);
 });
 
+test('search and delete shortcuts ignore browser auto-repeat', () => {
+  const h = inputHarness();
+  h.keydown({ key: 'F10', code: 'F10' });
+  h.keydown({ key: 'F10', code: 'F10', repeat: true });
+  h.keydown({ key: 'Delete', code: 'Delete' });
+  h.keydown({ key: 'Delete', code: 'Delete', repeat: true });
+  assert.deepEqual(h.sent, [42, 45]);
+});
+
 test('a keycap label click sends one device key, including keyboard activation', () => {
   const h = inputHarness();
   const event = { target: { closest: () => h.button }, detail: 1 };

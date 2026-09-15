@@ -66,6 +66,7 @@
 #define LCD_RAM_END 0x1000
 #define LCD_RAM_SIZE (LCD_RAM_END - LCD_RAM_START + 1)
 #define SAVE_RAM_SIZE 0x14000
+#define KEY_QUEUE_CAPACITY 32
 
 /* ---- global state ---- */
 static int8_t   fa[LCD_PITCH * LCD_HEIGHT];
@@ -75,6 +76,9 @@ static bool     lcd_snapshot_valid = false;
 static uint32_t rgba_bg;
 static uint32_t rgba_fg;
 static uint32_t save_ram_revision = 0;
+static uint8_t key_queue[KEY_QUEUE_CAPACITY];
+static uint8_t key_queue_head = 0;
+static uint8_t key_queue_size = 0;
 
 /* ---- forward declarations ---- */
 static void sys_isr(void);
@@ -610,20 +614,6 @@ static void sys_keydown(uint8_t key)
 {
     if (key == 0) return;
 
-    static long last_input_time = 0;
-    static uint8_t last_input_key = 0;
-
-    long current_time = (long)(emscripten_get_now());
-
-    if (key == last_input_key
-        && current_time - last_input_time < 0)
-    {
-        return;
-    }
-
-    last_input_key = key;
-    last_input_time = current_time;
-
     sys.ram[_SYSCON] &= 0xf7;
     sys.ram[_KEYCODE] = key | 0x80;
     sys.ram[_ISR] |= 0x80;
@@ -633,6 +623,42 @@ static void sys_keydown(uint8_t key)
         sys.ram[_KeyBuffer + 0x0f] = key & 0x3f;
         sys.ram[_KEYCODE] = 0x00;
     }
+}
+
+static void key_queue_clear(void)
+{
+    key_queue_head = 0;
+    key_queue_size = 0;
+}
+
+static void key_queue_push(uint8_t key)
+{
+    if (key == 0) return;
+
+    /* Browser key repeat can briefly outrun the emulated firmware. Keep the oldest
+       inputs in order; SEARCH/DEL are user actions, so preserve them even if that
+       means discarding a full backlog of movement repeats. */
+    if (key_queue_size == KEY_QUEUE_CAPACITY) {
+        if (key != KEY_SEARCH && key != KEY_DEL) return;
+        key_queue_clear();
+    }
+
+    uint8_t tail = (uint8_t)((key_queue_head + key_queue_size) % KEY_QUEUE_CAPACITY);
+    key_queue[tail] = key;
+    key_queue_size += 1;
+}
+
+static void key_queue_pump(void)
+{
+    /* Give every queued input one complete emulated frame before delivering the
+       next one. Previously all browser events arriving between two frames reset
+       the same firmware mailbox, so only the final key could ever be observed. */
+    if (key_queue_size == 0) return;
+
+    uint8_t key = key_queue[key_queue_head];
+    key_queue_head = (uint8_t)((key_queue_head + 1) % KEY_QUEUE_CAPACITY);
+    key_queue_size -= 1;
+    sys_keydown(key);
 }
 
 static uint32_t rgb565_to_rgba32(uint16_t c)
@@ -712,6 +738,7 @@ static int sys_init(const uint8_t *bios, size_t size)
     sys.flash_cmd = 0;
     sys.flash_cycles = 0;
     save_ram_revision = 0;
+    key_queue_clear();
     sys.ram[_INCR] = 0x0f;
 
     mem_init();
@@ -824,12 +851,14 @@ int web_load_game(const uint8_t *data, size_t size)
     if (!sys_load(data, size)) return 0;
     save_ram_revision = 0;
     lcd_snapshot_valid = false;
+    key_queue_clear();
     return 1;
 }
 
 EMSCRIPTEN_KEEPALIVE
 int web_run_frame(void)
 {
+    key_queue_pump();
     sys_step();
 
     /* Draw screen — copied from retro_run */
@@ -871,7 +900,7 @@ int web_run_frame(void)
 EMSCRIPTEN_KEEPALIVE
 void web_keydown(uint8_t key)
 {
-    sys_keydown(key);
+    key_queue_push(key);
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -991,6 +1020,7 @@ int web_load(const uint8_t *buf, size_t size)
     sys.flash_cycles = state.flash_cycles;
     for (int i = 0; i < 16; ++i)
         mem_bs(i);
+    key_queue_clear();
     lcd_snapshot_valid = false;
     return 1;
 }
