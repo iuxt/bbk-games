@@ -15,7 +15,7 @@ function harness() {
   const state = new Uint8Array([1, 2, 3, 4]);
   const context = vm.createContext({
     BBK: { ...G, bytesToBase64(bytes) { work.push('encode'); return G.bytesToBase64(bytes); } },
-    currentRom: { id: 'test-game' }, recoveryCheckpointReady: true,
+    currentRom: { id: 'test-game' }, currentRomFingerprint: '', recoveryCheckpointReady: true,
     recoveryHasRendered: false, recoveryNeedsInitialCheckpoint: false,
     readLS(key) { work.push('read'); return storage.get(key) || ''; },
     writeLS(key, value) { work.push('write'); storage.set(key, value); },

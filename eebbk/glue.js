@@ -39,6 +39,18 @@
     return 'local-' + bytes.length + '-' + (hash >>> 0).toString(16).padStart(8, '0');
   }
 
+  function gameKeySequence(key, romFingerprint) {
+    // 伏魔记怀旧终曲 v1.0（原版精修）的提示沿用 4980 键名，但在随站点
+    // 提供的 A4988 固件下实际使用 Shift+下（坐标）、Shift+左（遇敌）。
+    // 按内容识别，也支持本地导入；不同 ROM / 后续修订版仍使用原始键值。
+    if (romFingerprint === 'local-966656-c10bd998') {
+      if (key === 0x28) return [0x2d]; // 单独的 Shift，供玩家自行组合方向键。
+      if (key === 0x2a) return [0x2d, 0x38];
+      if (key === 0x2d) return [0x2d, 0x37];
+    }
+    return [key];
+  }
+
   function slotKey(storageId, slot) {
     if (!storageId || !Number.isInteger(slot) || slot < 0 || slot > 2) {
       throw new Error('无效的游戏或存档槽位');
@@ -330,6 +342,7 @@
 
   global.BBK4980Glue = {
     pcKeyToEmuKey: pcKeyToEmuKey,
+    gameKeySequence: gameKeySequence,
     bytesToBase64: bytesToBase64,
     base64ToBytes: base64ToBytes,
     isValidBase64: isValidBase64,
@@ -427,6 +440,7 @@
   let composing = false;   // 中文输入法组合中，避免拼音过程中误过滤
   let currentRom = { id: '', name: '' };
   let currentRomData = null;  // 保留当前 ROM，重置时无需刷新页面或重新请求资源
+  let currentRomFingerprint = '';
 
   /* 原生游戏存档（Flash save RAM）与快速存档分开保存。
      每个 ROM 在 IndexedDB 中只有一份，由游戏自身决定内部槽位。 */
@@ -846,7 +860,10 @@
 
   function sendEmulatorKey(key) {
     checkpointBeforeInput();
-    Module._web_keydown(key);
+    // wasm 的输入队列逐帧投递，让固件先处理修饰键，再处理方向键。
+    BBK.gameKeySequence(key, currentRomFingerprint).forEach(function (nativeKey) {
+      Module._web_keydown(nativeKey);
+    });
   }
 
   function launchHome() {
@@ -1398,6 +1415,7 @@
       }
 
       currentRomData = data.slice(0);
+      currentRomFingerprint = BBK.romStorageId(new Uint8Array(data));
 
       nativeSaveSession += 1;
       nativeSaveRomId = romId || '';

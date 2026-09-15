@@ -508,6 +508,9 @@
 }
 
 #touchpad .space-key {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 8px;
     margin-top: 8px;
 }
 

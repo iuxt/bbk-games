@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import { createHash } from "node:crypto";
+
+await import('../eebbk/glue.js');
 
 const runtimeSource = fs.readFileSync("eebbk/gam4980.js", "utf8");
 const wasmBytes = new Uint8Array(fs.readFileSync("eebbk/gam4980.wasm"));
@@ -172,4 +175,82 @@ test("EEBBK wasm only restores complete quick snapshots", async () => {
   assert.equal(mod._web_load(ptr, size + 1), 0, "超长快照必须拒绝");
   assert.equal(mod._web_load(ptr, size), 1, "完整快照应成功恢复");
   mod._free(ptr);
+});
+
+test('终曲 search toggles visible coordinates and delete opens the encounter dialog', async () => {
+  const mod = await createModule();
+  function load(bytes, fn) {
+    const ptr = mod._malloc(bytes.length);
+    mod.HEAPU8.set(bytes, ptr);
+    const result = fn(ptr, bytes.length);
+    mod._free(ptr);
+    return result;
+  }
+  assert.equal(load(biosBytes, mod._web_init), 0);
+  const rom = fs.readFileSync('eebbk/roms/伏魔记怀旧终曲v1.0(原版精修).gam');
+  assert.equal(load(rom, mod._web_load_game), 1);
+  const G = globalThis.BBK4980Glue;
+  const fingerprint = G.romStorageId(rom);
+  const frames = count => { for (let i = 0; i < count; i++) mod._web_run_frame(); };
+  function key(code) {
+    for (const native of G.gameKeySequence(code, fingerprint)) mod._web_keydown(native);
+    frames(120);
+  }
+  const enters = count => { for (let i = 0; i < count; i++) key(0x2f); };
+  function pixels() {
+    const ptr = mod._web_get_framebuffer_rgba();
+    return Uint8Array.from({ length: 159 * 96 }, (_, i) => mod.HEAPU8[ptr + i * 4] === 0 ? 1 : 0);
+  }
+  function dialogHash() {
+    return createHash('sha256').update(pixels().slice(159 * 64)).digest('hex');
+  }
+  const coordinateBox = () => pixels().slice(0, 159 * 12);
+
+  // Replay a new game, choosing “需要” for both encounter and coordinate switches.
+  // This exercises the real game/firmware rather than merely checking its key mailbox.
+  frames(600);
+  enters(2);
+  frames(6000);
+  enters(11);
+  key(0x38);
+  enters(5);
+  key(0x38);
+  enters(16);
+  frames(600);
+  enters(10);
+  const hidden = coordinateBox();
+  const initialState = mod._malloc(mod._web_save_size());
+  mod._web_save(initialState);
+
+  key(0x2a);
+  // Visually verified LCD text: “请选择是否开启地图坐标。”
+  assert.equal(dialogHash(), '7e4102f79ec3dca81b119e6a9a7597f7a714d049f53b753509a67b43c77d2db3');
+  key(0x2f);
+  key(0x38);
+  enters(2);
+  assert.notDeepEqual(coordinateBox(), hidden, '地图左上角应显示坐标');
+  key(0x2a);
+  // Visually verified LCD text: “请选择是否关闭地图坐标。”
+  assert.equal(dialogHash(), 'aace8f295caa4620f4bc8521b21b2f782cfccc606ffdbe3da4c8c566ad6f6c98');
+  key(0x2f);
+  key(0x38);
+  enters(2);
+  // The ROM leaves the old coordinate pixels until the map next redraws. Reopening
+  // the dialog verifies that its setting really switched back off.
+  key(0x2a);
+  assert.equal(dialogHash(), '7e4102f79ec3dca81b119e6a9a7597f7a714d049f53b753509a67b43c77d2db3');
+  key(0x2f);
+  key(0x2f);
+
+  key(0x2d);
+  // Visually verified LCD text: “请选择是否关闭随机遇敌。”
+  assert.equal(dialogHash(), 'b4c47b862dde15d6eb57c865c60c727bc42629341857aaca60238106163f8e9c',
+    '删除键应直接弹出遇敌菜单，不应留下等待下一方向键的 Shift');
+
+  // Independently verify the standalone Shift button from the same map state.
+  assert.equal(mod._web_load(initialState, mod._web_save_size()), 1);
+  mod._free(initialState);
+  key(0x28);
+  key(0x38);
+  assert.equal(dialogHash(), '7e4102f79ec3dca81b119e6a9a7597f7a714d049f53b753509a67b43c77d2db3');
 });

@@ -100,6 +100,36 @@ test('search and delete shortcuts ignore browser auto-repeat', () => {
   assert.deepEqual(h.sent, [42, 45]);
 });
 
+test('终曲 shortcut compatibility follows ROM content and reaches both input surfaces', () => {
+  const BBK = globalThis.BBK4980Glue;
+  const rom = fs.readFileSync(new URL('../eebbk/roms/伏魔记怀旧终曲v1.0(原版精修).gam', import.meta.url));
+  const fingerprint = BBK.romStorageId(rom);
+  const h = inputHarness();
+  let checkpoints = 0;
+  Object.assign(h.context, {
+    BBK, currentRomFingerprint: fingerprint,
+    checkpointBeforeInput() { checkpoints++; },
+    Module: { _web_keydown: key => h.sent.push(key) },
+  });
+  vm.runInNewContext(source.slice(source.indexOf('  function sendEmulatorKey('),
+    source.indexOf('  function launchHome(')), h.context);
+  h.keydown({ key: 'F10', code: 'F10' });
+  h.button.dataset.key = '45';
+  h.touchpad.handlers.click({ target: { closest: () => h.button }, detail: 0 });
+  assert.deepEqual(h.sent, [0x2d, 0x38, 0x2d, 0x37]);
+  assert.equal(checkpoints, 2, '组合键只保存一次按键前检查点');
+  h.keydown({ key: 'Shift', code: 'ShiftLeft' });
+  h.button.dataset.key = '40';
+  h.touchpad.handlers.click({ target: { closest: () => h.button }, detail: 0 });
+  assert.deepEqual(h.sent.slice(-2), [0x2d, 0x2d], '屏幕与实体 Shift 均发送修饰键本身');
+  assert.deepEqual(BBK.gameKeySequence(0x38, fingerprint), [0x38]);
+  rom[rom.length - 1] ^= 1;
+  for (const other of ['', BBK.HOME_ROM_ID, BBK.romStorageId(rom)]) {
+    assert.deepEqual(BBK.gameKeySequence(0x2a, other), [0x2a]);
+    assert.deepEqual(BBK.gameKeySequence(0x2d, other), [0x2d]);
+  }
+});
+
 test('a keycap label click sends one device key, including keyboard activation', () => {
   const h = inputHarness();
   const event = { target: { closest: () => h.button }, detail: 1 };

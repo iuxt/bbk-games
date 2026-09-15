@@ -102,7 +102,7 @@ test("恢复检查点在按键送入 wasm 前捕获", () => {
     assert.ok(sendStart >= 0 && launchHomeStart > sendStart);
     const sendBody = glueSource.slice(sendStart, launchHomeStart);
     const checkpointAt = sendBody.indexOf("checkpointBeforeInput()");
-    const keydownAt = sendBody.indexOf("Module._web_keydown(key)");
+    const keydownAt = sendBody.indexOf("Module._web_keydown(");
     assert.ok(checkpointAt >= 0, "每次模拟器按键前必须尝试建立检查点");
     assert.ok(keydownAt > checkpointAt, "检查点必须早于可能触发死循环的 wasm 按键");
 });
