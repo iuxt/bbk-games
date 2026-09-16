@@ -8,7 +8,10 @@ await import('../eebbk/glue.js');
 
 const runtimeSource = fs.readFileSync("eebbk/gam4988.js", "utf8");
 const wasmBytes = new Uint8Array(fs.readFileSync("eebbk/gam4988.wasm"));
-const biosBytes = new Uint8Array(fs.readFileSync("eebbk/gam4988.data"));
+const biosBytes = new Uint8Array(Buffer.concat([
+  fs.readFileSync("eebbk/gam4988.data.0"),
+  fs.readFileSync("eebbk/gam4988.data.1"),
+]));
 
 async function createModule() {
   const factory = vm.runInThisContext(runtimeSource + ";Gam4988Module");

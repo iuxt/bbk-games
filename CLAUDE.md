@@ -86,7 +86,7 @@ node scripts/gam2lib.mjs foo.gam --install fmj_x "显示名"   # 收录进 rpg/r
 
 ### 电子词典模拟器（`eebbk/`）
 - `src/`：C 源码（`libretro.c`/`s6502.c`/`web_main.c`），libretro 6502 核心，源自 [gam4980](https://codeberg.org/iyzsong/gam4980)。
-- `gam4988.{js,wasm,data}`：wasm 产物（提交进 git）；data 包含完整 A4988 Flash、字库和词典数据区。
+- `gam4988.js` / `gam4988.wasm` / `gam4988.data.{0,1}`：wasm 产物（提交进 git）；两段 data 合计包含完整 A4988 Flash、字库和词典数据区。
 - `glue.js`：JS 粘合层，含存档/导入等纯函数（`bytesToBase64`、`romStorageId`、`slotKey`、`buildSavePayload`）。
 - `roms/catalog.json` + `*.gam`：4988 原生游戏包，**直接以 `.gam` 运行**（不转 `.lib`，与 RPG 模块的 `.gam` 用途不同）。
 

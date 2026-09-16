@@ -49,8 +49,11 @@ for (const file of packageFiles) {
     if (bytes.length !== 0x200000) throw new Error(`${file} 必须为 2 MiB`);
     packageParts.push(bytes);
 }
-await writeFile(path.join(emu, "gam4988.data"), Buffer.concat(packageParts));
-console.log("  ✓ gam4988.data (26 MiB complete A4988 firmware + dictionaries)");
+const packageBytes = Buffer.concat(packageParts);
+const splitAt = 7 * 0x200000;
+await writeFile(path.join(emu, "gam4988.data.0"), packageBytes.subarray(0, splitAt));
+await writeFile(path.join(emu, "gam4988.data.1"), packageBytes.subarray(splitAt));
+console.log("  ✓ gam4988.data.0/.1 (14 + 12 MiB complete A4988 firmware + dictionaries)");
 
 console.log(
     "\neebbk artifacts written to eebbk/. Commit them (git add eebbk/gam4988.*)."

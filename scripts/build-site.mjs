@@ -25,7 +25,8 @@ const emuRuntime = [
     "assets/longman-4988-transparent.png",
     "gam4988.js",
     "gam4988.wasm",
-    "gam4988.data",
+    "gam4988.data.0",
+    "gam4988.data.1",
 ];
 
 // 源码中保持可读/原样的大体积引擎脚本：仅在写入 dist 时做 minify，以最小化线上体积。

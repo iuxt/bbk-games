@@ -730,11 +730,19 @@
   function ensureModule() {
     if (modulePromise) return modulePromise;
 
-    const biosPromise = fetch('gam4988.data?v=1')
-      .then(function (r) {
+    const biosPromise = Promise.all(['gam4988.data.0?v=1', 'gam4988.data.1?v=1'].map(function (url) {
+      return fetch(url).then(function (r) {
         if (!r.ok) throw new Error('固件下载失败');
         return r.arrayBuffer();
       });
+    })).then(function (parts) {
+      const first = new Uint8Array(parts[0]);
+      const second = new Uint8Array(parts[1]);
+      const joined = new Uint8Array(first.byteLength + second.byteLength);
+      joined.set(first, 0);
+      joined.set(second, first.byteLength);
+      return joined.buffer;
+    });
 
     modulePromise = Promise.all([loadRuntimeScript(), biosPromise])
       .then(function (results) {
