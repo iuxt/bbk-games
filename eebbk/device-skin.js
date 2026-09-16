@@ -5,7 +5,7 @@
 (function(global) {
   'use strict';
   const photo = {
-    src: 'assets/bbk-electronic-dictionary-photorealistic.png?v=1',
+    src: 'assets/bbk-electronic-dictionary-photorealistic.png?v=2',
     width: 1254, height: 1254,
     crop: { x: 0, y: 0, width: 1254, height: 1254 },
     lcd: { x: 261, y: 126, width: 734, height: 345 },
