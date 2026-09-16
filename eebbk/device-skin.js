@@ -1,10 +1,10 @@
-/* 朗文4980机身图坐标。图片为透明背景的1254×1254 PNG，
+/* 朗文4988机身图坐标。图片为透明背景的1254×1254 PNG，
    保留完整画布，逐键标定以适应照片中的倾斜。rect 为键帽中心 x/y 与宽/高，
    单位均为原图像素。 */
 (function(global) {
   'use strict';
   const photo = {
-    src: 'assets/longman-4980-transparent.png?v=1',
+    src: 'assets/longman-4988-transparent.png?v=1',
     width: 1254, height: 1254,
     crop: { x: 0, y: 0, width: 1254, height: 1254 },
     lcd: { x: 215, y: 155, width: 668, height: 325 },
@@ -96,7 +96,7 @@
     const controls = doc.createElement('div');
     controls.className = 'device-hotspots';
     controls.setAttribute('role', 'group');
-    controls.setAttribute('aria-label', '朗文4980原机键盘');
+    controls.setAttribute('aria-label', '朗文4988原机键盘');
     function addButton(label, rect, code, action) {
       const button = doc.createElement('button');
       button.type = 'button';
@@ -128,5 +128,5 @@
       },
     };
   }
-  global.BBK4980Skin = { photo: photo, keys: keys, position: position, mount: mount };
+  global.BBK4988Skin = { photo: photo, keys: keys, position: position, mount: mount };
 }(typeof window !== 'undefined' ? window : globalThis));

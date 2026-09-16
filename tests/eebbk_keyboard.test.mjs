@@ -5,7 +5,7 @@ import vm from 'node:vm';
 
 await import('../eebbk/glue.js');
 await import('../eebbk/device-skin.js');
-const { pcKeyToEmuKey } = globalThis.BBK4980Glue;
+const { pcKeyToEmuKey } = globalThis.BBK4988Glue;
 const source = fs.readFileSync(new URL('../eebbk/glue.js', import.meta.url), 'utf8');
 const skinCss = fs.readFileSync(new URL('../eebbk/style.css', import.meta.url), 'utf8');
 
@@ -101,7 +101,7 @@ test('search and delete shortcuts ignore browser auto-repeat', () => {
 });
 
 test('终曲 shortcut compatibility follows ROM content and reaches both input surfaces', () => {
-  const BBK = globalThis.BBK4980Glue;
+  const BBK = globalThis.BBK4988Glue;
   const rom = fs.readFileSync(new URL('../eebbk/roms/伏魔记怀旧终曲v1.0(原版精修).gam', import.meta.url));
   const fingerprint = BBK.romStorageId(rom);
   const h = inputHarness();
@@ -186,7 +186,7 @@ test('pointer keys respect disabled controls, dialogs and device state; power wa
 });
 
 test('photo keyboard covers all sixty keys and stays inside the device without overlapping keys', () => {
-  const skin = globalThis.BBK4980Skin;
+  const skin = globalThis.BBK4988Skin;
   assert.ok(Math.abs(skin.photo.screen.width / skin.photo.screen.height - 159 / 96) < 1e-9,
     'the gameplay viewport must preserve the native 159:96 aspect ratio');
   assert.ok(skin.photo.screen.width < skin.photo.lcd.width * 0.8,
@@ -216,7 +216,7 @@ test('photo keyboard covers all sixty keys and stays inside the device without o
 });
 
 test('front-view skin uses the full image coordinate system without leveling transforms', () => {
-  const skin = globalThis.BBK4980Skin;
+  const skin = globalThis.BBK4988Skin;
   assert.deepEqual(skin.photo.crop, { x: 0, y: 0, width: 1254, height: 1254 });
   assert.equal(skin.photo.width, skin.photo.crop.width);
   assert.equal(skin.photo.height, skin.photo.crop.height);
@@ -234,7 +234,7 @@ test('settings move the same screen between interfaces, persist selection and mo
     interfaceToggle: { checked: false, addEventListener(name, fn) { this.change = fn; } },
     document: { documentElement: { classList: { toggle() {} } } },
     deviceSkin: null, wrapper, gameScreenHost, realisticDevice: {}, touchpad: {},
-    global: { BBK4980Skin: { mount() { mounts++; return { layer, show() {} }; } } },
+    global: { BBK4988Skin: { mount() { mounts++; return { layer, show() {} }; } } },
     writeLS: (key, value) => storage.set(key, value), clearPressedKeys() {},
   });
   vm.runInContext(source.slice(
@@ -251,7 +251,7 @@ test('settings move the same screen between interfaces, persist selection and mo
     assert.equal(wrapper.parent, layer);
     assert.equal(context.touchpad.hidden, true);
     assert.equal(context.realisticDevice.hidden, false);
-    assert.equal(storage.get('bbk4980.interfaceMode'), 'realistic');
+    assert.equal(storage.get('bbk4988.interfaceMode'), 'realistic');
     context.interfaceToggle.checked = false;
     context.interfaceToggle.change();
     assert.equal(wrapper.parent, gameScreenHost);

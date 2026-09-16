@@ -66,6 +66,10 @@
 #define LCD_RAM_END 0x1000
 #define LCD_RAM_SIZE (LCD_RAM_END - LCD_RAM_START + 1)
 #define SAVE_RAM_SIZE 0x14000
+#define FLASH_SIZE 0x200000
+#define ROM_BANK_SIZE 0x200000
+#define LEGACY_BIOS_SIZE (ROM_BANK_SIZE * 2)
+#define A4988_BIOS_SIZE (ROM_BANK_SIZE * 13)
 #define KEY_QUEUE_CAPACITY 32
 
 /* ---- global state ---- */
@@ -111,15 +115,35 @@ static struct {
     uint8_t    (*mem_ir[0x100])(uint16_t);
     void       (*mem_iw[0x100])(uint16_t, uint8_t);
     uint8_t      ram[0x8000];
-    uint8_t      flash[0x200000];
+    uint8_t      flash[FLASH_SIZE];
     uint8_t      flash_cmd;
     uint8_t      flash_cycles;
-    uint8_t      rom_8[0x200000];
-    uint8_t      rom_e[0x200000];
+    uint8_t      rom_4[4][ROM_BANK_SIZE];
+    uint8_t      rom_6[4][ROM_BANK_SIZE];
+    uint8_t      rom_8[ROM_BANK_SIZE];
+    uint8_t      rom_a[ROM_BANK_SIZE];
+    uint8_t      rom_c[ROM_BANK_SIZE];
+    uint8_t      rom_e[ROM_BANK_SIZE];
+    bool         game_loaded;
     uint8_t      bk_sel;
     uint16_t     bk_tab[16];
     uint16_t     bk_sys_d;
 } sys;
+
+static bool flash_change_is_persistent(uint32_t addr)
+{
+    return !sys.game_loaded || addr < SAVE_RAM_SIZE;
+}
+
+static uint8_t *channel_rom(uint32_t paddr)
+{
+    uint8_t channel = sys.ram[_PB] >> 6;
+    if (paddr >= 0x400000 && paddr < 0x600000)
+        return sys.rom_4[channel] + (paddr - 0x400000);
+    if (paddr >= 0x600000 && paddr < 0x800000)
+        return sys.rom_6[channel] + (paddr - 0x600000);
+    return NULL;
+}
 
 static struct {
     float    cpu_rate;
@@ -211,7 +235,7 @@ static void flash_write(uint32_t addr, uint8_t val)
             addr = (addr + 0x8000) % 0x200000;
             if (sys.flash[addr] != val) {
                 sys.flash[addr] = val;
-                if (addr < SAVE_RAM_SIZE)
+                if (flash_change_is_persistent(addr))
                     save_ram_revision += 1;
             }
         } else if ((addr == 0x5555) && (val == 0xaa)) {
@@ -229,17 +253,17 @@ static void flash_write(uint32_t addr, uint8_t val)
         case 0x30:
             addr = (addr + 0x8000) % 0x200000;
             memset(sys.flash + (addr & 0x1ff000), 0xff, 0x1000);
-            if ((addr & 0x1ff000) < SAVE_RAM_SIZE)
+            if (flash_change_is_persistent(addr & 0x1ff000))
                 save_ram_revision += 1;
             break;
         case 0x50:
             addr = ((addr & 0x1f0000) + 0x8000) % 0x200000;
             memset(sys.flash + addr, 0xff, 0x8000);
-            if (addr < SAVE_RAM_SIZE)
+            if (flash_change_is_persistent(addr))
                 save_ram_revision += 1;
             addr = (addr + 0x8000) % 0x200000;
             memset(sys.flash + addr, 0xff, 0x8000);
-            if (addr < SAVE_RAM_SIZE)
+            if (flash_change_is_persistent(addr))
                 save_ram_revision += 1;
             break;
         }
@@ -263,9 +287,13 @@ static uint8_t ram_read(uint16_t addr)      { return sys.ram[addr]; }
 
 static void ram_write(uint16_t addr, uint8_t val)
 {
+    uint8_t old_channel = sys.ram[_PB] >> 6;
     sys.ram[addr] = val;
-    if (addr == _PB)
-        sys.ram[addr] = 0;
+    if (addr == _PB && old_channel != (val >> 6)) {
+        /* A4988 uses PB[7:6] to select one of four 4/6 MiB dictionary banks. */
+        for (int i = 1; i < 16; i += 1)
+            mem_bs(i);
+    }
     if (addr == 0x2028)
         sys.ram[addr] = 0xff;
 }
@@ -281,7 +309,10 @@ static uint8_t direct_read(uint16_t addr)
     }
     if (paddr < 0x8000)           return ram_read(paddr & 0x7fff);
     else if (paddr >= 0x200000 && paddr < 0x400000) return flash_read(paddr - 0x200000);
+    else if (paddr >= 0x400000 && paddr < 0x800000) return *channel_rom(paddr);
     else if (paddr >= 0x800000 && paddr < 0xa00000) return sys.rom_8[paddr - 0x800000];
+    else if (paddr >= 0xa00000 && paddr < 0xc00000) return sys.rom_a[paddr - 0xa00000];
+    else if (paddr >= 0xc00000 && paddr < 0xe00000) return sys.rom_c[paddr - 0xc00000];
     else if (paddr >= 0xe00000 && paddr < 0x1000000) return sys.rom_e[paddr - 0xe00000];
     else return 0x00;
 }
@@ -345,7 +376,10 @@ static void mem_init()
 /* virtual-read wrappers for banked memory */
 static uint8_t flash_vread(uint16_t addr)   { return flash_read(PA(addr) - 0x200000); }
 static void flash_vwrite(uint16_t addr, uint8_t val) { flash_write(PA(addr) - 0x200000, val); }
+static uint8_t channel_vread(uint16_t addr) { return *channel_rom(PA(addr)); }
 static uint8_t rom_8_vread(uint16_t addr)   { return sys.rom_8[PA(addr) - 0x800000]; }
+static uint8_t rom_a_vread(uint16_t addr)   { return sys.rom_a[PA(addr) - 0xa00000]; }
+static uint8_t rom_c_vread(uint16_t addr)   { return sys.rom_c[PA(addr) - 0xc00000]; }
 static uint8_t rom_e_vread(uint16_t addr)   { return sys.rom_e[PA(addr) - 0xe00000]; }
 static uint8_t ram_vread(uint16_t addr)     { return ram_read(PA(addr)); }
 static void ram_vwrite(uint16_t addr, uint8_t val) { ram_write(PA(addr), val); }
@@ -367,10 +401,29 @@ static void mem_bs(uint8_t sel)
             sys.mem_ir[sel * 16 + i] = flash_vread;
             sys.mem_iw[sel * 16 + i] = flash_vwrite;
         }
+    } else if (paddr >= 0x400000 && paddr < 0x800000) {
+        uint8_t *rom = channel_rom(paddr);
+        for (int i = 0; i < 16; i += 1) {
+            sys.mem_r[sel * 16 + i]  = rom + i * 0x100;
+            sys.mem_ir[sel * 16 + i] = channel_vread;
+            sys.mem_iw[sel * 16 + i] = invalid_write;
+        }
     } else if (paddr >= 0x800000 && paddr < 0xa00000) {
         for (int i = 0; i < 16; i += 1) {
             sys.mem_r[sel * 16 + i]  = sys.rom_8 + (paddr - 0x800000) + i * 0x100;
             sys.mem_ir[sel * 16 + i] = rom_8_vread;
+            sys.mem_iw[sel * 16 + i] = invalid_write;
+        }
+    } else if (paddr >= 0xa00000 && paddr < 0xc00000) {
+        for (int i = 0; i < 16; i += 1) {
+            sys.mem_r[sel * 16 + i]  = sys.rom_a + (paddr - 0xa00000) + i * 0x100;
+            sys.mem_ir[sel * 16 + i] = rom_a_vread;
+            sys.mem_iw[sel * 16 + i] = invalid_write;
+        }
+    } else if (paddr >= 0xc00000 && paddr < 0xe00000) {
+        for (int i = 0; i < 16; i += 1) {
+            sys.mem_r[sel * 16 + i]  = sys.rom_c + (paddr - 0xc00000) + i * 0x100;
+            sys.mem_ir[sel * 16 + i] = rom_c_vread;
             sys.mem_iw[sel * 16 + i] = invalid_write;
         }
     } else if (paddr >= 0xe00000 && paddr < 0x1000000) {
@@ -722,21 +775,45 @@ static void blend_frame(void)
 
 static int sys_init(const uint8_t *bios, size_t size)
 {
-    /* gam4980.data is the two 2 MiB BIOS images concatenated in 8.BIN/E.BIN order. */
-    if (bios == NULL || size != 0x400000) {
-        EM_ASM({ console.error("GAM4980: Invalid BIOS package"); });
+    /* The complete A4988 package contains the writable factory Flash, font/data
+       banks and the four PB-selected dictionary channels. Keep accepting the old
+       font+0E package so existing local builds fail gracefully during upgrades. */
+    if (bios == NULL || (size != A4988_BIOS_SIZE && size != LEGACY_BIOS_SIZE)) {
+        EM_ASM({ console.error("GAM4988: Invalid BIOS package"); });
         return -1;
     }
-    memcpy(sys.rom_8, bios, 0x200000);
-    memcpy(sys.rom_e, bios + 0x200000, 0x200000);
+
+    memset(sys.rom_4, 0, sizeof(sys.rom_4));
+    memset(sys.rom_6, 0, sizeof(sys.rom_6));
+    memset(sys.rom_a, 0, sizeof(sys.rom_a));
+    memset(sys.rom_c, 0, sizeof(sys.rom_c));
+    if (size == A4988_BIOS_SIZE) {
+        const uint8_t *p = bios;
+        /* flash_read rotates logical address zero to internal offset 0x8000. */
+        memcpy(sys.flash + 0x8000, p, FLASH_SIZE - 0x8000);
+        memcpy(sys.flash, p + FLASH_SIZE - 0x8000, 0x8000);
+        p += FLASH_SIZE;
+        memcpy(sys.rom_8, p, ROM_BANK_SIZE); p += ROM_BANK_SIZE;
+        memcpy(sys.rom_a, p, ROM_BANK_SIZE); p += ROM_BANK_SIZE;
+        memcpy(sys.rom_c, p, ROM_BANK_SIZE); p += ROM_BANK_SIZE;
+        memcpy(sys.rom_e, p, ROM_BANK_SIZE); p += ROM_BANK_SIZE;
+        for (int channel = 0; channel < 4; channel += 1) {
+            memcpy(sys.rom_4[channel], p, ROM_BANK_SIZE); p += ROM_BANK_SIZE;
+            memcpy(sys.rom_6[channel], p, ROM_BANK_SIZE); p += ROM_BANK_SIZE;
+        }
+    } else {
+        memset(sys.flash, 0xff, sizeof(sys.flash));
+        memcpy(sys.rom_8, bios, ROM_BANK_SIZE);
+        memcpy(sys.rom_e, bios + ROM_BANK_SIZE, ROM_BANK_SIZE);
+    }
 
     memset(sys.ram, 0x00, 0x8000);
-    memset(sys.flash, 0xff, 0x200000);
     memset(fa, 0, sizeof(fa));
     lcd_snapshot_valid = false;
     update_rgba_colors();
     sys.flash_cmd = 0;
     sys.flash_cycles = 0;
+    sys.game_loaded = false;
     save_ram_revision = 0;
     key_queue_clear();
     sys.ram[_INCR] = 0x0f;
@@ -755,7 +832,7 @@ static int sys_init(const uint8_t *bios, size_t size)
     sys.bk_sys_d = sys.bk_tab[0xd];
 
     EM_ASM({
-        console.log("GAM4980: System initialized, model = " + ($0 === 0x0ea8 ? "A4980" : $0 === 0x0e88 ? "A4988" : "Unknown"));
+        console.log("GAM4988: System initialized, model = " + ($0 === 0x0ea8 ? "legacy-compatible" : $0 === 0x0e88 ? "A4988" : "Unknown"));
     }, sys.bk_sys_d);
 
     return 0;
@@ -849,6 +926,7 @@ int web_load_game(const uint8_t *data, size_t size)
        clean Flash image, then let glue.js restore that ROM's isolated native save. */
     memset(sys.flash, 0xff, sizeof(sys.flash));
     if (!sys_load(data, size)) return 0;
+    sys.game_loaded = true;
     save_ram_revision = 0;
     lcd_snapshot_valid = false;
     key_queue_clear();
@@ -898,6 +976,13 @@ int web_run_frame(void)
 }
 
 EMSCRIPTEN_KEEPALIVE
+void web_tick_rtc(uint32_t seconds)
+{
+    for (uint32_t i = 0; i < seconds; i += 1)
+        sys_rtc();
+}
+
+EMSCRIPTEN_KEEPALIVE
 void web_keydown(uint8_t key)
 {
     key_queue_push(key);
@@ -941,29 +1026,30 @@ uint8_t* web_get_framebuffer_rgba(void)
     return (uint8_t*)&rgba_fb[0][0];
 }
 
-/* ---- Native game save RAM ----
+/* ---- Native Flash persistence ----
 
    The libretro frontend persists the rotated Flash range sys.flash[0..0x14000):
-   logical $1f8000-$1fffff followed by $000000-$00bfff. Keep the same binary
-   layout so browser saves can also be exported as standard gam4980 SRAM later. */
+   logical $1f8000-$1fffff followed by $000000-$00bfff for a loaded game. The
+   A4988 home system uses the complete 2 MiB Flash so installed dictionaries,
+   notebooks and settings survive reloads too. */
 
 EMSCRIPTEN_KEEPALIVE
 size_t web_save_ram_size(void)
 {
-    return SAVE_RAM_SIZE;
+    return sys.game_loaded ? SAVE_RAM_SIZE : FLASH_SIZE;
 }
 
 EMSCRIPTEN_KEEPALIVE
 void web_save_ram(uint8_t *buf)
 {
-    memcpy(buf, sys.flash, SAVE_RAM_SIZE);
+    memcpy(buf, sys.flash, web_save_ram_size());
 }
 
 EMSCRIPTEN_KEEPALIVE
 int web_load_save_ram(const uint8_t *buf, size_t size)
 {
-    if (size != SAVE_RAM_SIZE) return 0;
-    memcpy(sys.flash, buf, SAVE_RAM_SIZE);
+    if (size != web_save_ram_size()) return 0;
+    memcpy(sys.flash, buf, size);
     save_ram_revision = 0;
     return 1;
 }

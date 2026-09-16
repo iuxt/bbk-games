@@ -15,17 +15,17 @@ const files = [
 const directories = ["css", "js", "sanguobaye", "mota", "rpg"];
 
 // EEBBK 模拟器运行时文件（前端 + 预构建的 wasm 产物）位于 eebbk/ 根目录。
-// wasm 产物由 `npm run build:4980`（本地 emsdk）预构建后提交，Vercel 上的 build 只负责拷贝。
+// wasm 产物由 `npm run build:4988`（本地 emsdk）预构建后提交，Vercel 上的 build 只负责拷贝。
 const emuRuntime = [
     "index.html",
     "style.css",
     "dialog.css",
     "glue.js",
     "device-skin.js",
-    "assets/longman-4980-transparent.png",
-    "gam4980.js",
-    "gam4980.wasm",
-    "gam4980.data",
+    "assets/longman-4988-transparent.png",
+    "gam4988.js",
+    "gam4988.wasm",
+    "gam4988.data",
 ];
 
 // 源码中保持可读/原样的大体积引擎脚本：仅在写入 dist 时做 minify，以最小化线上体积。
@@ -59,8 +59,8 @@ for (const directory of directories) {
         await cp(path.join(emuSrc, rel), path.join(emuOut, rel)).catch(() => {
             throw new Error(
                 `eebbk 运行时文件缺失：eebbk/${rel}\n` +
-                    (rel.startsWith("gam4980")
-                        ? '请先在本地执行 "npm run build:4980"（需要 emsdk）生成 wasm 产物，再提交。'
+                    (rel.startsWith("gam4988")
+                        ? '请先在本地执行 "npm run build:4988"（需要 emsdk）生成 wasm 产物，再提交。'
                         : "该文件应已在仓库中，请检查 eebbk/ 是否完整。")
             );
         });

@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 await import("../eebbk/glue.js");
-const G = globalThis.BBK4980Glue;
+const G = globalThis.BBK4988Glue;
 const glueSource = fs.readFileSync("eebbk/glue.js", "utf8");
 
-test("BBK4980Glue is exported", () => {
-    assert.ok(G, "globalThis.BBK4980Glue 未导出");
+test("BBK4988Glue is exported", () => {
+    assert.ok(G, "globalThis.BBK4988Glue 未导出");
 });
 
 test("base64 round-trips bytes", () => {

@@ -6,12 +6,12 @@ import { createHash } from "node:crypto";
 
 await import('../eebbk/glue.js');
 
-const runtimeSource = fs.readFileSync("eebbk/gam4980.js", "utf8");
-const wasmBytes = new Uint8Array(fs.readFileSync("eebbk/gam4980.wasm"));
-const biosBytes = new Uint8Array(fs.readFileSync("eebbk/gam4980.data"));
+const runtimeSource = fs.readFileSync("eebbk/gam4988.js", "utf8");
+const wasmBytes = new Uint8Array(fs.readFileSync("eebbk/gam4988.wasm"));
+const biosBytes = new Uint8Array(fs.readFileSync("eebbk/gam4988.data"));
 
 async function createModule() {
-  const factory = vm.runInThisContext(runtimeSource + ";Gam4980Module");
+  const factory = vm.runInThisContext(runtimeSource + ";Gam4988Module");
   return factory({
     instantiateWasm(imports, receive) {
       WebAssembly.instantiate(wasmBytes, imports).then(({ instance }) => receive(instance));
@@ -24,17 +24,41 @@ async function createModule() {
 
 test("EEBBK runtime stays lazy and excludes the MEMFS preload runtime", () => {
   const markup = fs.readFileSync("eebbk/index.html", "utf8");
-  assert.doesNotMatch(markup, /<script[^>]+gam4980\.js/);
-  assert.doesNotMatch(runtimeSource, /MEMFS|FS_createDataFile|gam4980\.data/);
+  assert.doesNotMatch(markup, /<script[^>]+gam4988\.js/);
+  assert.doesNotMatch(runtimeSource, /MEMFS|FS_createDataFile|gam4988\.data/);
+  assert.equal(biosBytes.byteLength, 13 * 0x200000, "A4988 数据包应包含 13 个 2 MiB 区段");
 });
 
-test("EEBBK wasm initializes in 16 MiB and reports clean LCD frames", async () => {
+test("A4988 home system exposes and restores the complete 2 MiB Flash", async () => {
   const mod = await createModule();
   const biosPtr = mod._malloc(biosBytes.byteLength);
   mod.HEAPU8.set(biosBytes, biosPtr);
   assert.equal(mod._web_init(biosPtr, biosBytes.byteLength), 0);
   mod._free(biosPtr);
-  assert.equal(mod.HEAPU8.buffer.byteLength, 16 * 1024 * 1024);
+
+  assert.equal(mod._web_save_ram_size(), 0x200000);
+  assert.equal(typeof mod._web_tick_rtc, "function");
+  const savePtr = mod._malloc(0x200000);
+  mod._web_save_ram(savePtr);
+  const flash = new Uint8Array(mod.HEAPU8.buffer, savePtr, 0x200000);
+  assert.deepEqual(flash.slice(0x8000, 0x8010), biosBytes.slice(0, 0x10));
+  const changed = flash.slice();
+  changed[0x12345] ^= 0xff;
+  mod.HEAPU8.set(changed, savePtr);
+  assert.equal(mod._web_load_save_ram(savePtr, 0x200000), 1);
+  mod.HEAPU8.fill(0, savePtr, savePtr + 0x200000);
+  mod._web_save_ram(savePtr);
+  assert.equal(mod.HEAPU8[savePtr + 0x12345], changed[0x12345]);
+  mod._free(savePtr);
+});
+
+test("EEBBK wasm initializes with complete A4988 ROMs and reports clean LCD frames", async () => {
+  const mod = await createModule();
+  const biosPtr = mod._malloc(biosBytes.byteLength);
+  mod.HEAPU8.set(biosBytes, biosPtr);
+  assert.equal(mod._web_init(biosPtr, biosBytes.byteLength), 0);
+  mod._free(biosPtr);
+  assert.ok(mod.HEAPU8.buffer.byteLength >= 64 * 1024 * 1024);
 
   const rom = new Uint8Array(fs.readFileSync("eebbk/roms/伏魔记怀旧终曲v1.0(原版精修).gam"));
   const romPtr = mod._malloc(rom.byteLength);
@@ -189,7 +213,7 @@ test('终曲 search toggles visible coordinates and delete opens the encounter d
   assert.equal(load(biosBytes, mod._web_init), 0);
   const rom = fs.readFileSync('eebbk/roms/伏魔记怀旧终曲v1.0(原版精修).gam');
   assert.equal(load(rom, mod._web_load_game), 1);
-  const G = globalThis.BBK4980Glue;
+  const G = globalThis.BBK4988Glue;
   const fingerprint = G.romStorageId(rom);
   const frames = count => { for (let i = 0; i < count; i++) mod._web_run_frame(); };
   function key(code) {

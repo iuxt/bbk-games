@@ -1,4 +1,4 @@
-# gam4980
+# gam4988 Web 模拟器
 
 步步高A系列电子词典模拟器的 libretro 核心
 
@@ -8,7 +8,7 @@
 
 ---
 
-本项目提供步步高朗文4980电子词典游戏模拟器的 libretro 核心。
+本项目提供步步高朗文4988电子词典游戏模拟器的 WebAssembly 与 libretro 核心。
 
 本项目基于：
 
@@ -16,9 +16,8 @@
 - [vrEmu6502](https://github.com/visrealm/vrEmu6502) by Troy Schrapel, optimizing with computed goto and macros.
 - [sph-sc](https://github.com/sph-mn/sph-sc), generate C code with tidier scheme code.
 
-This project provides a libretro core to play games from BBK Longman
-4980 electronic dictionary. 2 ROM files (8.BIN and E.BIN) are needed,
-which can be dumped from 0x800000-0x9fffff and 0xe00000-0xffffff.
+The Web build targets the BBK Longman 4988 and includes its complete Flash,
+font, fixed data banks, and four channel-selected dictionary banks.
 
 ---
 
@@ -59,19 +58,19 @@ xcode-select --install
 
 ```sh
 # 复制核心动态库
-cp gam4980_libretro.dylib ~/Library/Application\ Support/RetroArch/cores/
+cp gam4988_libretro.dylib ~/Library/Application\ Support/RetroArch/cores/
 
 # 复制核心信息文件（RetroArch 靠它识别核心）
-cp retroarch/core_info/gam4980_libretro.info ~/Library/Application\ Support/RetroArch/info/
+cp retroarch/core_info/gam4988_libretro.info ~/Library/Application\ Support/RetroArch/info/
 ```
 
 ### 2. 放置 ROM 文件
 
 ```sh
 # 创建 ROM 目录并复制 BIOS 文件
-mkdir -p ~/Library/Application\ Support/RetroArch/system/gam4980
-cp retroarch/system/gam4980/8.BIN ~/Library/Application\ Support/RetroArch/system/gam4980/
-cp retroarch/system/gam4980/E.BIN ~/Library/Application\ Support/RetroArch/system/gam4980/
+mkdir -p ~/Library/Application\ Support/RetroArch/system/gam4988
+cp retroarch/system/gam4988/8.BIN ~/Library/Application\ Support/RetroArch/system/gam4988/
+cp retroarch/system/gam4988/E.BIN ~/Library/Application\ Support/RetroArch/system/gam4988/
 ```
 
 > ⚠️ 文件名区分大小写，必须为大写的 **8.BIN** 和 **E.BIN**。
@@ -79,7 +78,7 @@ cp retroarch/system/gam4980/E.BIN ~/Library/Application\ Support/RetroArch/syste
 ### 3. 加载游戏
 
 1. 打开 RetroArch
-2. **Main Menu → Load Core** → 选择 **GAM4980**
+2. **Main Menu → Load Core** → 选择 **GAM4988**
 3. **Main Menu → Load Content** → 选择 `.gam` 游戏文件（位于 `retroarch/downloads/bbk/`）
 4. 开始游戏
 
@@ -92,7 +91,7 @@ cp retroarch/system/gam4980/E.BIN ~/Library/Application\ Support/RetroArch/syste
 | 核心 `.dylib` / `.so` | `~/Library/Application Support/RetroArch/cores/` | `~/.config/retroarch/cores/` |
 | 核心信息 `.info` | `~/Library/Application Support/RetroArch/info/` | `~/.config/retroarch/info/` |
 | System/BIOS | `~/Library/Application Support/RetroArch/system/` | `~/.config/retroarch/system/` |
-| ROM 文件 | `…/system/gam4980/8.BIN` | `…/system/gam4980/8.BIN` |
+| ROM 文件 | `…/system/gam4988/8.BIN` | `…/system/gam4988/8.BIN` |
 
 ### 故障排查
 
@@ -102,7 +101,7 @@ cp retroarch/system/gam4980/E.BIN ~/Library/Application\ Support/RetroArch/syste
 3. 如果用 DMG 安装的 RetroArch，其目录可能独立于 `~/Library`，以 RetroArch 设置中显示的路径为准
 
 **核心未出现在 Load Core 列表中：**
-1. 确认 `gam4980_libretro.info` 已放入 `info/` 目录
+1. 确认 `gam4988_libretro.info` 已放入 `info/` 目录
 2. RetroArch 内 **Settings → Core → Manage Cores** 刷新核心列表
 
 ---

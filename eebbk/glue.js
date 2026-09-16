@@ -1,4 +1,4 @@
-/* ---- glue.js — GAM4980 Web Emulator JS Glue ---- */
+/* ---- glue.js — GAM4988 Web Emulator JS Glue ---- */
 
 (function (global) {
   'use strict';
@@ -40,7 +40,7 @@
   }
 
   function gameKeySequence(key, romFingerprint) {
-    // 伏魔记怀旧终曲 v1.0（原版精修）的提示沿用 4980 键名，但在随站点
+    // 伏魔记怀旧终曲 v1.0（原版精修）的提示沿用旧机型键名，但在随站点
     // 提供的 A4988 固件下实际使用 Shift+下（坐标）、Shift+左（遇敌）。
     // 按内容识别，也支持本地导入；不同 ROM / 后续修订版仍使用原始键值。
     if (romFingerprint === 'local-966656-c10bd998') {
@@ -340,7 +340,7 @@
     }
   }
 
-  global.BBK4980Glue = {
+  global.BBK4988Glue = {
     pcKeyToEmuKey: pcKeyToEmuKey,
     gameKeySequence: gameKeySequence,
     bytesToBase64: bytesToBase64,
@@ -428,7 +428,7 @@
   let suppressSnapshotAutosave = false;
   let speedRate = 1;
 
-  const BBK = global.BBK4980Glue;   // 复用已导出的纯函数
+  const BBK = global.BBK4988Glue;   // 复用已导出的纯函数
 
   const picker = {
     games: [],
@@ -703,11 +703,11 @@
 
   /* ---------- Lazy wasm/BIOS runtime ---------- */
   function loadRuntimeScript() {
-    if (global.Gam4980Module) return Promise.resolve();
+    if (global.Gam4988Module) return Promise.resolve();
     if (runtimeScriptPromise) return runtimeScriptPromise;
     runtimeScriptPromise = new Promise(function (resolve, reject) {
       const script = document.createElement('script');
-      script.src = 'gam4980.js?v=10';
+      script.src = 'gam4988.js?v=1';
       script.async = true;
       script.onload = function () { resolve(); };
       script.onerror = function () { reject(new Error('模拟器核心下载失败')); };
@@ -717,10 +717,10 @@
   }
 
   function exposeRuntimeSettings() {
-    global.BBK4980Glue.setGhosting = function (n) {
+    global.BBK4988Glue.setGhosting = function (n) {
       if (Module && Module._web_set_lcd_ghosting) Module._web_set_lcd_ghosting((n | 0) & 0xff);
     };
-    global.BBK4980Glue.setLcdBg = function (r, g, b) {
+    global.BBK4988Glue.setLcdBg = function (r, g, b) {
       if (Module && Module._web_set_lcd_bg) {
         Module._web_set_lcd_bg((r | 0) & 0xff, (g | 0) & 0xff, (b | 0) & 0xff);
       }
@@ -730,7 +730,7 @@
   function ensureModule() {
     if (modulePromise) return modulePromise;
 
-    const biosPromise = fetch('gam4980.data?v=7')
+    const biosPromise = fetch('gam4988.data?v=1')
       .then(function (r) {
         if (!r.ok) throw new Error('固件下载失败');
         return r.arrayBuffer();
@@ -739,9 +739,9 @@
     modulePromise = Promise.all([loadRuntimeScript(), biosPromise])
       .then(function (results) {
         const bios = results[1];
-        return global.Gam4980Module({
+        return global.Gam4988Module({
           locateFile: function (path) {
-            return path === 'gam4980.wasm' ? 'gam4980.wasm?v=10' : path;
+            return path === 'gam4988.wasm' ? 'gam4988.wasm?v=1' : path;
           },
           print: function(text) { console.log('[C] ' + text); },
           printErr: function(text) {
@@ -879,9 +879,10 @@
       setPickerBusy(true, '正在启动…');
       ensureModule().then(function () {
         setCurrentRom(BBK.HOME_ROM_ID, BBK.HOME_ROM.name);
+        return loadHomeSystem();
+      }).then(function () {
         setPickerBusy(false);
         closePicker();
-        startEmulator();
       }).catch(function () { setPickerBusy(false); });
       return;
     }
@@ -1223,7 +1224,8 @@
     if (!started) {
       powerStarting = true;
       ensureModule().then(function() {
-        startEmulator();
+        setCurrentRom(BBK.HOME_ROM_ID, BBK.HOME_ROM.name);
+        return loadHomeSystem();
       }).catch(function() {}).finally(function() { powerStarting = false; });
       return;
     }
@@ -1253,9 +1255,16 @@
      与 requestAnimationFrame 的显示器刷新率解耦（否则 120Hz 屏会跑成约 2 倍速）。
      仅在 wasm 报告 LCD RAM 变化时提交 canvas。 */
   let lastFrameTs = 0;
+  let lastRtcTs = 0;
   let frameAcc = 0;
   function frame(ts) {
     if (!running || !started) return;
+    if (!lastRtcTs || ts < lastRtcTs) lastRtcTs = ts;
+    const rtcSeconds = Math.min(86400, Math.floor((ts - lastRtcTs) / 1000));
+    if (rtcSeconds > 0) {
+      Module._web_tick_rtc(rtcSeconds);
+      lastRtcTs += rtcSeconds * 1000;
+    }
     if (!lastFrameTs) lastFrameTs = ts;
     const plan = planLogicSteps(ts - lastFrameTs, frameAcc, { speed: speedRate });
     lastFrameTs = ts;
@@ -1386,6 +1395,25 @@
       }
       nativeSavePersistedRevision = Module._web_save_ram_revision() >>> 0;
       return restored;
+    });
+  }
+
+  function loadHomeSystem() {
+    if (exited) return Promise.resolve(false);
+    const wasRunning = running;
+    pauseEmulator();
+    gameLoaded = false;
+    currentRomData = null;
+    currentRomFingerprint = '';
+    nativeSaveSession += 1;
+    nativeSaveRomId = BBK.HOME_ROM_ID;
+    nativeSavePersistedRevision = Module._web_save_ram_revision() >>> 0;
+    const session = nativeSaveSession;
+    return restoreNativeSave(nativeSaveRomId, session).then(function () {
+      gameLoaded = true;
+      startEmulator();
+      if (wasRunning) resumeEmulator();
+      return true;
     });
   }
 
@@ -1647,7 +1675,7 @@
     interfaceToggle.checked = realistic;
     document.documentElement.classList.toggle('realistic-interface', realistic);
     if (realistic) {
-      if (!deviceSkin) deviceSkin = global.BBK4980Skin.mount(realisticDevice);
+      if (!deviceSkin) deviceSkin = global.BBK4988Skin.mount(realisticDevice);
       deviceSkin.layer.appendChild(wrapper);
     } else {
       gameScreenHost.appendChild(wrapper);
@@ -1656,7 +1684,7 @@
     realisticDevice.hidden = !realistic;
     touchpad.hidden = realistic;
     if (realistic) deviceSkin.show();
-    writeLS('bbk4980.interfaceMode', realistic ? 'realistic' : 'game');
+    writeLS('bbk4988.interfaceMode', realistic ? 'realistic' : 'game');
     clearPressedKeys();
   }
   interfaceToggle.addEventListener('change', function() {
@@ -1757,8 +1785,8 @@
   });
 
   /* ---------- Bootstrap ----------
-     目录先独立加载；仅当需要进入词典或 ROM 时才下载核心、wasm 与 4 MiB 固件。 */
-  setInterfaceMode(readLS('bbk4980.interfaceMode'));
+     目录先独立加载；仅当需要进入词典或 ROM 时才下载核心、wasm 与完整 A4988 数据包。 */
+  setInterfaceMode(readLS('bbk4988.interfaceMode'));
   setSpeedRate(readLS(SPEED_STORAGE_KEY), false);
   restoreCurrentRomFromStorage();
   syncTouchpadMode();
@@ -1793,7 +1821,7 @@
         BBK.HOME_ROM_ID,
         pendingId ? (pendingName || BBK.HOME_ROM.name) : (currentRom.name || BBK.HOME_ROM.name)
       );
-      startEmulator();
+      return loadHomeSystem();
     }).catch(function () {});
   } else if (decision.action === 'rom') {
     const romId = decision.id;

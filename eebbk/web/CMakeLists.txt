@@ -1,26 +1,26 @@
 cmake_minimum_required(VERSION 3.16)
-project(gam4980 LANGUAGES C)
+project(gam4988 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-add_executable(gam4980
+add_executable(gam4988
     ${CMAKE_SOURCE_DIR}/../src/web_main.c
 )
 
-target_compile_options(gam4980 PRIVATE
+target_compile_options(gam4988 PRIVATE
     -O2
     -flto
 )
 
-target_link_options(gam4980 PRIVATE
+target_link_options(gam4988 PRIVATE
     -O2
     -flto
-    "SHELL:-sEXPORTED_FUNCTIONS=[\"_web_init\",\"_web_run_frame\",\"_web_keydown\",\"_web_get_framebuffer_rgba\",\"_web_get_fb_width\",\"_web_get_fb_height\",\"_web_load_game\",\"_web_save_ram_size\",\"_web_save_ram\",\"_web_load_save_ram\",\"_web_save_ram_revision\",\"_web_save_size\",\"_web_save\",\"_web_load\",\"_web_set_lcd_ghosting\",\"_web_set_lcd_bg\",\"_malloc\",\"_free\"]"
+    "SHELL:-sEXPORTED_FUNCTIONS=[\"_web_init\",\"_web_run_frame\",\"_web_tick_rtc\",\"_web_keydown\",\"_web_get_framebuffer_rgba\",\"_web_get_fb_width\",\"_web_get_fb_height\",\"_web_load_game\",\"_web_save_ram_size\",\"_web_save_ram\",\"_web_load_save_ram\",\"_web_save_ram_revision\",\"_web_save_size\",\"_web_save\",\"_web_load\",\"_web_set_lcd_ghosting\",\"_web_set_lcd_bg\",\"_malloc\",\"_free\"]"
     "SHELL:-sEXPORTED_RUNTIME_METHODS=[\"HEAPU8\"]"
     -sALLOW_MEMORY_GROWTH=1
-    -sINITIAL_MEMORY=16MB
+    -sINITIAL_MEMORY=64MB
     -sENVIRONMENT=web
     -sMODULARIZE=1
-    "SHELL:-sEXPORT_NAME=\"Gam4980Module\""
+    "SHELL:-sEXPORT_NAME=\"Gam4988Module\""
 )

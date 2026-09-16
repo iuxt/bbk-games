@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 await import('../eebbk/glue.js');
-const G = globalThis.BBK4980Glue;
+const G = globalThis.BBK4988Glue;
 const source = fs.readFileSync(new URL('../eebbk/glue.js', import.meta.url), 'utf8');
 
 function harness() {

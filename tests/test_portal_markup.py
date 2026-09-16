@@ -366,7 +366,7 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertIn('id="save-input"', markup)
         self.assertIn('dialog.css', markup)
 
-    def test_touchpad_matches_rpg_layout_with_five_function_keys(self):
+    def test_touchpad_uses_a4988_shift_direction_labels(self):
         markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")
         # 主操作区沿用 RPG 的三行三列顺序，输入法 / R 共用中间键位。
         self.assertEqual(markup.count('class="kb-row"'), 3)
@@ -381,13 +381,20 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         function_keys = re.findall(
             r'data-key="(4[1-5])" aria-label="([^"]+)"', markup
         )
-        self.assertEqual(
-            function_keys,
-            [("41", "帮助"), ("42", "查找"), ("43", "插入"),
-             ("44", "修改"), ("45", "删除")],
-        )
+        self.assertEqual(function_keys, [("41", "帮助")])
         function_row = markup.split('<div class="function-keys"', 1)[1].split('</div>', 1)[0]
         self.assertNotIn("<small>", function_row)
+        for key, direction, action in [
+            ("53", "上", "修改"),
+            ("55", "左", "删除"),
+            ("56", "下", "查找"),
+            ("57", "右", "插入"),
+        ]:
+            self.assertRegex(
+                markup,
+                rf'data-key="{key}" aria-label="方向{direction}[^\"]*"[^>]*>'
+                rf'<span>[^<]+</span><small>{action}</small>',
+            )
 
     def test_drops_legacy_save_buttons(self):
         markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")

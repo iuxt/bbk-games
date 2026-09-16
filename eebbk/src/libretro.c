@@ -730,7 +730,7 @@ static void sys_init(const char *romdir)
     snprintf(path, 512, "%s/8.BIN", romdir);
     stream = fopen(path, "r");
     if (stream == NULL) {
-        error_msg("GAM4980: Missing 8.BIN");
+        error_msg("GAM4988: Missing 8.BIN");
         environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, NULL);
         return;
     }
@@ -739,7 +739,7 @@ static void sys_init(const char *romdir)
     snprintf(path, 512, "%s/E.BIN", romdir);
     stream = fopen(path, "r");
     if (stream == NULL) {
-        error_msg("GAM4980: Missing E.BIN");
+        error_msg("GAM4988: Missing E.BIN");
         environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, NULL);
         return;
     }
@@ -814,7 +814,7 @@ static void sys_load(const uint8_t *gam, size_t size)
         flash[0x1000 + i] = 0x04;
     }
 
-    if (sys.bk_sys_d == 0x0ea8) { /* A4980 */
+    if (sys.bk_sys_d == 0x0ea8) { /* legacy-compatible model */
         memset(flash+0x7000, 0x01, 0x100);
         // Last 32 KiB for save file.
         flash[0x70f8] = 0x02;
@@ -1014,31 +1014,31 @@ void retro_set_environment(retro_environment_t cb)
 {
     static struct retro_core_option_definition opts[] = {
         {
-            .key = "gam4980_lcd_color",
+            .key = "gam4988_lcd_color",
             .desc = "LCD color theme",
             .values = {{"grey"}, {"green"}, {"blue"}, {"yellow"}, {"random"}, {NULL}},
             .default_value = "random",
         },
         {
-            .key = "gam4980_lcd_ghosting",
+            .key = "gam4988_lcd_ghosting",
             .desc = "LCD ghosting frames",
             .values = {{"0"},{"5"},{"10"},{"15"},{"20"},{"25"},{"30"},{"35"},{"40"}},
             .default_value = "15",
         },
         {
-            .key = "gam4980_cpu_rate",
+            .key = "gam4988_cpu_rate",
             .desc = "CPU clock rate",
             .values = {{"0.25"},{"0.50"},{"0.75"},{"1.00"},{"1.50"},{"2.00"},{"3.00"},{"4.00"},{"8.00"},{NULL}},
             .default_value = "1.00",
         },
         {
-            .key = "gam4980_timer_rate",
+            .key = "gam4988_timer_rate",
             .desc = "Timer clock rate",
             .values = {{"0.25"},{"0.50"},{"0.75"},{"1.00"},{"1.50"},{"2.00"},{"3.00"},{"4.00"},{"8.00"},{NULL}},
             .default_value = "1.00",
         },
         {
-            .key = "gam4980_key_pressed_input_min_interval",
+            .key = "gam4988_key_pressed_input_min_interval",
             .desc = "Key pressed input min interval(ms)",
             .values = {{"0"},{"50"},{"100"},{"150"},{"200"},{"250"},{"300"},{"400"},{"500"},{NULL}},
             .default_value = "0",
@@ -1098,7 +1098,7 @@ void retro_get_system_info(struct retro_system_info *info)
     info->need_fullpath = false;
     info->valid_extensions = "gam";
     info->library_version = "0.2";
-    info->library_name = "gam4980";
+    info->library_name = "gam4988";
     info->block_extract = false;
 }
 
@@ -1150,7 +1150,7 @@ static void apply_variables()
 {
     struct retro_variable var = {0};
 
-    var.key = "gam4980_lcd_color";
+    var.key = "gam4988_lcd_color";
     if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var)) {
         if (strcmp(var.value, "grey") == 0) {
             vars.lcd_bg = 0xd6da;
@@ -1171,19 +1171,19 @@ static void apply_variables()
             } while (!lcd_color_ok());
         }
     }
-    var.key = "gam4980_lcd_ghosting";
+    var.key = "gam4988_lcd_ghosting";
     if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var))
         vars.lcd_ghosting = atoi(var.value);
 
-    var.key = "gam4980_cpu_rate";
+    var.key = "gam4988_cpu_rate";
     if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var))
         vars.cpu_rate = atof(var.value);
 
-    var.key = "gam4980_timer_rate";
+    var.key = "gam4988_timer_rate";
     if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var))
         vars.timer_rate = atof(var.value);
 
-    var.key = "gam4980_key_pressed_input_min_interval";
+    var.key = "gam4988_key_pressed_input_min_interval";
     if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var))
         vars.key_pressed_input_min_interval = atof(var.value);
 }
@@ -1193,7 +1193,7 @@ void retro_init(void)
     char *systemdir;
     char romdir[512];
     environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &systemdir);
-    snprintf(romdir, 512, "%s/gam4980", systemdir);
+    snprintf(romdir, 512, "%s/gam4988", systemdir);
     sys_init(romdir);
     apply_variables();
 
