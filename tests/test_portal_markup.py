@@ -456,7 +456,7 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertEqual(page_arrows.count("<i"), 4)
         self.assertEqual(page_arrows.count('class="is-down"'), 2)
         self.assertIn(".lcd-page-arrows i:nth-child(3)", css)
-        self.assertIn("height: 320px", css)
+        self.assertIn("height: 328px", css)
 
     def test_save_slot_rows_never_shrink_below_content(self):
         # 回归：WebKit/Safari 在高度受限的网格里会把 auto 行压到卡片 min-height
