@@ -185,7 +185,7 @@ test('pointer keys respect disabled controls, dialogs and device state; power wa
   assert.equal(h.context.deviceAsleep, true);
 });
 
-test('photo keyboard covers all sixty keys and stays inside the device without overlapping keys', () => {
+test('photo keyboard follows the physical 4988 key layout and stays inside the device without overlaps', () => {
   const skin = globalThis.BBK4988Skin;
   assert.ok(Math.abs(skin.photo.screen.width / skin.photo.screen.height - 159 / 96) < 1e-9,
     'the gameplay viewport must preserve the native 159:96 aspect ratio');
@@ -193,7 +193,15 @@ test('photo keyboard covers all sixty keys and stays inside the device without o
     'the gameplay viewport must not cover the LCD status margins');
   assert.ok(skin.photo.lcd.width > skin.photo.screen.width,
     'the LCD shell must leave room for ornaments on both sides');
-  assert.deepEqual(skin.keys.map(key => key.code).sort((a, b) => a - b), Array.from({ length: 60 }, (_, i) => i));
+  const expectedCodes = [
+    0, 1, 2, 3,
+    8, 9, 10, 11, 12, 13, 14, 15,
+    16, 17, 18, 19, 20, 21, 22, 23,
+    24, 25, 26, 27, 28, 29, 30, 31,
+    32, 33, 34, 35, 36, 37, 38, 39, 40,
+    45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
+  ];
+  assert.deepEqual(skin.keys.map(key => key.code).sort((a, b) => a - b), expectedCodes);
   for (const key of skin.keys) {
     if (/^[A-Z0-9]$/.test(key.label)) assert.equal(pcKeyToEmuKey({ key: key.label }), key.code);
     const box = skin.position(key.rect);
@@ -207,16 +215,20 @@ test('photo keyboard covers all sixty keys and stays inside the device without o
       assert.equal(overlap, false, `${key.label} overlaps ${other.label}`);
     }
   }
-  // Specific landmarks from the supplied photo, rather than a generic QWERTY layout.
+  // Specific landmarks from the generated 4988 photo, rather than the old 4980 layout.
   const byCode = code => skin.keys.find(key => key.code === code).rect;
-  assert.ok(byCode(54)[0] > byCode(51)[0], 'space is to the right of P');
+  assert.ok(byCode(1)[1] > byCode(33)[1], 'directory is below the letter keyboard');
+  assert.ok(byCode(54)[0] > byCode(39)[0], 'space is to the right of M');
+  assert.ok(byCode(32)[0] > byCode(54)[0], 'input method is to the right of space');
+  assert.ok(byCode(40)[0] > byCode(32)[0], 'Chinese/English is the rightmost oval key');
   assert.ok(byCode(58)[0] > byCode(53)[0], 'page up is to the right of up');
   assert.ok(byCode(59)[0] > byCode(56)[0], 'page down is to the right of down');
-  assert.ok(byCode(47)[2] > byCode(46)[2], 'input uses the wide bottom key');
+  assert.ok(byCode(47)[2] > byCode(46)[2], 'Enter is wider than Exit');
 });
 
 test('front-view skin uses the full image coordinate system without leveling transforms', () => {
   const skin = globalThis.BBK4988Skin;
+  assert.match(skin.photo.src, /bbk-electronic-dictionary-photorealistic\.png/);
   assert.deepEqual(skin.photo.crop, { x: 0, y: 0, width: 1254, height: 1254 });
   assert.equal(skin.photo.width, skin.photo.crop.width);
   assert.equal(skin.photo.height, skin.photo.crop.height);

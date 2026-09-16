@@ -378,12 +378,8 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
             markup,
         )
         self.assertNotIn('data-key="1" aria-label="目录"', markup)
-        function_keys = re.findall(
-            r'data-key="(4[1-5])" aria-label="([^"]+)"', markup
-        )
-        self.assertEqual(function_keys, [("41", "帮助")])
-        function_row = markup.split('<div class="function-keys"', 1)[1].split('</div>', 1)[0]
-        self.assertNotIn("<small>", function_row)
+        self.assertNotIn('class="function-keys"', markup)
+        self.assertNotIn('data-key="41" aria-label="帮助"', markup)
         for key, direction, action in [
             ("53", "上", "修改"),
             ("55", "左", "删除"),
@@ -446,9 +442,7 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertIn(".lcd-menu-pointers i::after", pointer_css)
         self.assertIn(".lcd-menu-pointers i:last-child::before", pointer_css)
         self.assertIn("border-left-width: 10px", pointer_css)
-        self.assertIn("padding-top: 2px", css[css.index("#realistic-device .screen-ornament-right"):])
-        self.assertIn("transform: scale(1.2881356, 1.3201151)", css)
-        self.assertIn("transform: scale(1.3818182, 1.3201151)", css)
+        self.assertIn(".screen-ornament { display: none; }", css)
         self.assertIn("justify-content: space-between", css[css.index(".lcd-menu-pointers {"):])
         back_arrow_css = css[css.index(".lcd-back-arrow {"):css.index(".lcd-menu-pointers {")]
         self.assertIn("width: 15px", back_arrow_css)
@@ -462,7 +456,7 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertEqual(page_arrows.count("<i"), 4)
         self.assertEqual(page_arrows.count('class="is-down"'), 2)
         self.assertIn(".lcd-page-arrows i:nth-child(3)", css)
-        self.assertIn("height: 311.5471698px", css)
+        self.assertIn("height: 320px", css)
 
     def test_save_slot_rows_never_shrink_below_content(self):
         # 回归：WebKit/Safari 在高度受限的网格里会把 auto 行压到卡片 min-height
