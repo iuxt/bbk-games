@@ -59,6 +59,22 @@ class StaticAssetTests(unittest.TestCase):
         self.assertEqual(config["buildCommand"], "npm run build")
         self.assertEqual(config["outputDirectory"], "dist/client")
 
+        headers = config["headers"]
+        long_lived = next(
+            item for item in headers if "gam|lib" in item["source"]
+        )
+        self.assertIn(
+            "max-age=604800",
+            long_lived["headers"][0]["value"],
+        )
+        service_worker = next(
+            item for item in headers if item["source"] == "/sw.js"
+        )
+        self.assertIn(
+            "max-age=0",
+            service_worker["headers"][0]["value"],
+        )
+
     def test_all_html_local_assets_exist(self):
         failures = []
         for source in ROOT.rglob("*.html"):
@@ -72,6 +88,42 @@ class StaticAssetTests(unittest.TestCase):
                 )
 
         self.assertEqual(failures, [], "\n" + "\n".join(failures))
+
+    def test_public_pages_install_the_root_pwa(self):
+        pages = (
+            "index.html",
+            "rpg/index.html",
+            "sanguobaye/index.html",
+            "sanguobaye/pc.html",
+            "sanguobaye/m.html",
+            "sanguobaye/backup.html",
+            "mota/index.html",
+            "eebbk/index.html",
+        )
+        for page in pages:
+            with self.subTest(page=page):
+                markup = (ROOT / page).read_text(encoding="utf-8")
+                self.assertIn('rel="manifest" href="/manifest.webmanifest"', markup)
+                self.assertIn('src="/js/pwa.js"', markup)
+
+        manifest = json.loads(
+            (ROOT / "manifest.webmanifest").read_text(encoding="utf-8")
+        )
+        self.assertEqual(manifest["scope"], "/")
+        self.assertEqual(manifest["display"], "standalone")
+        self.assertEqual(
+            {icon["sizes"] for icon in manifest["icons"]},
+            {"192x192", "512x512"},
+        )
+
+    def test_service_worker_caches_runtime_game_data(self):
+        worker = (ROOT / "sw.js").read_text(encoding="utf-8")
+
+        self.assertIn('request.mode === "navigate"', worker)
+        self.assertIn("roms|libs", worker)
+        self.assertIn("gam|lib", worker)
+        self.assertIn("wasm|data", worker)
+        self.assertIn("catalog|libs", worker)
 
     def test_rpg_fumo_rom_conversion_is_preserved(self):
         rom = ROOT / "rpg" / "roms" / "fmj_rpg.lib"

@@ -62,7 +62,7 @@ class IndexMarkupTests(unittest.TestCase):
         )
 
     def test_is_static_without_dialog_hooks(self):
-        self.assertEqual(self.parser.scripts, [])
+        self.assertEqual(self.parser.scripts, ["/js/pwa.js"])
         self.assertEqual(self.parser.storage_keys, set())
         self.assertFalse(
             {
@@ -98,6 +98,7 @@ class ChooseMarkupTests(unittest.TestCase):
         self.assertEqual(
             self.parser.scripts,
             [
+                "/js/pwa.js",
                 "../js/jquery.min.js",
                 "../js/lcd.js?ver=18",
             ],
@@ -250,7 +251,12 @@ class SimulatorMarkupTests(unittest.TestCase):
         )
         self.assertEqual(
             self.parser.scripts,
-            ["../js/game-page.js?v=2", "srs-anchor.js?v=2", "app.js?v=15"],
+            [
+                "/js/pwa.js",
+                "../js/game-page.js?v=2",
+                "srs-anchor.js?v=2",
+                "app.js?v=15",
+            ],
         )
         self.assertIn("../index.html", self.parser.links)
 

@@ -9,10 +9,12 @@ const client = path.join(dist, "client");
 const files = [
     "index.html",
     "favicon.png",
+    "manifest.webmanifest",
+    "sw.js",
     "robots.txt",
     "sitemap.xml",
 ];
-const directories = ["css", "js", "sanguobaye", "mota", "rpg"];
+const directories = ["css", "icons", "js", "sanguobaye", "mota", "rpg"];
 
 // EEBBK 模拟器运行时文件（前端 + 预构建的 wasm 产物）位于 eebbk/ 根目录。
 // wasm 产物由 `npm run build:4988`（本地 emsdk）预构建后提交，Vercel 上的 build 只负责拷贝。

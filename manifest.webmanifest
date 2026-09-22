@@ -1,0 +1,46 @@
+{
+  "id": "/",
+  "name": "步步高电子词典经典游戏",
+  "short_name": "BBK 游戏",
+  "description": "步步高电子词典经典 RPG、三国霸业、魔塔与朗文 4988 模拟器",
+  "lang": "zh-CN",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#c8cbbd",
+  "theme_color": "#dfe3d1",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "RPG 合集",
+      "short_name": "RPG",
+      "url": "/rpg/"
+    },
+    {
+      "name": "三国霸业",
+      "short_name": "三国霸业",
+      "url": "/sanguobaye/"
+    },
+    {
+      "name": "魔塔",
+      "short_name": "魔塔",
+      "url": "/mota/"
+    },
+    {
+      "name": "朗文 4988 模拟器",
+      "short_name": "4988",
+      "url": "/eebbk/"
+    }
+  ]
+}

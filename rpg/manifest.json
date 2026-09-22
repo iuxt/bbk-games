@@ -1,15 +1,22 @@
 {
+  "id": "/",
   "short_name": "BBK 游戏",
-  "name": "BBK RPG 游戏模拟器",
-  "icons": [
-    {
-      "src": "../favicon.png",
-      "sizes": "80x80",
-      "type": "image/jpeg"
-    }
-  ],
-  "start_url": ".",
+  "name": "步步高电子词典经典游戏",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "theme_color": "#dfe3d1",
-  "background_color": "#c8cbbd"
+  "background_color": "#c8cbbd",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }
