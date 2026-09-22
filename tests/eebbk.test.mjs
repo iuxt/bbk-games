@@ -327,6 +327,94 @@ test("shouldAutosave：home / local / 空 都跳过", () => {
     assert.equal(G.shouldAutosave(""), false);
 });
 
+/* ---------- 恢复出厂 Flash：deleteHomeNativeSave ---------- */
+
+function makeFakeHomeSaveStorage({ withStore = true, openFails = false } = {}) {
+    const env = {
+        removedKeys: [],
+        deletedIds: [],
+        openArgs: null,
+        txArgs: null,
+        db: {
+            closed: false,
+            objectStoreNames: { contains: (n) => withStore && n === "native-save-ram" },
+            close() { this.closed = true; },
+        },
+    };
+    env.storage = { removeItem(key) { env.removedKeys.push(key); } };
+    env.db.transaction = function (name, mode) {
+        env.txArgs = [name, mode];
+        const tx = { objectStore: () => ({ delete: (id) => env.deletedIds.push(id) }) };
+        queueMicrotask(() => { if (tx.oncomplete) tx.oncomplete(); });
+        return tx;
+    };
+    env.indexedDB = {
+        open(name, version) {
+            env.openArgs = [name, version];
+            const req = { result: env.db };
+            queueMicrotask(() => {
+                if (openFails) { if (req.onerror) req.onerror(new Error("open failed")); }
+                else if (req.onsuccess) req.onsuccess();
+            });
+            return req;
+        },
+    };
+    return env;
+}
+
+test("deleteHomeNativeSave：删除 IndexedDB __home__ 记录并清掉 localStorage 镜像", async () => {
+    const env = makeFakeHomeSaveStorage();
+    const ok = await G.deleteHomeNativeSave(env.indexedDB, env.storage);
+    assert.equal(ok, true);
+    assert.deepEqual(env.removedKeys, ["sav/native-__home__"], "必须删除 localStorage 同步镜像");
+    assert.deepEqual(env.openArgs, ["bbk-eebbk-saves", 1]);
+    assert.deepEqual(env.txArgs, ["native-save-ram", "readwrite"]);
+    assert.deepEqual(env.deletedIds, ["__home__"], "只能删 __home__，不得触碰其他游戏存档");
+    assert.equal(env.db.closed, true, "完成后必须关闭数据库连接");
+});
+
+test("deleteHomeNativeSave：库中无存档表（从未写过存档）视为成功", async () => {
+    const env = makeFakeHomeSaveStorage({ withStore: false });
+    const ok = await G.deleteHomeNativeSave(env.indexedDB, env.storage);
+    assert.equal(ok, true, "没有记录可删时应视为恢复成功");
+    assert.deepEqual(env.deletedIds, []);
+    assert.equal(env.db.closed, true);
+    assert.deepEqual(env.removedKeys, ["sav/native-__home__"], "镜像仍要清");
+});
+
+test("deleteHomeNativeSave：无 indexedDB 时仍清镜像并成功", async () => {
+    const env = makeFakeHomeSaveStorage();
+    assert.equal(await G.deleteHomeNativeSave(null, env.storage), true);
+    assert.deepEqual(env.removedKeys, ["sav/native-__home__"]);
+    assert.equal(env.openArgs, null, "不应尝试打开数据库");
+});
+
+test("deleteHomeNativeSave：打开数据库失败返回 false（镜像已清）", async () => {
+    const env = makeFakeHomeSaveStorage({ openFails: true });
+    assert.equal(await G.deleteHomeNativeSave(env.indexedDB, env.storage), false);
+    assert.deepEqual(env.removedKeys, ["sav/native-__home__"]);
+});
+
+test("恢复出厂：武装写回抑制 → 等写入链落定 → 删除 __home__ → 重载", () => {
+    const confirmAt = glueSource.indexOf("恢复出厂 Flash？");
+    assert.ok(confirmAt >= 0, "glue.js 需要恢复出厂的确认弹窗");
+    const region = glueSource.slice(confirmAt, confirmAt + 1600);
+    const armAt = region.indexOf("nativeSaveResetPending = true");
+    const deleteAt = region.indexOf("deleteHomeNativeSave(");
+    const reloadAt = region.indexOf("location.reload()");
+    assert.ok(armAt >= 0, "确认后必须先武装写回抑制标志");
+    assert.ok(deleteAt > armAt, "必须等在飞行中的存档写入落定后再删除");
+    assert.ok(reloadAt > deleteAt, "删除成功后才刷新页面");
+
+    const persistStart = glueSource.indexOf("function persistNativeSave()");
+    const persistBody = glueSource.slice(persistStart, glueSource.indexOf("function scheduleNativeSaveIfDirty()"));
+    assert.match(
+        persistBody,
+        /if \(nativeSaveResetPending\)/,
+        "恢复出厂进行中必须阻止 pagehide 自动保存把内存 Flash 写回",
+    );
+});
+
 test("normalizeSpeedRate：只接受页面提供的运行倍率", () => {
     assert.equal(G.normalizeSpeedRate("1"), 1);
     assert.equal(G.normalizeSpeedRate("1.5"), 1.5);

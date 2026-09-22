@@ -565,6 +565,12 @@
     touch-action: manipulation;
 }
 
+/* display:inline-flex 会覆盖 UA 样式对 [hidden] 的 display:none，
+   恢复出厂等按需显示的按钮必须显式提供隐藏规则。 */
+.footer-action[hidden] {
+    display: none;
+}
+
 .interface-control {
     justify-content: space-between;
     gap: 8px;

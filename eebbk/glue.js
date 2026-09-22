@@ -237,6 +237,55 @@
     return true;
   }
 
+  /* ---------- 恢复出厂 Flash（删除词典系统 __home__ 存档） ---------- */
+
+  const NATIVE_SAVE_DB = 'bbk-eebbk-saves';
+  const NATIVE_SAVE_STORE = 'native-save-ram';
+
+  /* 词典系统的原生 Flash 存档有两份：IndexedDB 主存 + localStorage 同步镜像，
+     restoreNativeSave 取较新者，因此必须两处都删。只删 __home__ 这一条记录，
+     其他游戏按各自 romId 隔离，不受影响。返回 Promise<boolean>：
+     true 表示删除完成（或本来就没有记录可删）。 */
+  function deleteHomeNativeSave(indexedDBLike, storageLike) {
+    try { storageLike.removeItem(nativeSaveKey(HOME_ROM_ID)); } catch (e) {}
+    if (!indexedDBLike) return Promise.resolve(true);
+    return new Promise(function (resolve) {
+      let req;
+      try {
+        req = indexedDBLike.open(NATIVE_SAVE_DB, 1);
+      } catch (e) {
+        resolve(false);
+        return;
+      }
+      req.onupgradeneeded = function () {
+        /* 全新库随本次打开顺带建表（与 openNativeSaveDb 同 schema），
+           避免留下无表空库，令后续 open(v1) 永远无法触发升级建表。 */
+        if (!req.result.objectStoreNames.contains(NATIVE_SAVE_STORE)) {
+          req.result.createObjectStore(NATIVE_SAVE_STORE, { keyPath: 'romId' });
+        }
+      };
+      req.onsuccess = function () {
+        const db = req.result;
+        const finish = function (ok) {
+          try { db.close(); } catch (e) {}
+          resolve(ok);
+        };
+        if (!db.objectStoreNames.contains(NATIVE_SAVE_STORE)) return finish(true);
+        try {
+          const tx = db.transaction(NATIVE_SAVE_STORE, 'readwrite');
+          tx.objectStore(NATIVE_SAVE_STORE).delete(HOME_ROM_ID);
+          tx.oncomplete = function () { finish(true); };
+          tx.onerror = function () { finish(false); };
+          tx.onabort = function () { finish(false); };
+        } catch (e) {
+          finish(false);
+        }
+      };
+      req.onerror = function () { resolve(false); };
+      req.onblocked = function () { resolve(false); };
+    });
+  }
+
   const SPEED_RATES = [1, 1.5, 2, 3];
 
   function normalizeSpeedRate(value) {
@@ -356,6 +405,7 @@
     resumeSnapshotKeys: resumeSnapshotKeys,
     chooseLaunchSnapshot: chooseLaunchSnapshot,
     nativeSaveKey: nativeSaveKey,
+    deleteHomeNativeSave: deleteHomeNativeSave,
     buildSavePayload: buildSavePayload,
     parseSavePayload: parseSavePayload,
     HOME_ROM_ID: HOME_ROM_ID,
@@ -395,6 +445,7 @@
   const saveManager      = document.getElementById('save-manager');
   const saveManagerOpen  = document.getElementById('save-manager-open');
   const resetGameBtn     = document.getElementById('reset-game-btn');
+  const restoreFactoryBtn = document.getElementById('restore-factory-btn');
   const saveManagerClose = document.getElementById('save-manager-close');
   const saveGameName     = document.getElementById('save-game-name');
   const saveSlotList     = document.getElementById('save-slot-list');
@@ -443,9 +494,8 @@
   let currentRomFingerprint = '';
 
   /* 原生游戏存档（Flash save RAM）与快速存档分开保存。
-     每个 ROM 在 IndexedDB 中只有一份，由游戏自身决定内部槽位。 */
-  const NATIVE_SAVE_DB = 'bbk-eebbk-saves';
-  const NATIVE_SAVE_STORE = 'native-save-ram';
+     每个 ROM 在 IndexedDB 中只有一份，由游戏自身决定内部槽位。
+     库名/表名 NATIVE_SAVE_DB / NATIVE_SAVE_STORE 定义在上方纯函数区。 */
   let nativeSaveDbPromise = null;
   let nativeSaveStorageDisabled = false;
   let nativeSaveRomId = '';
@@ -454,6 +504,9 @@
   let nativeSaveScheduledRevision = 0;
   let nativeSaveWriteChain = Promise.resolve();
   let nativeSaveMirrorSequence = 0;
+  /* 恢复出厂已确认：本会话禁止再把内存中的 Flash 写回存储，
+     否则删除刚完成就会被 pagehide 等自动保存重新写入。 */
+  let nativeSaveResetPending = false;
 
   /* ---------- LocalStorage helpers ---------- */
   function readLS(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
@@ -587,6 +640,7 @@
     currentGameName.textContent = currentRom.name;
     saveManagerOpen.disabled = !BBK.saveManagerEnabledFor(currentRom.id);
     resetGameBtn.disabled = !BBK.shouldAutosave(currentRom.id);
+    if (restoreFactoryBtn) restoreFactoryBtn.hidden = !BBK.isDictionarySystem(currentRom.id);
     syncTouchpadMode();
   }
 
@@ -1343,6 +1397,8 @@
   }
 
   function persistNativeSave() {
+    /* 恢复出厂流程进行中（或已完成待刷新）：不再把内存中的 Flash 写回存储。 */
+    if (nativeSaveResetPending) return nativeSaveWriteChain;
     const cap = captureNativeSave();
     if (!cap || cap.revision === nativeSavePersistedRevision) return nativeSaveWriteChain;
     const updatedAt = Date.now();
@@ -1572,6 +1628,28 @@
 
   saveManagerOpen.addEventListener('click', openSaveManager);
   resetGameBtn.addEventListener('click', resetCurrentGame);
+
+  restoreFactoryBtn.addEventListener('click', function () {
+    if (!BBK.isDictionarySystem(currentRom.id)) return;
+    if (!global.confirm('恢复出厂 Flash？\n\n' +
+        '将删除词典系统保存在浏览器里的全部数据（系统设置、后期加入的文件等），重新开机后回到出厂镜像，内置游戏与下载文件恢复初始状态。\n' +
+        '其他游戏的存档不受影响。')) return;
+    /* 先武装写回抑制标志：本会话不再把内存中的 Flash 写回本地（含 pagehide
+       自动保存），否则删除刚完成就会被关页前的自动保存重新写入。 */
+    nativeSaveResetPending = true;
+    /* 等可能仍在飞行中的 IndexedDB 写入落定，再删除 __home__ 的两处存档记录并重载。 */
+    nativeSaveWriteChain = nativeSaveWriteChain
+      .catch(function () {})
+      .then(function () { return BBK.deleteHomeNativeSave(global.indexedDB, global.localStorage); })
+      .then(function (ok) {
+        if (!ok) {
+          nativeSaveResetPending = false;
+          global.alert('恢复出厂失败：本地存档删除未完成，请重试。');
+          return;
+        }
+        location.reload();
+      });
+  });
   saveManagerClose.addEventListener('click', closeSaveManager);
   saveManager.addEventListener('click', function (e) {
     if (e.target === e.currentTarget) closeSaveManager();

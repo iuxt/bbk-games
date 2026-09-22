@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "bbk-games-v1";
+const CACHE_VERSION = "bbk-games-v2";
 const SHELL_CACHE = CACHE_VERSION + "-shell";
 const RUNTIME_CACHE = CACHE_VERSION + "-runtime";
 const CACHE_NAMES = new Set([SHELL_CACHE, RUNTIME_CACHE]);
