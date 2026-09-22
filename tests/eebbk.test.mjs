@@ -109,9 +109,9 @@ test("恢复检查点在按键送入 wasm 前捕获", () => {
 
 test("重置游戏复用内存 ROM，不刷新页面或重新请求资源", () => {
     const resetStart = glueSource.indexOf("function resetCurrentGame()");
-    const launchStart = glueSource.indexOf("function launchHome()", resetStart);
-    assert.ok(resetStart >= 0 && launchStart > resetStart);
-    const resetBody = glueSource.slice(resetStart, launchStart);
+    const restoreFactoryStart = glueSource.indexOf("function restoreFactory()", resetStart);
+    assert.ok(resetStart >= 0 && restoreFactoryStart > resetStart);
+    const resetBody = glueSource.slice(resetStart, restoreFactoryStart);
     assert.match(resetBody, /suppressSnapshotAutosave\s*=\s*true/);
     assert.match(resetBody, /clearResumeSnapshots\(currentRom\.id\)/);
     assert.match(resetBody, /loadGame\(currentRomData, currentRom\.name, currentRom\.id\)/);
@@ -129,6 +129,21 @@ test("重置游戏复用内存 ROM，不刷新页面或重新请求资源", () =
     const dragStart = glueSource.indexOf("/* ---------- Drag & drop", autoSaveStart);
     const autoSaveBody = glueSource.slice(autoSaveStart, dragStart);
     assert.match(autoSaveBody, /if \(!suppressSnapshotAutosave\) autosaveCurrent\(\)/);
+});
+
+test("电子词典系统将重置按钮切换为可用的恢复出厂操作", () => {
+    const setRomStart = glueSource.indexOf("function setCurrentRom(");
+    const restoreStart = glueSource.indexOf("function restoreCurrentRomFromStorage()", setRomStart);
+    const setRomBody = glueSource.slice(setRomStart, restoreStart);
+    assert.match(setRomBody, /resetGameBtn\.textContent\s*=\s*dictionarySystem\s*\?\s*'恢复出厂'\s*:\s*'重置游戏'/);
+    assert.match(setRomBody, /resetGameBtn\.disabled\s*=\s*dictionarySystem\s*\?\s*false/);
+
+    const actionStart = glueSource.indexOf("function handleResetAction()");
+    const sendKeyStart = glueSource.indexOf("function sendEmulatorKey(key)", actionStart);
+    const actionBody = glueSource.slice(actionStart, sendKeyStart);
+    assert.match(actionBody, /isDictionarySystem\(currentRom\.id\)/);
+    assert.match(actionBody, /restoreFactory\(\)/);
+    assert.match(actionBody, /resetCurrentGame\(\)/);
 });
 
 test("native Flash saves mirror synchronously before the async IndexedDB write", () => {
@@ -396,7 +411,7 @@ test("deleteHomeNativeSave：打开数据库失败返回 false（镜像已清）
 });
 
 test("恢复出厂：武装写回抑制 → 等写入链落定 → 删除 __home__ → 重载", () => {
-    const confirmAt = glueSource.indexOf("恢复出厂 Flash？");
+    const confirmAt = glueSource.indexOf("恢复出厂设置？");
     assert.ok(confirmAt >= 0, "glue.js 需要恢复出厂的确认弹窗");
     const region = glueSource.slice(confirmAt, confirmAt + 1600);
     const armAt = region.indexOf("nativeSaveResetPending = true");

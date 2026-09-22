@@ -445,7 +445,6 @@
   const saveManager      = document.getElementById('save-manager');
   const saveManagerOpen  = document.getElementById('save-manager-open');
   const resetGameBtn     = document.getElementById('reset-game-btn');
-  const restoreFactoryBtn = document.getElementById('restore-factory-btn');
   const saveManagerClose = document.getElementById('save-manager-close');
   const saveGameName     = document.getElementById('save-game-name');
   const saveSlotList     = document.getElementById('save-slot-list');
@@ -639,8 +638,12 @@
     writeLS('currentRomName', currentRom.name);
     currentGameName.textContent = currentRom.name;
     saveManagerOpen.disabled = !BBK.saveManagerEnabledFor(currentRom.id);
-    resetGameBtn.disabled = !BBK.shouldAutosave(currentRom.id);
-    if (restoreFactoryBtn) restoreFactoryBtn.hidden = !BBK.isDictionarySystem(currentRom.id);
+    const dictionarySystem = BBK.isDictionarySystem(currentRom.id);
+    resetGameBtn.textContent = dictionarySystem ? '恢复出厂' : '重置游戏';
+    resetGameBtn.title = dictionarySystem
+      ? '删除电子词典系统在浏览器中的数据并恢复出厂状态（不影响其他游戏存档）'
+      : '清除自动续玩的运行进度并冷启动当前游戏';
+    resetGameBtn.disabled = dictionarySystem ? false : !BBK.shouldAutosave(currentRom.id);
     syncTouchpadMode();
   }
 
@@ -918,6 +921,38 @@
         suppressSnapshotAutosave = false;
         resetGameBtn.disabled = !BBK.shouldAutosave(currentRom.id) || !currentRomData;
       });
+  }
+
+  function restoreFactory() {
+    if (!BBK.isDictionarySystem(currentRom.id)) return;
+    if (!global.confirm('恢复出厂设置？\n\n' +
+        '将删除电子词典系统保存在浏览器里的全部数据（系统设置、后期加入的文件等），重新开机后回到出厂状态，内置游戏与下载文件恢复初始状态。\n' +
+        '其他游戏的存档不受影响。')) return;
+    /* 先武装写回抑制标志：本会话不再把内存中的 Flash 写回本地（含 pagehide
+       自动保存），否则删除刚完成就会被关页前的自动保存重新写入。 */
+    nativeSaveResetPending = true;
+    resetGameBtn.disabled = true;
+    /* 等可能仍在飞行中的 IndexedDB 写入落定，再删除 __home__ 的两处存档记录并重载。 */
+    nativeSaveWriteChain = nativeSaveWriteChain
+      .catch(function () {})
+      .then(function () { return BBK.deleteHomeNativeSave(global.indexedDB, global.localStorage); })
+      .then(function (ok) {
+        if (!ok) {
+          nativeSaveResetPending = false;
+          resetGameBtn.disabled = false;
+          global.alert('恢复出厂失败：本地存档删除未完成，请重试。');
+          return;
+        }
+        location.reload();
+      });
+  }
+
+  function handleResetAction() {
+    if (BBK.isDictionarySystem(currentRom.id)) {
+      restoreFactory();
+    } else {
+      resetCurrentGame();
+    }
   }
 
   function sendEmulatorKey(key) {
@@ -1627,29 +1662,7 @@
   });
 
   saveManagerOpen.addEventListener('click', openSaveManager);
-  resetGameBtn.addEventListener('click', resetCurrentGame);
-
-  restoreFactoryBtn.addEventListener('click', function () {
-    if (!BBK.isDictionarySystem(currentRom.id)) return;
-    if (!global.confirm('恢复出厂 Flash？\n\n' +
-        '将删除词典系统保存在浏览器里的全部数据（系统设置、后期加入的文件等），重新开机后回到出厂镜像，内置游戏与下载文件恢复初始状态。\n' +
-        '其他游戏的存档不受影响。')) return;
-    /* 先武装写回抑制标志：本会话不再把内存中的 Flash 写回本地（含 pagehide
-       自动保存），否则删除刚完成就会被关页前的自动保存重新写入。 */
-    nativeSaveResetPending = true;
-    /* 等可能仍在飞行中的 IndexedDB 写入落定，再删除 __home__ 的两处存档记录并重载。 */
-    nativeSaveWriteChain = nativeSaveWriteChain
-      .catch(function () {})
-      .then(function () { return BBK.deleteHomeNativeSave(global.indexedDB, global.localStorage); })
-      .then(function (ok) {
-        if (!ok) {
-          nativeSaveResetPending = false;
-          global.alert('恢复出厂失败：本地存档删除未完成，请重试。');
-          return;
-        }
-        location.reload();
-      });
-  });
+  resetGameBtn.addEventListener('click', handleResetAction);
   saveManagerClose.addEventListener('click', closeSaveManager);
   saveManager.addEventListener('click', function (e) {
     if (e.target === e.currentTarget) closeSaveManager();

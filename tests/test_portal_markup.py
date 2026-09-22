@@ -367,24 +367,20 @@ class EebbkSimulatorMarkupTests(unittest.TestCase):
         self.assertIn('id="save-manager"', markup)
         self.assertIn('id="save-manager-open"', markup)
         self.assertIn('id="reset-game-btn"', markup)
-        self.assertIn('id="restore-factory-btn"', markup)
+        self.assertNotIn('id="restore-factory-btn"', markup)
         self.assertIn('id="save-slot-list"', markup)
         self.assertIn('id="file-input"', markup)
         self.assertIn('id="save-input"', markup)
         self.assertIn('dialog.css', markup)
 
-    def test_restore_factory_button_ships_hidden_for_home_only(self):
+    def test_reset_button_is_reused_for_restore_factory(self):
         markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")
-        css = (ROOT / "eebbk" / "style.css").read_text(encoding="utf-8")
-        # 恢复出厂仅作用于词典系统（__home__ 的 Flash 存档），默认隐藏，
-        # 由 glue.js 在进入词典系统时显示。
-        start = markup.index('id="restore-factory-btn"')
-        tag = markup[markup.rindex("<button", 0, start):markup.index(">", start) + 1]
-        self.assertIn("hidden", tag, "恢复出厂按钮必须默认 hidden")
-        self.assertIn("footer-action", tag)
-        # .footer-action 的 display:inline-flex 会覆盖 UA 样式的 [hidden]，
-        # 必须显式提供隐藏规则，否则按钮会一直可见。
-        self.assertIn(".footer-action[hidden]", css)
+        script = (ROOT / "eebbk" / "glue.js").read_text(encoding="utf-8")
+        self.assertEqual(markup.count('id="reset-game-btn"'), 1)
+        self.assertNotIn('id="restore-factory-btn"', markup)
+        self.assertIn("resetGameBtn.textContent = dictionarySystem ? '恢复出厂' : '重置游戏'", script)
+        self.assertIn("resetGameBtn.disabled = dictionarySystem ? false", script)
+        self.assertIn("resetGameBtn.addEventListener('click', handleResetAction)", script)
 
     def test_touchpad_uses_a4988_shift_direction_labels(self):
         markup = (ROOT / "eebbk" / "index.html").read_text(encoding="utf-8")
