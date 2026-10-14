@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "bbk-games-v2";
+const CACHE_VERSION = "bbk-games-v5";
 const SHELL_CACHE = CACHE_VERSION + "-shell";
 const RUNTIME_CACHE = CACHE_VERSION + "-runtime";
 const CACHE_NAMES = new Set([SHELL_CACHE, RUNTIME_CACHE]);
@@ -10,6 +10,8 @@ const CACHE_NAMES = new Set([SHELL_CACHE, RUNTIME_CACHE]);
 const APP_SHELL = [
     "/",
     "/index.html",
+    "/about.html",
+    "/js/about.js",
     "/manifest.webmanifest",
     "/favicon.png",
     "/icons/icon-192.png",
