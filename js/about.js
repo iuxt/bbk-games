@@ -1,6 +1,8 @@
 (function () {
     "use strict";
 
+    var dialog = document.getElementById("about");
+    var opener = document.getElementById("about-open");
     var tablist = document.querySelector(".about-tabs");
     var tabs = Array.from(tablist.querySelectorAll(".about-tab"));
     var panels = tabs.map(function (tab) {
@@ -32,7 +34,7 @@
     }
 
     function activateTab(index) {
-        if (location.hash !== tabs[index].hash) {
+        if (!dialog && location.hash !== tabs[index].hash) {
             history.pushState(null, "", tabs[index].hash);
         }
         selectTab(index);
@@ -58,7 +60,25 @@
         });
     });
 
-    window.addEventListener("hashchange", selectFromHash);
-    window.addEventListener("popstate", selectFromHash);
-    selectFromHash();
+    if (dialog && opener) {
+        opener.addEventListener("click", function () {
+            selectTab(0);
+            dialog.showModal();
+            dialog.scrollTop = 0;
+        });
+        dialog.addEventListener("click", function (event) {
+            if (event.target !== dialog) return;
+            var bounds = dialog.getBoundingClientRect();
+            if (event.clientX < bounds.left || event.clientX > bounds.right ||
+                event.clientY < bounds.top || event.clientY > bounds.bottom) {
+                dialog.close();
+            }
+        });
+        dialog.addEventListener("close", function () { opener.focus(); });
+        selectTab(0);
+    } else {
+        window.addEventListener("hashchange", selectFromHash);
+        window.addEventListener("popstate", selectFromHash);
+        selectFromHash();
+    }
 })();

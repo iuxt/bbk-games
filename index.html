@@ -17,6 +17,7 @@
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="stylesheet" href="css/portal.css">
     <script src="/js/pwa.js" defer></script>
+    <script src="js/about.js" defer></script>
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="步步高电子词典游戏合集">
     <meta property="og:title" content="步步高电子词典游戏合集 · 伏魔记 / 三国霸业 / 魔塔 在线玩">
@@ -68,10 +69,7 @@
                 <span class="brand-mark">BBK</span>
                 <span>经典游戏</span>
             </a>
-            <nav class="header-nav" aria-label="站点导航">
-                <a class="about-button" href="about.html"><span class="about-button-icon" aria-hidden="true">i</span>关于本站</a>
-                <span class="power-light" aria-hidden="true"></span>
-            </nav>
+            <span class="power-light" aria-hidden="true"></span>
         </header>
 
         <section class="lcd-panel" aria-labelledby="portal-title">
@@ -129,10 +127,106 @@
             <span>WEB EDITION</span>
             <nav class="footer-nav" aria-label="站点导航">
                 <p>把经典 RPG 游戏，重新装进口袋。</p>
-                <a class="footer-link" href="about.html">关于本站</a>
+                <button class="footer-link" id="about-open" type="button" aria-haspopup="dialog" aria-controls="about">关于本站</button>
             </nav>
         </footer>
     </main>
 
+    <dialog id="about" class="about-dialog" aria-labelledby="about-title">
+        <header class="lcd-panel about-display">
+            <p class="lcd-kicker">ABOUT / 关于本站</p>
+            <h2 id="about-title">关于本站<span aria-hidden="true">_</span></h2>
+            <p class="lcd-help">把经典 RPG 游戏，重新装进口袋。</p>
+        </header>
+        <form method="dialog" class="about-close">
+            <button type="submit" aria-label="关闭关于本站" autofocus>×</button>
+        </form>
+
+        <nav class="about-tabs" aria-label="关于页面内容">
+            <a id="tab-site" class="about-tab" href="#site"><span aria-hidden="true">01</span>关于本站</a>
+            <a id="tab-games" class="about-tab" href="#games"><span aria-hidden="true">02</span>游戏说明</a>
+        </nav>
+
+        <section id="site" class="about-panel" aria-labelledby="site-title">
+            <div class="about-intro">
+                <p class="section-eyebrow">ABOUT THIS SITE</p>
+                <h2 id="site-title">把熟悉的游戏，留在触手可及的地方。</h2>
+                <p>本站把当年运行在步步高（BBK）电子词典上的经典游戏重新搬进浏览器，无需安装、打开即玩，只为重温 ibox 9288 / 9588、朗文 4988 等机型陪伴过的时光。</p>
+                <div class="site-promises" aria-label="本站承诺">
+                    <span>无广告</span><span>不用注册</span><span>不收集个人隐私信息</span>
+                </div>
+            </div>
+
+            <div class="about-details">
+                <section class="info-card" aria-labelledby="collection-title">
+                    <p class="section-eyebrow">THE COLLECTION</p>
+                    <h3 id="collection-title">四个入口，一份共同的回忆</h3>
+                    <ul class="collection-list">
+                        <li><a href="sanguobaye/index.html">三国霸业 <span>回合策略 · 多版本 / MOD</span></a></li>
+                        <li><a href="rpg/index.html">RPG游戏合集 <span>伏魔记、仙剑、金庸群侠传等 140+ 款</span></a></li>
+                        <li><a href="mota/index.html">魔塔 <span>层数探索 · 解谜闯关</span></a></li>
+                        <li><a href="eebbk/index.html">电子词典模拟器 <span>原生系统 · 原汁原味的游戏体验</span></a></li>
+                    </ul>
+                </section>
+                <section class="info-card" aria-labelledby="thanks-title">
+                    <p class="section-eyebrow">THANKS & CONTACT</p>
+                    <h3 id="thanks-title">感谢让经典延续的每一个人</h3>
+                    <p>引擎与资源来自社区前辈的逆向与移植（fmj.kt、iBaye、6502 模拟器核心），在此一并致谢。</p>
+                    <p>游戏版权归各自作者所有，本站仅作学习与怀旧用途。</p>
+                    <a class="contact-link" href="mailto:iuxt@qq.com">联系邮箱：iuxt@qq.com <span aria-hidden="true">↗</span></a>
+                </section>
+            </div>
+
+            <section class="support-section" aria-labelledby="support-title">
+                <div class="support-copy">
+                    <p class="section-eyebrow">KEEP THE MEMORIES ALIVE</p>
+                    <h2 id="support-title">如果这里帮你找回了快乐</h2>
+                    <p>如果你觉得本站对你有帮助的话，可以赞助我。</p>
+                    <p><strong>不管你赞不赞助，本网站都会继续运行下去。</strong><br>无广告、不用注册、不收集个人隐私信息。</p>
+                    <p class="support-note">谢谢你的支持，也谢谢你来这里玩。</p>
+                </div>
+                <div class="support-grid">
+                    <figure class="support-card">
+                        <figcaption><strong>微信支付</strong><span>扫码赞助</span></figcaption>
+                        <a href="images/support/wechat.jpg" target="_blank" rel="noopener" aria-label="查看微信赞助码原图（在新标签页打开）">
+                            <img src="images/support/wechat.jpg" alt="微信支付赞助二维码" width="828" height="1124" loading="lazy">
+                        </a>
+                    </figure>
+                    <figure class="support-card">
+                        <figcaption><strong>支付宝</strong><span>扫码赞助</span></figcaption>
+                        <a href="images/support/alipay.jpg" target="_blank" rel="noopener" aria-label="查看支付宝赞助码原图（在新标签页打开）">
+                            <img src="images/support/alipay.jpg" alt="支付宝赞助二维码" width="1708" height="2560" loading="lazy">
+                        </a>
+                    </figure>
+                </div>
+                <p class="support-image-hint">点击图片可查看原图；手机上可长按保存，再用微信或支付宝识别。</p>
+            </section>
+        </section>
+
+        <section id="games" class="about-panel" aria-labelledby="games-title">
+            <div class="game-instructions">
+                <h2 id="games-title">游戏说明</h2>
+
+                <section aria-labelledby="js-games-title">
+                    <h3 id="js-games-title">三国霸业、RPG游戏合集、魔塔</h3>
+                    <p>这三个模块都是用 JavaScript 重写 / 移植的，运行速度比较快，但是可能会有 Bug。</p>
+                </section>
+
+                <section aria-labelledby="native-games-title">
+                    <h3 id="native-games-title">电子词典模拟器</h3>
+                    <p>电子词典模拟器里面的游戏是原汁原味的，支持原生电子词典系统，支持加载 .gam 文件运行。模拟器支持几乎所有的步步高词典游戏，并且支持存档备份与导入导出。</p>
+                </section>
+
+                <section aria-labelledby="fumo-title">
+                    <h3 id="fumo-title">伏魔记版本推荐</h3>
+                    <p>如果你想怀旧玩伏魔记，建议选择电子词典模拟器里面的《伏魔记怀旧终曲v1.0(原版精修)》。这个版本支持自定义是否 MISS、支持关闭遇敌效果、支持自定义投掷效果等。</p>
+                </section>
+            </div>
+        </section>
+
+        <form method="dialog" class="about-actions">
+            <button class="device-button" type="submit">关闭</button>
+        </form>
+    </dialog>
 </body>
 </html>

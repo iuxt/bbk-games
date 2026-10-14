@@ -61,8 +61,8 @@ class IndexMarkupTests(unittest.TestCase):
             },
         )
 
-    def test_is_static_without_dialog_hooks(self):
-        self.assertEqual(self.parser.scripts, ["/js/pwa.js"])
+    def test_keeps_game_settings_removed(self):
+        self.assertEqual(self.parser.scripts, ["/js/pwa.js", "js/about.js"])
         self.assertEqual(self.parser.storage_keys, set())
         self.assertFalse(
             {

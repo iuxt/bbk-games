@@ -78,33 +78,6 @@ button { color: inherit; }
 
 .device-header { justify-content: space-between; margin-bottom: 16px; }
 
-.header-nav { display: flex; align-items: center; gap: 20px; }
-.about-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    min-height: 40px;
-    padding: 8px 12px;
-    border: 1px solid var(--line);
-    border-radius: 9px;
-    background: var(--paper);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 2px 0 var(--shell-edge);
-    font-size: 12px;
-    font-weight: 700;
-    text-decoration: none;
-}
-.about-button:hover { background: rgba(255,255,255,.55); }
-.about-button:active { transform: translateY(1px); }
-.about-button-icon {
-    display: grid;
-    place-items: center;
-    width: 16px;
-    height: 16px;
-    border: 1px solid currentColor;
-    border-radius: 50%;
-    font: 700 11px/1 ui-monospace, monospace;
-}
-
 .brand {
     display: inline-flex;
     align-items: center;
@@ -657,7 +630,43 @@ button { color: inherit; }
 }
 
 @media (max-width: 380px) {
-    .header-nav { gap: 12px; }
-    .about-button { padding: 8px; }
     .info-card { padding: 16px; }
+}
+
+/* 首页右下角入口打开关于弹层。 */
+button.footer-link {
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+.about-dialog {
+    position: fixed;
+    width: min(calc(100% - 28px), 720px);
+    max-height: calc(100vh - 28px);
+    max-height: calc(100dvh - 28px);
+    margin: auto auto 14px;
+    padding: 18px;
+    border: 1px solid var(--shell-edge);
+    border-radius: 24px 24px 38px 24px;
+    color: var(--lcd-ink);
+    background: var(--shell);
+    box-shadow: 0 26px 80px rgba(20, 25, 19, .42), inset 0 1px 0 rgba(255, 255, 255, .65);
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+}
+.about-dialog::backdrop {
+    background: rgba(25, 31, 24, .6);
+    backdrop-filter: blur(3px);
+}
+body:has(.about-dialog[open]) { overflow: hidden; }
+.about-display { padding: 19px 48px 17px 18px; border-width: 5px; }
+.about-display h2 { margin: 5px 0 7px; font: 800 20px/1.15 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.about-close { position: absolute; top: 28px; right: 28px; margin: 0; }
+.about-close button { width: 32px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); font-size: 24px; cursor: pointer; }
+.about-actions { margin-top: 20px; }
+.about-actions .device-button { display: block; width: 100%; border: 0; cursor: pointer; }
+@media (min-width: 760px) {
+    .about-dialog { margin: auto; }
 }
