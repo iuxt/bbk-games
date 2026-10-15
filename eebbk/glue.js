@@ -1057,6 +1057,7 @@
     gamePickerOpen.setAttribute('aria-expanded', 'false');
     document.body.classList.remove('dialog-open');
     if (picker.opener && picker.opener.focus) picker.opener.focus();
+    navigatingPageControls = false;
     resumeEmulator();
   }
 
@@ -1267,6 +1268,7 @@
     document.body.classList.remove('dialog-open');
     importSlotTarget = null;
     if (picker.opener && picker.opener.focus) picker.opener.focus();
+    navigatingPageControls = false;
     resumeEmulator();
   }
 
@@ -1818,6 +1820,13 @@
   /* ---------- Touchpad + physical keyboard ---------- */
   const touchpad = document.getElementById('touchpad');
   const pressedKeys = new Map();
+  let navigatingPageControls = false;
+
+  // 只有 Tab 导航主动选中的按钮才接收 Enter / Space；点击或弹窗恢复的焦点
+  // 不应抢走游戏输入。使用捕获阶段，以覆盖弹窗里停止冒泡的指针事件。
+  document.addEventListener('pointerdown', function() {
+    navigatingPageControls = false;
+  }, true);
 
   function canAcceptKey() {
     return started && !exited && !deviceAsleep && gamePicker.hidden && saveManager.hidden;
@@ -1878,10 +1887,14 @@
   document.addEventListener('keydown', function(e) {
     if (e.defaultPrevented || e.isComposing || e.keyCode === 229) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.key === 'Tab') {
+      navigatingPageControls = true;
+      return;
+    }
     const target = e.target;
     if (target && (target.isContentEditable || target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))) return;
-    // 原生按钮与链接的 Enter / Space 由浏览器处理，避免一次操作触发两个键。
-    if ((e.key === 'Enter' || e.key === ' ') && target && target.closest('button, a, summary')) return;
+    const control = target && target.closest('button, a, summary');
+    if (navigatingPageControls && control && (e.key === 'Enter' || e.key === ' ')) return;
     if (e.key === 'F1') {
       e.preventDefault();
       if (!e.repeat) toggleDevicePower();
@@ -1891,6 +1904,8 @@
     const key = pcKeyToEmuKey(e);
     if (key !== undefined && key !== 0) {
       e.preventDefault();
+      navigatingPageControls = false;
+      if (control) control.blur();
       pressedKeys.set(e.code || e.key, key);
       syncPressedKeys();
       // 功能快捷键是一次性动作；浏览器的按住自动连发会重复开关游戏功能。

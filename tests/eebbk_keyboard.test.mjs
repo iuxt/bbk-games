@@ -75,7 +75,6 @@ test('keyboard respects dialogs, native controls and shortcuts, and clears press
     { isComposing: true }, { keyCode: 229 }, { defaultPrevented: true },
     { target: { isContentEditable: true } },
     { target: { closest: () => ({ tagName: 'INPUT' }) } },
-    { key: 'Enter', target: { closest: selector => selector.startsWith('button') ? {} : null } },
   ]) h.keydown(extra);
   for (const modal of [h.context.gamePicker, h.context.saveManager]) {
     modal.hidden = false;
@@ -89,6 +88,58 @@ test('keyboard respects dialogs, native controls and shortcuts, and clears press
   h.keydown();
   h.context.global.handlers.blur();
   assert.equal(h.pressed.size, 0);
+});
+
+test('game input releases leftover button focus and prevents Enter / Space activation', () => {
+  for (const key of ['Enter', ' ', 'ArrowDown']) {
+    const h = inputHarness();
+    let blurred = false;
+    const control = { blur() { blurred = true; } };
+    const target = { closest: selector => selector.startsWith('button') ? control : null };
+    const event = h.keydown({ key, code: key, target });
+    assert.equal(event.defaultPrevented, true, key + ' must not activate the page button');
+    assert.equal(blurred, true, 'game input removes the focus ring');
+    assert.deepEqual(h.sent, [pcKeyToEmuKey({ key })]);
+    h.keydown({ key: 'Enter', code: 'Enter' });
+    assert.equal(h.sent.at(-1), 47);
+  }
+});
+
+test('Tab keeps native button activation until pointer or game input takes over', () => {
+  const h = inputHarness();
+  const control = { blur() {} };
+  const target = { closest: selector => selector.startsWith('button') ? control : null };
+  assert.equal(h.keydown({ key: 'Tab' }).defaultPrevented, undefined);
+  for (const key of ['Enter', ' ']) {
+    assert.equal(h.keydown({ key, target }).defaultPrevented, undefined);
+  }
+  assert.deepEqual(h.sent, []);
+  h.keydown({ key: 'ArrowDown', target });
+  assert.equal(h.keydown({ key: 'Enter', target }).defaultPrevented, true);
+  h.keydown({ key: 'Tab', shiftKey: true });
+  h.document.handlers.pointerdown();
+  assert.equal(h.keydown({ key: ' ', target }).defaultPrevented, true);
+  assert.deepEqual(h.sent, [56, 47, 54]);
+});
+
+test('closing either dialog returns Enter to the game even after Tab navigation', () => {
+  for (const closeName of ['closePicker', 'closeSaveManager']) {
+    const h = inputHarness();
+    const control = { focus() {}, blur() {} };
+    const target = { closest: selector => selector.startsWith('button') ? control : null };
+    h.context.picker = { opener: control };
+    h.context.gamePickerOpen = h.context.saveManagerOpen = { setAttribute() {} };
+    h.document.body = { classList: { remove() {} } };
+    h.context.resumeEmulator = () => {};
+    h.context.importSlotTarget = 0;
+    const start = source.indexOf('  function ' + closeName + '()');
+    const end = source.indexOf('\n  }', start) + 4;
+    vm.runInNewContext(source.slice(start, end), h.context);
+    h.keydown({ key: 'Tab' });
+    h.context[closeName]();
+    assert.equal(h.keydown({ key: 'Enter', target }).defaultPrevented, true);
+    assert.deepEqual(h.sent, [47]);
+  }
 });
 
 test('search and delete shortcuts ignore browser auto-repeat', () => {
