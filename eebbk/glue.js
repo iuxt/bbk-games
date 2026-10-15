@@ -509,7 +509,10 @@
 
   /* ---------- LocalStorage helpers ---------- */
   function readLS(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
-  function writeLS(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
+  function writeLS(key, val) {
+    try { localStorage.setItem(key, val); return true; }
+    catch (e) { console.warn('本地存储写入失败:', e); return false; }
+  }
   function removeLS(key) { try { localStorage.removeItem(key); } catch (e) {} }
 
   const SPEED_STORAGE_KEY = 'eebbk/speed-rate';
@@ -787,23 +790,8 @@
   function ensureModule() {
     if (modulePromise) return modulePromise;
 
-    const biosPromise = Promise.all(['gam4988.data.0?v=1', 'gam4988.data.1?v=1'].map(function (url) {
-      return fetch(url).then(function (r) {
-        if (!r.ok) throw new Error('固件下载失败');
-        return r.arrayBuffer();
-      });
-    })).then(function (parts) {
-      const first = new Uint8Array(parts[0]);
-      const second = new Uint8Array(parts[1]);
-      const joined = new Uint8Array(first.byteLength + second.byteLength);
-      joined.set(first, 0);
-      joined.set(second, first.byteLength);
-      return joined.buffer;
-    });
-
-    modulePromise = Promise.all([loadRuntimeScript(), biosPromise])
-      .then(function (results) {
-        const bios = results[1];
+    modulePromise = loadRuntimeScript()
+      .then(function () {
         return global.Gam4988Module({
           locateFile: function (path) {
             return path === 'gam4988.wasm' ? 'gam4988.wasm?v=1' : path;
@@ -813,20 +801,13 @@
             if (typeof text === 'string' && text.indexOf('Program terminated with exit(') !== -1) return;
             console.warn('[C] ' + text);
           }
-        }).then(function (mod) { return { mod: mod, bios: bios }; });
+        });
       })
-      .then(function (runtime) {
-        Module = runtime.mod;
-        const bytes = new Uint8Array(runtime.bios);
-        const ptr = Module._malloc(bytes.byteLength);
-        let result;
-        try {
-          Module.HEAPU8.set(bytes, ptr);
-          result = Module._web_init(ptr, bytes.byteLength);
-        } finally {
-          Module._free(ptr);
-        }
-        if (result !== 0) throw new Error('固件无效或设备型号不受支持');
+      .then(function (mod) {
+        Module = mod;
+        return loadFirmware(Module);
+      })
+      .then(function () {
         exposeRuntimeSettings();
         return Module;
       })
@@ -836,6 +817,30 @@
       });
 
     return modulePromise;
+  }
+
+  async function loadFirmware(mod) {
+    const bankSize = 0x200000;
+    const size = 13 * bankSize;
+    const ptr = mod._malloc(size);
+    if (!ptr) throw new Error('固件初始化内存不足');
+    try {
+      // 分段下载后直接写入 wasm，不在 JS 中拼接另一份 26 MiB 固件。
+      // 每次处理一段响应（最大 14 MiB），无需同时保留两段固件。
+      const parts = [7 * bankSize, 6 * bankSize];
+      let offset = 0;
+      for (let i = 0; i < parts.length; i += 1) {
+        const response = await fetch('gam4988.data.' + i + '?v=1');
+        if (!response.ok) throw new Error('固件下载失败');
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        if (bytes.byteLength !== parts[i]) throw new Error('固件数据不完整');
+        mod.HEAPU8.set(bytes, ptr + offset);
+        offset += bytes.byteLength;
+      }
+      if (mod._web_init(ptr, size) !== 0) throw new Error('固件无效或设备型号不受支持');
+    } finally {
+      mod._free(ptr);
+    }
   }
 
   /* ---------- Hot-switch + power-off fallback ---------- */
@@ -1168,9 +1173,13 @@
     const cap = captureState();
     if (!cap) { setSaveMsg('error', '没有可保存的游戏进度。'); return; }
     if (readSlot(slot) && !confirm('覆盖存档槽 ' + (slot + 1) + ' 的现有存档？')) return;
-    writeSlot(slot, cap.b64, String(Date.now()), captureScreenPreview());
-    renderSaveSlots();
-    setSaveMsg('status', '当前进度已保存到槽位 ' + (slot + 1) + '。');
+    try {
+      writeSlot(slot, cap.b64, String(Date.now()), captureScreenPreview());
+      renderSaveSlots();
+      setSaveMsg('status', '当前进度已保存到槽位 ' + (slot + 1) + '。');
+    } catch (err) {
+      setSaveMsg('error', err.message);
+    }
   }
 
   function loadFromSlot(slot) {
@@ -1598,11 +1607,27 @@
     return currentRom.id ? readLS(BBK.slotKey(currentRom.id, slot)) : '';
   }
   function writeSlot(slot, b64, ts, screenshot) {
-    writeLS(BBK.slotKey(currentRom.id, slot), b64);
-    writeLS(BBK.slotKey(currentRom.id, slot) + '.ts', ts);
-    const screenshotKey = BBK.slotScreenshotKey(currentRom.id, slot);
-    if (BBK.isValidScreenshotDataUrl(screenshot)) writeLS(screenshotKey, screenshot);
-    else removeLS(screenshotKey);
+    const key = BBK.slotKey(currentRom.id, slot);
+    const keys = [key, key + '.ts', BBK.slotScreenshotKey(currentRom.id, slot)];
+    const values = [b64, ts, BBK.isValidScreenshotDataUrl(screenshot) ? screenshot : null];
+    let previous;
+    try {
+      previous = keys.map(function (k) { return localStorage.getItem(k); });
+      keys.forEach(function (k, i) {
+        if (values[i] === null) localStorage.removeItem(k);
+        else localStorage.setItem(k, values[i]);
+      });
+    } catch (err) {
+      if (previous) {
+        try {
+          keys.forEach(function (k) { localStorage.removeItem(k); });
+          keys.forEach(function (k, i) {
+            if (previous[i] !== null) localStorage.setItem(k, previous[i]);
+          });
+        } catch (rollbackError) { console.warn('存档回滚失败:', rollbackError); }
+      }
+      throw new Error('存档写入失败：浏览器存储空间不足或存储被禁用，请导出备份后重试。');
+    }
   }
   function readSlotTs(slot) {
     return readLS(BBK.slotKey(currentRom.id, slot) + '.ts');

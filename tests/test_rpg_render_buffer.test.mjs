@@ -25,6 +25,10 @@ test('RPG renderer reuses storage, preserves clamped theme/alpha bytes and rebui
   }
   context.global.sysDrawScreen(pixels, 2, 1);
   assert.deepEqual(frames[0].data, expected(pixels));
+  context.global.sysDrawScreen(pixels, 2, 1);
+  assert.equal(frames.length, 1, 'identical frames must not touch the canvas');
+  context.global.sysDrawScreen(pixels.map(p => ({ ...p, r: p.r + 0.001 })), 2, 1);
+  assert.equal(frames.length, 1, 'compare clamped output bytes, not raw color objects');
   context.renderPeixel = [1, 0.5, 0.5];
   context.global.sysDrawScreen(pixels.slice().reverse(), 2, 1);
   assert.equal(allocations, 1);

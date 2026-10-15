@@ -255,7 +255,8 @@ class SimulatorMarkupTests(unittest.TestCase):
                 "/js/pwa.js",
                 "../js/game-page.js?v=2",
                 "srs-anchor.js?v=2",
-                "app.js?v=15",
+                "rom-store.js?v=1",
+                "app.js?v=16",
             ],
         )
         self.assertIn("../index.html", self.parser.links)

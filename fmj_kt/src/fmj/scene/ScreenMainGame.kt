@@ -585,8 +585,7 @@ class ScreenMainGame(
             println("Loaded map class: ResMap")
         }
         
-        // 生成当前地图的base64编码并显示
-        generateMapBase64()
+        // 本站没有整图预览；仅在显式调用 generateMapBase64 时生成 PNG。
                 
         updatePlayerPositionInBrowser()
         println("Immediate player position update")

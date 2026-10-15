@@ -58,6 +58,18 @@ function canCache(response) {
     return response && response.status === 200 && (response.type === "basic" || response.type === "default");
 }
 
+// 同一 URL 可能同时存在于预缓存和运行缓存；优先使用后台更新的副本。
+function matchCached(request) {
+    return caches.open(RUNTIME_CACHE).then(function (cache) {
+        return cache.match(request);
+    }).then(function (cached) {
+        if (cached) return cached;
+        return caches.open(SHELL_CACHE).then(function (cache) {
+            return cache.match(request);
+        });
+    });
+}
+
 function store(cacheName, request, response) {
     if (!canCache(response)) return Promise.resolve(response);
     return caches.open(cacheName)
@@ -72,16 +84,16 @@ function networkFirst(request) {
     return fetch(request)
         .then(function (response) { return store(RUNTIME_CACHE, request, response); })
         .catch(function () {
-            return caches.match(request).then(function (cached) {
+            return matchCached(request).then(function (cached) {
                 if (cached) return cached;
-                if (request.mode === "navigate") return caches.match("/index.html");
+                if (request.mode === "navigate") return matchCached("/index.html");
                 return Response.error();
             });
         });
 }
 
 function staleWhileRevalidate(request, event) {
-    return caches.match(request).then(function (cached) {
+    return matchCached(request).then(function (cached) {
         var freshRequest = new Request(request, { cache: "no-cache" });
         var update = fetch(freshRequest).then(function (response) {
             return store(RUNTIME_CACHE, request, response);

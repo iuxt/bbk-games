@@ -68115,7 +68115,7 @@
       return game.rom;
     }
   }
-  var gameRom = localStorage.getItem("gameRom");
+  var gameRom = global.BBKRomHex || localStorage.getItem("gameRom");
   var gameRomId = localStorage.getItem("gameRomStorageId") || localStorage.getItem("gameRomId");
   var gameRomLength = gameRomId || (gameRom ? gameRom.length : 1114112);
   localStorage.setItem("gameRomKey", gameRomLength);
@@ -68173,22 +68173,44 @@
       call(callback, Number(e.target.id));
     };
   };
+  var updateCallback = null;
+  var updateDelay = 0;
+  var pageSuspended = false;
+  function syncGameLoop() {
+    if (game.updateInterval) clearInterval(game.updateInterval);
+    game.updateInterval = null;
+    if (!updateCallback || document.hidden || pageSuspended) return;
+    game.updateInterval = setInterval(function() { call(updateCallback); }, updateDelay);
+  }
+  document.addEventListener("visibilitychange", syncGameLoop);
+  if (global.addEventListener) {
+    global.addEventListener("pagehide", function() { pageSuspended = true; syncGameLoop(); });
+    global.addEventListener("pageshow", function() { pageSuspended = false; syncGameLoop(); });
+  }
   global.sysSetInterval = function(interval, callback) {
-    game.updateInterval = setInterval(function() {
-      call(callback);
-    }, interval);
+    updateCallback = callback;
+    updateDelay = interval;
+    syncGameLoop();
     return game.updateInterval;
   };
   // Reuse the canvas context and pixel storage until the logical screen size changes.
   var screenContext = null;
   var screenImage = null;
+  var screenPixels = null;
+  var screenWords = null;
+  var previousWords = null;
   global.sysDrawScreen = function(buffer, wid, hgt) {
     if (!screenContext) screenContext = getLCD();
+    var changed = false;
     if (!screenImage || screenImage.width !== wid || screenImage.height !== hgt) {
       screenImage = screenContext.createImageData(wid, hgt);
+      screenPixels = new Uint8ClampedArray(wid * hgt * 4);
+      screenWords = new Uint32Array(screenPixels.buffer);
+      previousWords = new Uint32Array(screenImage.data.buffer);
       screenContext.imageSmoothingEnabled = false;
+      changed = true;
     }
-    var data = screenImage.data;
+    var data = screenPixels;
     var red = renderPeixel[0], green = renderPeixel[1], blue = renderPeixel[2];
     for (var i = 0, offset = 0; i < wid * hgt; i += 1, offset += 4) {
       var pixel = buffer[i];
@@ -68198,7 +68220,15 @@
       data[offset + 2] = pixel.b * blue;
       data[offset + 3] = pixel.a;
     }
-    screenContext.putImageData(screenImage, 0, 0);
+    if (!changed) {
+      for (var j = 0; j < screenWords.length; j += 1) {
+        if (screenWords[j] !== previousWords[j]) { changed = true; break; }
+      }
+    }
+    if (changed) {
+      screenImage.data.set(screenPixels);
+      screenContext.putImageData(screenImage, 0, 0);
+    }
   };
   global.sysExit = function() {
     console.log("Exit");
@@ -68231,7 +68261,7 @@
   game.rom["GAME.ROM"] = "";
 })(window);
 
-var gameRom = window.localStorage.getItem("gameRom");
+var gameRom = window.BBKRomHex || window.localStorage.getItem("gameRom");
 
 if (gameRom) {
   game.rom["GAME.ROM"] = gameRom;
@@ -83994,7 +84024,6 @@ window["game.core"] = function(_, Typescript) {
     if (this.currentMap != null) {
       println('Loaded map class: ResMap');
     }
-    this.generateMapBase64();
     this.updatePlayerPositionInBrowser();
     println('Immediate player position update');
     setTimeout(ScreenMainGame$loadMap$lambda(this), 100);

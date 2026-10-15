@@ -5,7 +5,8 @@
         games: [],
         selectedId: "",
         opener: null,
-        importSlot: null
+        importSlot: null,
+        romReady: false
     };
 
     function byId(id) {
@@ -36,6 +37,16 @@
 
     function writeStorage(key, value) {
         global.localStorage.setItem(key, value);
+    }
+
+    var romStore;
+    function getRomStore() {
+        if (!romStore) romStore = global.BBKRomStore.create({
+            storage: global.localStorage,
+            indexedDB: global.indexedDB,
+            fetch: function (url) { return global.fetch(url); }
+        });
+        return romStore;
     }
 
     function romStorageId(buffer, catalogId) {
@@ -147,7 +158,7 @@
 
     function updateActiveGameUI() {
         var storageId = activeStorageId();
-        var hasGame = !!storageId && !!readStorage("gameRom");
+        var hasGame = !!storageId && state.romReady;
         var name = hasGame ? activeGameName() : "RPG游戏";
         var saveButton = byId("save-manager-open");
 
@@ -340,7 +351,7 @@
     }
 
     function openSaveManager() {
-        if (!activeStorageId() || !readStorage("gameRom")) {
+        if (!activeStorageId() || !state.romReady) {
             return;
         }
         state.opener = global.document.activeElement;
@@ -442,15 +453,8 @@
     }
 
     function storeRom(buffer, id, name) {
-        writeStorage("gameRom", arrayBufferToHex(buffer));
-        writeStorage("gameRomStorageId", romStorageId(buffer, id));
-        if (id) {
-            writeStorage("gameRomId", id);
-        } else {
-            global.localStorage.removeItem("gameRomId");
-        }
-        writeStorage("gameRomName", name || "本地 ROM");
-        global.location.reload();
+        return getRomStore().save(buffer, romStorageId(buffer, id), id, name)
+            .then(function () { global.location.reload(); });
     }
 
     function useSelectedGame() {
@@ -464,19 +468,10 @@
         setError("");
         setBusy(true, "游戏载入中…");
 
-        global.fetch("roms/" + encodeURIComponent(state.selectedId) + ".lib")
-            .then(function (response) {
-                if (!response.ok) {
-                    throw new Error("ROM 下载失败");
-                }
-                return response.arrayBuffer();
-            })
-            .then(function (buffer) {
-                storeRom(buffer, state.selectedId, game ? game.name : state.selectedId);
-            })
-            .catch(function () {
+        storeRom(null, state.selectedId, game ? game.name : state.selectedId)
+            .catch(function (error) {
                 setBusy(false);
-                setError("游戏载入失败，请检查网络后重试。");
+                setError(error.message || "游戏载入失败，请重试。");
             });
     }
 
@@ -547,7 +542,7 @@
                 return normalizeRom(buffer, file.name);
             })
             .then(function (buffer) {
-                storeRom(buffer, "", file.name.replace(/\.(lib|gam)$/i, ""));
+                return storeRom(buffer, "", file.name.replace(/\.(lib|gam)$/i, ""));
             })
             .catch(function (error) {
                 setBusy(false);
@@ -601,7 +596,7 @@
         var script = global.document.createElement("script");
 
         global.renderPeixel = [1, 1, 1];
-        script.src = "core.js?v=34";
+        script.src = "core.js?v=35";
         script.addEventListener("load", function () {
             if (global.game && global.game.rom && global.game.rom["GAME.ROM"]) {
                 status.hidden = true;
@@ -705,7 +700,16 @@
         bindGameKeyboard();
         updateActiveGameUI();
         loadCatalog();
-        loadCore();
+        getRomStore().load().then(function (buffer) {
+            // 引擎仍通过同步宿主接口读取 hex，但 ROM 不再写入 localStorage。
+            global.BBKRomHex = buffer ? arrayBufferToHex(buffer) : "";
+            state.romReady = !!buffer;
+            updateActiveGameUI();
+            loadCore();
+        }).catch(function (error) {
+            byId("screen-status").textContent = error.message || "ROM 读取失败，请重新选择游戏";
+            setError(error.message || "ROM 读取失败，请重新选择游戏");
+        });
     }
 
     global.BBKSimulator = {
