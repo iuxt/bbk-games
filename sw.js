@@ -17,6 +17,7 @@ const APP_SHELL = [
     "/icons/icon-192.png",
     "/icons/icon-512.png",
     "/css/portal.css",
+    "/css/portal.css?v=3",
     "/js/pwa.js",
     "/js/game-page.js",
     "/rpg/index.html",

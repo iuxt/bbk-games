@@ -76,7 +76,7 @@ class IndexMarkupTests(unittest.TestCase):
         )
 
     def test_loads_portal_stylesheet(self):
-        self.assertIn("css/portal.css", self.parser.stylesheets)
+        self.assertIn("css/portal.css", [href.split("?", 1)[0] for href in self.parser.stylesheets])
 
 
 class ChooseMarkupTests(unittest.TestCase):
