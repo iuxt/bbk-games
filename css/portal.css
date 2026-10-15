@@ -665,6 +665,7 @@ body:has(.about-dialog[open]) { overflow: hidden; }
 .about-display h2 { margin: 5px 0 7px; font: 800 20px/1.15 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .about-close { position: absolute; top: 28px; right: 28px; margin: 0; }
 .about-close button { width: 32px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); font-size: 24px; cursor: pointer; }
+.about-close button:focus-visible { outline: none; }
 .about-actions { margin-top: 20px; }
 .about-actions .device-button { display: block; width: 100%; border: 0; cursor: pointer; }
 @media (min-width: 760px) {
