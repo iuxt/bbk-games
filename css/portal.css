@@ -219,6 +219,24 @@ button { color: inherit; }
 .game-copy { min-width: 0; }
 .game-copy strong, .game-copy small { display: block; }
 .game-copy strong { font-size: 15px; }
+.game-copy .game-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.game-badge {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 3px 6px;
+    border: 1px solid rgba(173, 76, 61, .25);
+    border-radius: 5px;
+    color: var(--accent);
+    background: rgba(173, 76, 61, .08);
+    font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: .02em;
+}
 .game-copy small { margin-top: 5px; font-size: 11px; opacity: .62; }
 .game-arrow { margin-left: auto; font-size: 25px; opacity: .6; }
 
